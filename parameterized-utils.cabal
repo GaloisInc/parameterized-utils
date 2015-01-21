@@ -1,0 +1,31 @@
+Name:          parameterized-utils
+Version:       0.1
+Author:        Galois Inc.
+Maintainer:    jhendrix@galois.com
+Build-type:    Simple
+Cabal-version: >= 1.9.2
+Description:
+  This packages contains collection classes and type representations
+  used for working with values that have a single parameter.  It's
+  intended for things like expression libraries where one wishes
+  to leverage the Haskell type-checker to improve type-safety.
+
+library
+  build-depends:
+    base >= 4.7,
+    containers,
+    ghc-prim,
+    hashable,
+    hashtables
+
+  hs-source-dirs: src
+
+  exposed-modules:
+    Data.Parameterized.Classes
+    Data.Parameterized.HashTable
+    Data.Parameterized.Map
+    Data.Parameterized.NatRepr
+    Data.Parameterized.NonceGenerator
+    Data.Parameterized.Some
+  ghc-options: -Wall -threaded
+  ghc-prof-options: -O2 -fprof-auto-top
