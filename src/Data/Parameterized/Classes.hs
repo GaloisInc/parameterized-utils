@@ -30,7 +30,6 @@ module Data.Parameterized.Classes
   , ShowF(..)
   , HashableF(..)
   , CoerceableF(..)
-
     -- * Re-exporrts
   , Data.Maybe.isJust
   ) where
@@ -83,7 +82,6 @@ class ShowF f where
   showsF :: f tp -> String -> String
   showsF f s = showF f ++ s
 
-
 -- | A default salt used in the implementation of 'hash'.
 defaultSalt :: Int
 #if WORD_SIZE_IN_BITS == 64
@@ -92,7 +90,6 @@ defaultSalt = 0xdc36d1615b7400a4
 defaultSalt = 0x087fc72c
 #endif
 {-# INLINE defaultSalt #-}
-
 
 -- | A parameterized type that is hashable on all instance.
 class HashableF (f :: k -> *) where
