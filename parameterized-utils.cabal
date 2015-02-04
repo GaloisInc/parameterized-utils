@@ -1,5 +1,5 @@
 Name:          parameterized-utils
-Version:       0.1
+Version:       0.1.1
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com
 Build-type:    Simple
@@ -10,22 +10,41 @@ Description:
   intended for things like expression libraries where one wishes
   to leverage the Haskell type-checker to improve type-safety.
 
+-- Many (but not all, sadly) uses of unsafe operations are
+-- controlled by this compile flag.  When this flag is set
+-- to False, alternate implementations are used to avoid
+-- Unsafe.Coerce and Data.Coerce.  These alternate implementations
+-- impose a significant performance hit.
+flag unsafe-operations
+  Description: Use unsafe operations to improve performance
+  Default: True
+
 library
   build-depends:
     base >= 4.7,
     containers,
+    deepseq,
     ghc-prim,
     hashable,
-    hashtables
+    hashtables,
+    mtl,
+    template-haskell
 
   hs-source-dirs: src
 
   exposed-modules:
     Data.Parameterized.Classes
+    Data.Parameterized.Context
     Data.Parameterized.HashTable
     Data.Parameterized.Map
     Data.Parameterized.NatRepr
     Data.Parameterized.NonceGenerator
+    Data.Parameterized.SafeContext
     Data.Parameterized.Some
+    Data.Parameterized.TH.GADT
+    Data.Parameterized.UnsafeContext
   ghc-options: -Wall -threaded
   ghc-prof-options: -O2 -fprof-auto-top
+
+  if flag(unsafe-operations)
+    cpp-options: -DUNSAFE_OPS

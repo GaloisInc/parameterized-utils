@@ -38,6 +38,12 @@ module Data.Parameterized.NatRepr
   , someNat
   , widthVal
   , maxNat
+    -- * Bitvector utilities
+  , minUnsigned
+  , maxUnsigned
+  , minSigned
+  , maxSigned
+
     -- * LeqProof
   , LeqProof(..)
   , knownLeq
@@ -116,6 +122,25 @@ halfNat (NatRepr x) = NatRepr (x `div` 2)
 
 addNat :: NatRepr m -> NatRepr n -> NatRepr (m+n)
 addNat (NatRepr m) (NatRepr n) = NatRepr (m+n)
+
+------------------------------------------------------------------------
+-- Operations for working with SomeNat
+
+-- | Return minimum unsigned value for bitvector with given width (always 0).
+minUnsigned :: NatRepr w -> Integer
+minUnsigned _ = 0
+
+-- | Return maximum unsigned value for bitvector with given width.
+maxUnsigned :: NatRepr w -> Integer
+maxUnsigned w = 2^(widthVal w) - 1
+
+-- | Return minimum value for bitvector in 2s complement with given width.
+minSigned :: NatRepr (w+1) -> Integer
+minSigned w = - 2^(widthVal w - 1)
+
+-- | Return maximum value for bitvector in 2s complement with given width.
+maxSigned :: NatRepr (w+1) -> Integer
+maxSigned w = 2^(widthVal w - 1) - 1
 
 ------------------------------------------------------------------------
 -- SomeNat
