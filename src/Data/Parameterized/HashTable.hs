@@ -23,6 +23,7 @@ module Data.Parameterized.HashTable
   , insert
   , delete
   , HashableF(..)
+  , Control.Monad.ST.RealWorld
   ) where
 
 import Control.Applicative
@@ -34,38 +35,38 @@ import Unsafe.Coerce
 import Prelude hiding (lookup)
 
 import Data.Parameterized.Classes
-import Data.Parameterized.NonceGenerator
 import Data.Parameterized.Some
 
 -- | A hash table mapping nonces to values.
-newtype HashTable s (val :: k -> *)
-      = HashTable (H.HashTable s (Some (Nonce :: k -> *)) Any)
+newtype HashTable s (key :: k -> *) (val :: k -> *)
+      = HashTable (H.HashTable s (Some key) Any)
 
 -- | Create a new empty table.
-new :: ST s (HashTable s val)
+new :: ST s (HashTable s key val)
 new = HashTable <$> H.new
 
 -- | Lookup value of key in table.
-lookup :: HashTable s val
-       -> Nonce tp
+lookup :: (HashableF key, TestEquality key)
+       => HashTable s key val
+       -> key tp
        -> ST s (Maybe (val tp))
 lookup (HashTable h) k =
   fmap unsafeCoerce <$> H.lookup h (Some k)
 
 -- | Insert new key and value mapping into table.
-insert :: HashTable s val
-       -> Nonce tp
+insert :: (HashableF key, TestEquality key)
+       => HashTable s (key :: k -> *) (val :: k -> *)
+       -> key tp
        -> val tp
        -> ST s ()
 insert (HashTable h) k v = H.insert h (Some k) (unsafeCoerce v)
 
-
 -- | Delete an element from the hash table.
-delete :: HashTable s (val :: k -> *)
-       -> Nonce (tp :: k)
+delete :: (HashableF key, TestEquality key)
+       => HashTable s (key :: k -> *) (val :: k -> *)
+       -> key (tp :: k)
        -> ST s ()
 delete (HashTable h) k = H.delete h (Some k)
-
 
 {-
 -- | Delete an element from the hash table.
