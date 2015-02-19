@@ -31,6 +31,9 @@ module Data.Parameterized.NatRepr
   , knownNat
   , IsZeroNat(..)
   , isZeroNat
+  , NatComparison(..)
+  , compareNat
+
   , decNat
   , incNat
   , addNat
@@ -86,6 +89,28 @@ instance TestEquality NatRepr where
   testEquality (NatRepr m) (NatRepr n)
     | m == n = Just (unsafeCoerce Refl)
     | otherwise = Nothing
+
+-- | Result of comparing two numbers.
+data NatComparison m n where
+  -- First number is less than second.
+  NatLT :: !(NatRepr (y+1)) -> NatComparison x (x+(y+1))
+  NatEQ :: NatComparison x x
+  -- First number is greater than second.
+  NatGT :: !(NatRepr (y+1)) -> NatComparison (x+(y+1)) x
+
+compareNat :: NatRepr m -> NatRepr n -> NatComparison m n
+compareNat m n =
+  case compare (widthVal m) (widthVal n) of
+    LT -> unsafeCoerce $ NatLT (NatRepr (widthVal n - widthVal m))
+    EQ -> unsafeCoerce $ NatEQ
+    GT -> unsafeCoerce $ NatGT (NatRepr (widthVal m - widthVal n))
+
+instance OrdF NatRepr where
+  compareF x y =
+    case compareNat x y of
+      NatLT _ -> LTF
+      NatEQ -> EQF
+      NatGT _ -> GTF
 
 instance PolyEq (NatRepr m) (NatRepr n) where
   polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y

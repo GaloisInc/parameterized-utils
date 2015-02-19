@@ -20,12 +20,16 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Classes
-  ( Equality.TestEquality(..)
+  ( -- * Equality exports
+    Equality.TestEquality(..)
   , (Equality.:~:)(..)
   , PolyEq(..)
+    -- * Ordering generalization
   , OrdF(..)
   , OrderingF(..)
   , toOrdering
+  , fromOrdering
+    -- * Typeclass generalizations
   , FunctorF(..)
   , ShowF(..)
   , HashableF(..)
@@ -57,11 +61,17 @@ data OrderingF x y where
   EQF :: OrderingF x x
   GTF :: OrderingF x y
 
--- | Convert ordering1 to standard ordering
+-- | Convert orderingF to standard ordering
 toOrdering :: OrderingF x y -> Ordering
 toOrdering LTF = LT
 toOrdering EQF = EQ
 toOrdering GTF = GT
+
+-- | Convert standard ordering to OrderF
+fromOrdering :: Ordering -> OrderingF x x
+fromOrdering LT = LTF
+fromOrdering EQ = EQF
+fromOrdering GT = GTF
 
 -- | A parameterized type that can be compared on distinct instances.
 class TestEquality ktp => OrdF (ktp :: k -> *) where
