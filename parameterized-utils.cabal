@@ -27,6 +27,7 @@ library
     ghc-prim,
     hashable,
     hashtables,
+    lens,
     mtl,
     template-haskell
 
@@ -35,6 +36,7 @@ library
   exposed-modules:
     Data.Parameterized.Classes
     Data.Parameterized.Context
+    Data.Parameterized.Ctx
     Data.Parameterized.HashTable
     Data.Parameterized.Map
     Data.Parameterized.NatRepr

@@ -91,15 +91,7 @@ import Data.Type.Equality
 import Prelude hiding (init, map, succ, (!!))
 
 import Data.Parameterized.Classes
-
-------------------------------------------------------------------------
--- Ctx
-
--- | A kind representing a hetergenous list of values in some key.
--- The parameter a, may be any kind.
-data Ctx a
-  = EmptyCtx
-  | Ctx a ::> a
+import Data.Parameterized.Ctx
 
 ------------------------------------------------------------------------
 -- Size
@@ -279,7 +271,10 @@ instance ShowF (Index ctx) where
 data Assignment (f :: k -> *) (c :: Ctx k) where
   AssignEmpty  :: Assignment f EmptyCtx
   AssignCons   :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
-  AssignMap    :: forall f g ctx. (forall tp. f tp -> g tp) -> Assignment f ctx -> Assignment g ctx
+  AssignMap    :: forall f g ctx
+                . (forall tp . f tp -> g tp)
+               -> Assignment f ctx
+               -> Assignment g ctx
 
 
 instance NFData (Assignment f ctx) where
@@ -298,7 +293,10 @@ generate :: forall ctx f
          -> (forall tp . Index ctx tp -> f tp)
          -> Assignment f ctx
 generate sz_top f = go id sz_top
- where go :: forall ctx'. (forall tp. Index ctx' tp -> Index ctx tp) -> Size ctx' -> Assignment f ctx'
+ where go :: forall ctx'
+           . (forall tp. Index ctx' tp -> Index ctx tp)
+          -> Size ctx'
+          -> Assignment f ctx'
        go _ SizeZero = AssignEmpty
        go g (SizeSucc sz) =
             let ctx = go (\i -> g (IndexThere i)) sz
@@ -358,7 +356,6 @@ idxlookup _ AssignEmpty _ = error "Data.Parameterized.SafeContext.lookup: imposs
 -- | Return value of assignment.
 (!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
 a !! i = a ! extendIndex i
-
 
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
