@@ -1,5 +1,5 @@
 Name:          parameterized-utils
-Version:       0.1.1
+Version:       0.1.2
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com
 Build-type:    Simple
@@ -27,6 +27,7 @@ library
     ghc-prim,
     hashable,
     hashtables,
+    lens,
     mtl,
     template-haskell
 
@@ -35,6 +36,7 @@ library
   exposed-modules:
     Data.Parameterized.Classes
     Data.Parameterized.Context
+    Data.Parameterized.Ctx
     Data.Parameterized.HashTable
     Data.Parameterized.Map
     Data.Parameterized.NatRepr
