@@ -26,6 +26,9 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Rank2Types #-}
+
 module Data.Parameterized.NatRepr
   ( NatRepr
   , natValue
@@ -52,6 +55,8 @@ module Data.Parameterized.NatRepr
   , LeqProof(..)
   , knownLeq
   , testLeq
+  , addIsLeq
+  , withAddLeq  
     -- * Re-exports typelists basics
   , NatK
   , type (+)
@@ -204,3 +209,10 @@ testLeq :: NatRepr n -> NatRepr m -> Maybe (LeqProof n m)
 testLeq (NatRepr n) (NatRepr m)
    | n <= m    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
    | otherwise = Nothing
+
+addIsLeq :: forall n m. NatRepr n -> NatRepr m -> LeqProof n (n + m)
+addIsLeq _ _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+withAddLeq :: forall n m a. NatRepr n -> NatRepr m -> ((n <= n + m) => NatRepr (n + m) -> a) -> a
+withAddLeq n m f = case addIsLeq n m of
+                      LeqProof -> f (addNat n m)
