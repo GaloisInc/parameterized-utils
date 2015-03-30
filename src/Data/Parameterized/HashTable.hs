@@ -22,6 +22,7 @@ module Data.Parameterized.HashTable
   , lookup
   , insert
   , delete
+  , clear
   , HashableF(..)
   , Control.Monad.ST.RealWorld
   ) where
@@ -67,6 +68,9 @@ delete :: (HashableF key, TestEquality key)
        -> key (tp :: k)
        -> ST s ()
 delete (HashTable h) k = H.delete h (Some k)
+
+clear :: (HashableF key, TestEquality key) => HashTable s (key :: k -> *) (val :: k -> *) -> ST s ()
+clear (HashTable h) = H.mapM_ (\(k,_) -> H.delete h k) h
 
 {-
 -- | Delete an element from the hash table.

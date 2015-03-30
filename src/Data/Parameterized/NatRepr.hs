@@ -32,6 +32,7 @@
 
 module Data.Parameterized.NatRepr
   ( NatRepr
+  , natValue
   , knownNat
   , IsZeroNat(..)
   , isZeroNat
@@ -43,10 +44,10 @@ module Data.Parameterized.NatRepr
   , addNat
   , halfNat
   , someNat
-  , widthVal
   , maxNat
   , natForEach
     -- * Bitvector utilities
+  , widthVal
   , minUnsigned
   , maxUnsigned
   , minSigned
@@ -86,8 +87,16 @@ type NatK = Nat
 ------------------------------------------------------------------------
 -- Nat
 
-newtype NatRepr (n::Nat) = NatRepr { widthVal :: Int }
+newtype NatRepr (n::Nat) = NatRepr { natValue :: Integer }
   deriving (Hashable)
+
+maxInt :: Integer
+maxInt = toInteger (maxBound :: Int)
+
+-- | Return the value of the nat representation.
+widthVal :: NatRepr n -> Int
+widthVal (NatRepr i) | i < maxInt = fromInteger i
+                     | otherwise = error "Width is too large."
 
 instance Eq (NatRepr m) where
   _ == _ = True
@@ -107,10 +116,10 @@ data NatComparison m n where
 
 compareNat :: NatRepr m -> NatRepr n -> NatComparison m n
 compareNat m n =
-  case compare (widthVal m) (widthVal n) of
-    LT -> unsafeCoerce $ NatLT (NatRepr (widthVal n - widthVal m))
+  case compare (natValue m) (natValue n) of
+    LT -> unsafeCoerce $ NatLT (NatRepr (natValue n - natValue m))
     EQ -> unsafeCoerce $ NatEQ
-    GT -> unsafeCoerce $ NatGT (NatRepr (widthVal m - widthVal n))
+    GT -> unsafeCoerce $ NatGT (NatRepr (natValue m - natValue n))
 
 instance OrdF NatRepr where
   compareF x y =
@@ -146,8 +155,7 @@ decNat (NatRepr i) = NatRepr (i-1)
 
 -- | Increment a @NatRepr@
 incNat :: NatRepr n -> NatRepr (n+1)
-incNat (NatRepr x) | x == maxBound = error "incNat overflowed"
-                   | otherwise = NatRepr (x+1)
+incNat (NatRepr x) = NatRepr (x+1)
 
 halfNat :: NatRepr (n+n) -> NatRepr n
 halfNat (NatRepr x) = NatRepr (x `div` 2)
@@ -164,15 +172,15 @@ minUnsigned _ = 0
 
 -- | Return maximum unsigned value for bitvector with given width.
 maxUnsigned :: NatRepr w -> Integer
-maxUnsigned w = 2^(widthVal w) - 1
+maxUnsigned w = 2^(natValue w) - 1
 
 -- | Return minimum value for bitvector in 2s complement with given width.
 minSigned :: NatRepr (w+1) -> Integer
-minSigned w = - 2^(widthVal w - 1)
+minSigned w = - 2^(natValue w - 1)
 
 -- | Return maximum value for bitvector in 2s complement with given width.
 maxSigned :: NatRepr (w+1) -> Integer
-maxSigned w = 2^(widthVal w - 1) - 1
+maxSigned w = 2^(natValue w - 1) - 1
 
 ------------------------------------------------------------------------
 -- SomeNat
@@ -184,7 +192,7 @@ someNat n | 0 <= n && n <= toInteger intMax = Just (Some (NatRepr (fromInteger n
 -- | Return the maximum of two nat representations.
 maxNat :: NatRepr m -> NatRepr n -> Some NatRepr
 maxNat x y
-  | widthVal x >= widthVal y = Some x
+  | natValue x >= natValue y = Some x
   | otherwise = Some y
 
 ------------------------------------------------------------------------

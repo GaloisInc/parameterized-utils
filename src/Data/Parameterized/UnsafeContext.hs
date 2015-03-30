@@ -93,6 +93,7 @@ module Data.Parameterized.UnsafeContext
 import Control.Applicative ((<$>), Applicative(..))
 import qualified Control.Category as Cat
 import Control.DeepSeq
+import qualified Control.Lens as Lens
 import Control.Monad (liftM)
 import qualified Control.Monad as Monad
 import Control.Monad.Identity (Identity(..))
@@ -106,15 +107,7 @@ import Prelude hiding (init, map, succ, (!!))
 import Unsafe.Coerce
 
 import Data.Parameterized.Classes
-
-------------------------------------------------------------------------
--- Ctx
-
--- | A kind representing a hetergenous list of values in some key.
--- The parameter a, may be any kind.
-data Ctx a
-  = EmptyCtx
-  | Ctx a ::> a
+import Data.Parameterized.Ctx
 
 ------------------------------------------------------------------------
 -- Size
@@ -375,3 +368,339 @@ zipWithM f (Assignment u0) (Assignment v0) = do
 
 (%>) :: Assignment f x -> f tp -> Assignment f (x::>tp)
 a %> v = extend a v
+
+------------------------------------------------------------------------
+-- Lens combinators
+
+-- This is an unsafe version of update that changes the type of the expression.
+unsafeIndex :: Int -> Assignment f ctx -> f u
+unsafeIndex idx (Assignment v) = unsafeCoerce (v `Seq.index` idx)
+
+-- This is an unsafe version of update that changes the type of the expression.
+unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
+unsafeUpdate idx (Assignment v) e = Assignment (Seq.update idx (unsafeCoerce e) v)
+
+unsafeLens :: Int -> Lens.Lens (Assignment f ctx) (Assignment f ctx') (f tp) (f u)
+unsafeLens idx = Lens.lens (unsafeIndex idx) (unsafeUpdate idx)
+
+------------------------------------------------------------------------
+-- 1 field lens combinators
+
+type Assignment1 f x1 = Assignment f (EmptyCtx ::> x1)
+
+instance Lens.Field1 (Assignment1 f t) (Assignment1 f u) (f t) (f u) where
+  _1 = unsafeLens 0
+
+------------------------------------------------------------------------
+-- 2 field lens combinators
+
+type Assignment2 f x1 x2
+   = Assignment f (EmptyCtx ::> x1 ::> x2)
+
+instance Lens.Field1 (Assignment2 f t x2) (Assignment2 f u x2) (f t) (f u) where
+  _1 = unsafeLens 0
+
+instance Lens.Field2 (Assignment2 f x1 t) (Assignment2 f x1 u) (f t) (f u) where
+  _2 = unsafeLens 1
+
+------------------------------------------------------------------------
+-- 3 field lens combinators
+
+type Assignment3 f x1 x2 x3
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3)
+
+instance Lens.Field1 (Assignment3 f t x2 x3)
+                     (Assignment3 f u x2 x3)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment3 f x1 t x3)
+                     (Assignment3 f x1 u x3)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment3 f x1 x2 t)
+                     (Assignment3 f x1 x2 u)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+------------------------------------------------------------------------
+-- 4 field lens combinators
+
+type Assignment4 f x1 x2 x3 x4
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3 ::> x4)
+
+instance Lens.Field1 (Assignment4 f t x2 x3 x4)
+                     (Assignment4 f u x2 x3 x4)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment4 f x1 t x3 x4)
+                     (Assignment4 f x1 u x3 x4)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment4 f x1 x2 t x4)
+                     (Assignment4 f x1 x2 u x4)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+instance Lens.Field4 (Assignment4 f x1 x2 x3 t)
+                     (Assignment4 f x1 x2 x3 u)
+                     (f t)
+                     (f u) where
+  _4 = unsafeLens 3
+
+------------------------------------------------------------------------
+-- 5 field lens combinators
+
+type Assignment5 f x1 x2 x3 x4 x5
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3 ::> x4 ::> x5)
+
+instance Lens.Field1 (Assignment5 f t x2 x3 x4 x5)
+                     (Assignment5 f u x2 x3 x4 x5)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment5 f x1 t x3 x4 x5)
+                     (Assignment5 f x1 u x3 x4 x5)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment5 f x1 x2 t x4 x5)
+                     (Assignment5 f x1 x2 u x4 x5)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+instance Lens.Field4 (Assignment5 f x1 x2 x3 t x5)
+                     (Assignment5 f x1 x2 x3 u x5)
+                     (f t)
+                     (f u) where
+  _4 = unsafeLens 3
+
+instance Lens.Field5 (Assignment5 f x1 x2 x3 x4 t)
+                     (Assignment5 f x1 x2 x3 x4 u)
+                     (f t)
+                     (f u) where
+  _5 = unsafeLens 4
+
+------------------------------------------------------------------------
+-- 6 field lens combinators
+
+type Assignment6 f x1 x2 x3 x4 x5 x6
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3 ::> x4 ::> x5 ::> x6)
+
+instance Lens.Field1 (Assignment6 f t x2 x3 x4 x5 x6)
+                     (Assignment6 f u x2 x3 x4 x5 x6)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment6 f x1 t x3 x4 x5 x6)
+                     (Assignment6 f x1 u x3 x4 x5 x6)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment6 f x1 x2 t x4 x5 x6)
+                     (Assignment6 f x1 x2 u x4 x5 x6)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+instance Lens.Field4 (Assignment6 f x1 x2 x3 t x5 x6)
+                     (Assignment6 f x1 x2 x3 u x5 x6)
+                     (f t)
+                     (f u) where
+  _4 = unsafeLens 3
+
+instance Lens.Field5 (Assignment6 f x1 x2 x3 x4 t x6)
+                     (Assignment6 f x1 x2 x3 x4 u x6)
+                     (f t)
+                     (f u) where
+  _5 = unsafeLens 4
+
+instance Lens.Field6 (Assignment6 f x1 x2 x3 x4 x5 t)
+                     (Assignment6 f x1 x2 x3 x4 x5 u)
+                     (f t)
+                     (f u) where
+  _6 = unsafeLens 5
+
+------------------------------------------------------------------------
+-- 7 field lens combinators
+
+type Assignment7 f x1 x2 x3 x4 x5 x6 x7
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3 ::> x4 ::> x5 ::> x6 ::> x7)
+
+instance Lens.Field1 (Assignment7 f t x2 x3 x4 x5 x6 x7)
+                     (Assignment7 f u x2 x3 x4 x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment7 f x1 t x3 x4 x5 x6 x7)
+                     (Assignment7 f x1 u x3 x4 x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment7 f x1 x2 t x4 x5 x6 x7)
+                     (Assignment7 f x1 x2 u x4 x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+instance Lens.Field4 (Assignment7 f x1 x2 x3 t x5 x6 x7)
+                     (Assignment7 f x1 x2 x3 u x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _4 = unsafeLens 3
+
+instance Lens.Field5 (Assignment7 f x1 x2 x3 x4 t x6 x7)
+                     (Assignment7 f x1 x2 x3 x4 u x6 x7)
+                     (f t)
+                     (f u) where
+  _5 = unsafeLens 4
+
+instance Lens.Field6 (Assignment7 f x1 x2 x3 x4 x5 t x7)
+                     (Assignment7 f x1 x2 x3 x4 x5 u x7)
+                     (f t)
+                     (f u) where
+  _6 = unsafeLens 5
+
+instance Lens.Field7 (Assignment7 f x1 x2 x3 x4 x5 x6 t)
+                     (Assignment7 f x1 x2 x3 x4 x5 x6 u)
+                     (f t)
+                     (f u) where
+  _7 = unsafeLens 6
+
+------------------------------------------------------------------------
+-- 8 field lens combinators
+
+type Assignment8 f x1 x2 x3 x4 x5 x6 x7 x8
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3 ::> x4 ::> x5 ::> x6 ::> x7 ::> x8)
+
+instance Lens.Field1 (Assignment8 f t x2 x3 x4 x5 x6 x7 x8)
+                     (Assignment8 f u x2 x3 x4 x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment8 f x1 t x3 x4 x5 x6 x7 x8)
+                     (Assignment8 f x1 u x3 x4 x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment8 f x1 x2 t x4 x5 x6 x7 x8)
+                     (Assignment8 f x1 x2 u x4 x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+instance Lens.Field4 (Assignment8 f x1 x2 x3 t x5 x6 x7 x8)
+                     (Assignment8 f x1 x2 x3 u x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _4 = unsafeLens 3
+
+instance Lens.Field5 (Assignment8 f x1 x2 x3 x4 t x6 x7 x8)
+                     (Assignment8 f x1 x2 x3 x4 u x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _5 = unsafeLens 4
+
+instance Lens.Field6 (Assignment8 f x1 x2 x3 x4 x5 t x7 x8)
+                     (Assignment8 f x1 x2 x3 x4 x5 u x7 x8)
+                     (f t)
+                     (f u) where
+  _6 = unsafeLens 5
+
+instance Lens.Field7 (Assignment8 f x1 x2 x3 x4 x5 x6 t x8)
+                     (Assignment8 f x1 x2 x3 x4 x5 x6 u x8)
+                     (f t)
+                     (f u) where
+  _7 = unsafeLens 6
+
+instance Lens.Field8 (Assignment8 f x1 x2 x3 x4 x5 x6 x7 t)
+                     (Assignment8 f x1 x2 x3 x4 x5 x6 x7 u)
+                     (f t)
+                     (f u) where
+  _8 = unsafeLens 7
+
+------------------------------------------------------------------------
+-- 9 field lens combinators
+
+type Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 x9
+   = Assignment f (EmptyCtx ::> x1 ::> x2 ::> x3 ::> x4 ::> x5 ::> x6 ::> x7 ::> x8 ::> x9)
+
+
+instance Lens.Field1 (Assignment9 f t x2 x3 x4 x5 x6 x7 x8 x9)
+                     (Assignment9 f u x2 x3 x4 x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _1 = unsafeLens 0
+
+
+instance Lens.Field2 (Assignment9 f x1 t x3 x4 x5 x6 x7 x8 x9)
+                     (Assignment9 f x1 u x3 x4 x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _2 = unsafeLens 1
+
+instance Lens.Field3 (Assignment9 f x1 x2 t x4 x5 x6 x7 x8 x9)
+                     (Assignment9 f x1 x2 u x4 x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _3 = unsafeLens 2
+
+instance Lens.Field4 (Assignment9 f x1 x2 x3 t x5 x6 x7 x8 x9)
+                     (Assignment9 f x1 x2 x3 u x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _4 = unsafeLens 3
+
+instance Lens.Field5 (Assignment9 f x1 x2 x3 x4 t x6 x7 x8 x9)
+                     (Assignment9 f x1 x2 x3 x4 u x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _5 = unsafeLens 4
+
+instance Lens.Field6 (Assignment9 f x1 x2 x3 x4 x5 t x7 x8 x9)
+                     (Assignment9 f x1 x2 x3 x4 x5 u x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _6 = unsafeLens 5
+
+instance Lens.Field7 (Assignment9 f x1 x2 x3 x4 x5 x6 t x8 x9)
+                     (Assignment9 f x1 x2 x3 x4 x5 x6 u x8 x9)
+                     (f t)
+                     (f u) where
+  _7 = unsafeLens 6
+
+instance Lens.Field8 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 t x9)
+                     (Assignment9 f x1 x2 x3 x4 x5 x6 x7 u x9)
+                     (f t)
+                     (f u) where
+  _8 = unsafeLens 7
+
+instance Lens.Field9 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 t)
+                     (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 u)
+                     (f t)
+                     (f u) where
+  _9 = unsafeLens 8
