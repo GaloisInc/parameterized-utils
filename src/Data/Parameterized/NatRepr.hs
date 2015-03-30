@@ -28,6 +28,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE PatternGuards #-}
 
 module Data.Parameterized.NatRepr
   ( NatRepr
@@ -44,6 +45,7 @@ module Data.Parameterized.NatRepr
   , halfNat
   , someNat
   , maxNat
+  , natForEach
     -- * Bitvector utilities
   , widthVal
   , minUnsigned
@@ -213,6 +215,23 @@ testLeq (NatRepr n) (NatRepr m)
 addIsLeq :: forall n m. NatRepr n -> NatRepr m -> LeqProof n (n + m)
 addIsLeq _ _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
 
+addIsLeqLeft1 :: forall n n' m. LeqProof (n + n') m -> LeqProof n m
+addIsLeqLeft1 _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+
 withAddLeq :: forall n m a. NatRepr n -> NatRepr m -> ((n <= n + m) => NatRepr (n + m) -> a) -> a
 withAddLeq n m f = case addIsLeq n m of
                       LeqProof -> f (addNat n m)
+
+natForEach' :: forall l h a. NatRepr l -> NatRepr h
+              -> (forall n. LeqProof l n -> LeqProof n h -> NatRepr n -> a) -> [a]
+natForEach' l h f
+  | Just LeqProof  <- testLeq l h = let f' :: forall n. LeqProof (l + 1) n -> LeqProof n h -> NatRepr n -> a
+                                        f' = \lp hp -> f (addIsLeqLeft1 lp) hp
+                                    in
+                                      f LeqProof LeqProof l : natForEach' (incNat l) h f'
+  | otherwise             = []
+
+
+natForEach :: forall l h a. NatRepr l -> NatRepr h
+              -> (forall n. (l <= n, n <= h) => NatRepr n -> a) -> [a]
+natForEach l h f = natForEach' l h (\LeqProof LeqProof -> f)
