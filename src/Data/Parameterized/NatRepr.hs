@@ -140,12 +140,12 @@ knownNat = go Proxy
           where v = natVal p
 
 data IsZeroNat n where
-  ZeroNat    :: !(n :~: 0) -> IsZeroNat n
-  NonZeroNat :: !(n :~: m+1) -> IsZeroNat n
+  ZeroNat    :: IsZeroNat 0
+  NonZeroNat :: IsZeroNat (n+1)
 
 isZeroNat :: NatRepr n -> IsZeroNat n
-isZeroNat (NatRepr 0) = ZeroNat (unsafeCoerce Refl)
-isZeroNat (NatRepr _) = NonZeroNat (unsafeCoerce Refl)
+isZeroNat (NatRepr 0) = unsafeCoerce ZeroNat
+isZeroNat (NatRepr _) = unsafeCoerce NonZeroNat
 
 -- | Decrement a @NatRepr@
 decNat :: NatRepr (n+1) -> NatRepr n
