@@ -56,7 +56,7 @@ module Data.Parameterized.NatRepr
   , knownLeq
   , testLeq
   , addIsLeq
-  , withAddLeq  
+  , withAddLeq
     -- * Re-exports typelists basics
   , NatK
   , type (+)
@@ -107,17 +107,17 @@ instance TestEquality NatRepr where
 -- | Result of comparing two numbers.
 data NatComparison m n where
   -- First number is less than second.
-  NatLT :: !(NatRepr (y+1)) -> NatComparison x (x+(y+1))
+  NatLT :: !(NatRepr y) -> NatComparison x (x+(y+1))
   NatEQ :: NatComparison x x
   -- First number is greater than second.
-  NatGT :: !(NatRepr (y+1)) -> NatComparison (x+(y+1)) x
+  NatGT :: !(NatRepr y) -> NatComparison (x+(y+1)) x
 
 compareNat :: NatRepr m -> NatRepr n -> NatComparison m n
 compareNat m n =
   case compare (natValue m) (natValue n) of
-    LT -> unsafeCoerce $ NatLT (NatRepr (natValue n - natValue m))
+    LT -> unsafeCoerce $ NatLT (NatRepr (natValue n - natValue m - 1))
     EQ -> unsafeCoerce $ NatEQ
-    GT -> unsafeCoerce $ NatGT (NatRepr (natValue m - natValue n))
+    GT -> unsafeCoerce $ NatGT (NatRepr (natValue m - natValue n - 1))
 
 instance OrdF NatRepr where
   compareF x y =

@@ -15,6 +15,7 @@
 ------------------------------------------------------------------------
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
@@ -28,11 +29,14 @@ module Data.Parameterized.Map
   , module Data.Parameterized.Classes
   ) where
 
-import Control.Applicative ((<$>))
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Prelude hiding (lookup, map)
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative ((<$>))
+#endif
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some

@@ -27,6 +27,7 @@ module Data.Parameterized.Classes
     -- * Ordering generalization
   , OrdF(..)
   , OrderingF(..)
+  , orderingF_refl
   , toOrdering
   , fromOrdering
     -- * Typeclass generalizations
@@ -60,6 +61,13 @@ data OrderingF x y where
   LTF :: OrderingF x y
   EQF :: OrderingF x x
   GTF :: OrderingF x y
+
+orderingF_refl :: OrderingF x y -> Maybe (x :~: y)
+orderingF_refl o =
+  case o of
+    LTF -> Nothing
+    EQF -> Just Refl
+    GTF -> Nothing
 
 -- | Convert orderingF to standard ordering
 toOrdering :: OrderingF x y -> Ordering

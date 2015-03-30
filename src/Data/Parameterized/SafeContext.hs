@@ -21,6 +21,7 @@
 -- is _not_ a no-op.  We therefore cannot use Data.Coerce.coerce to understand
 -- indexes in a new context without actually breaking things.
 --------------------------------------------------------------------------
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -82,13 +83,16 @@ module Data.Parameterized.SafeContext
   , (%>)
   ) where
 
-import Control.Applicative (Applicative(..))
 import qualified Control.Category as Cat
 import Control.DeepSeq
 import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Data.Type.Equality
 import Prelude hiding (init, map, succ, (!!))
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative (Applicative(..))
+#endif
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
@@ -98,19 +102,19 @@ import Data.Parameterized.Ctx
 
 -- | Represents the size of a context.
 data Size (ctx :: Ctx k) where
-  SizeZero :: Size EmptyCtx
-  SizeSucc :: Size ctx -> Size (ctx ::> tp)
+  SizeZero :: Size 'EmptyCtx
+  SizeSucc :: Size ctx -> Size (ctx '::> tp)
 
 sizeInt :: Size ctx -> Int
 sizeInt SizeZero = 0
 sizeInt (SizeSucc sz) = (+1) $! sizeInt sz
 
 -- | The size of an empty context.
-zeroSize :: Size EmptyCtx
+zeroSize :: Size 'EmptyCtx
 zeroSize = SizeZero
 
 -- | Increment the size to the next value.
-incSize :: Size ctx -> Size (ctx ::> tp)
+incSize :: Size ctx -> Size (ctx '::> tp)
 incSize sz = SizeSucc sz
 
 ------------------------------------------------------------------------
@@ -120,10 +124,10 @@ incSize sz = SizeSucc sz
 class KnownContext (ctx :: Ctx k) where
   knownSize :: Size ctx
 
-instance KnownContext EmptyCtx where
+instance KnownContext 'EmptyCtx where
   knownSize = zeroSize
 
-instance KnownContext ctx => KnownContext (ctx ::> tp) where
+instance KnownContext ctx => KnownContext (ctx '::> tp) where
   knownSize = incSize knownSize
 
 ------------------------------------------------------------------------
@@ -133,14 +137,14 @@ instance KnownContext ctx => KnownContext (ctx ::> tp) where
 -- The first context must be a sub-context of the other.
 data Diff (l :: Ctx k) (r :: Ctx k) where
   DiffHere :: Diff ctx ctx
-  DiffThere :: Diff ctx1 ctx2 -> Diff ctx1 (ctx2 ::> tp)
+  DiffThere :: Diff ctx1 ctx2 -> Diff ctx1 (ctx2 '::> tp)
 
 -- | The identity difference.
 noDiff :: Diff l l
 noDiff = DiffHere
 
 -- | Extend the difference to a sub-context of the right side.
-extendRight :: Diff l r -> Diff l (r::>tp)
+extendRight :: Diff l r -> Diff l (r '::> tp)
 extendRight diff = DiffThere diff
 
 composeDiff :: Diff a b -> Diff b c -> Diff a c
@@ -166,7 +170,7 @@ class KnownDiff (l :: Ctx k) (r :: Ctx k) where
 instance KnownDiff l l where
   knownDiff = noDiff
 
-instance KnownDiff l r => KnownDiff l (r::>tp) where
+instance KnownDiff l r => KnownDiff l (r '::> tp) where
   knownDiff = extendRight knownDiff
 
 ------------------------------------------------------------------------
@@ -175,8 +179,8 @@ instance KnownDiff l r => KnownDiff l (r::>tp) where
 -- | An index is a reference to a position with a particular type in a
 -- context.
 data Index (ctx :: Ctx k) (tp :: k) where
-  IndexHere :: Size ctx -> Index (ctx ::> tp) tp
-  IndexThere :: Index ctx tp -> Index (ctx ::> tp') tp
+  IndexHere :: Size ctx -> Index (ctx '::> tp) tp
+  IndexThere :: Index ctx tp -> Index (ctx '::> tp') tp
 
 indexVal :: Index ctx tp -> Int
 indexVal (IndexHere sz) = sizeInt sz
@@ -208,11 +212,11 @@ instance OrdF (Index ctx) where
         GTF -> GTF
 
 -- | Index for first element in context.
-base :: Index (EmptyCtx ::> tp) tp
+base :: Index ('EmptyCtx '::> tp) tp
 base = IndexHere SizeZero
 
 -- | Increase context while staying at same index.
-skip :: Index ctx x -> Index (ctx::>y) x
+skip :: Index ctx x -> Index (ctx '::> y) x
 skip idx = IndexThere idx
 
 _indexSize :: Index ctx tp -> Size ctx
@@ -220,7 +224,7 @@ _indexSize (IndexHere sz) = SizeSucc sz
 _indexSize (IndexThere idx) = SizeSucc (_indexSize idx)
 
 -- | Return the index of a element one past the size.
-nextIndex :: Size ctx -> Index (ctx ::> tp) tp
+nextIndex :: Size ctx -> Index (ctx '::> tp) tp
 nextIndex sz = IndexHere sz
 
 {-# INLINE extendIndex #-}
@@ -269,8 +273,8 @@ instance ShowF (Index ctx) where
 -- Assignment
 
 data Assignment (f :: k -> *) (c :: Ctx k) where
-  AssignEmpty  :: Assignment f EmptyCtx
-  AssignCons   :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
+  AssignEmpty  :: Assignment f 'EmptyCtx
+  AssignCons   :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
   AssignMap    :: forall f g ctx
                 . (forall tp . f tp -> g tp)
                -> Assignment f ctx
@@ -318,10 +322,10 @@ generateM sz_top f = go id sz_top
              return $ AssignCons asgn x
 
 -- | Create empty indexec vector.
-empty :: Assignment f EmptyCtx
+empty :: Assignment f 'EmptyCtx
 empty = AssignEmpty
 
-extend :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
+extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
 extend asgn e = AssignCons asgn e
 
 update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
@@ -339,7 +343,7 @@ adjust f = go (\x -> x)
   go _ _ _ = error "SafeTypeContext.adjust: impossible!"
 
 -- | Return assignment with all but the last block.
-init :: Assignment f (ctx::>tp) -> Assignment f ctx
+init :: Assignment f (ctx '::> tp) -> Assignment f ctx
 init (AssignCons asgn _) = asgn
 init _ = error "Data.Parameterized.SafeContext.init: impossible!"
 
@@ -447,5 +451,5 @@ zipWithM f x y = go (simplAssign id x) (simplAssign id y)
            return $ AssignCons asgn' x'
        go _ _ = error "Data.Parameterized.SafeContext.zipWithM: impossible!"
 
-(%>) :: Assignment f x -> f tp -> Assignment f (x::>tp)
+(%>) :: Assignment f x -> f tp -> Assignment f (x '::> tp)
 a %> v = extend a v

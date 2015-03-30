@@ -9,6 +9,7 @@
 -- This module declares template Haskell primitives so that it is easier
 -- to work with GADTs that have many constructors.
 ------------------------------------------------------------------------
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -26,12 +27,15 @@ module Data.Parameterized.TH.GADT
   , asTypeCon
   ) where
 
-import Control.Applicative
 import Control.Monad
 import Data.Hashable (hashWithSalt)
 import Data.Maybe
-import Data.Traversable (traverse)
 import Language.Haskell.TH
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+import Data.Traversable (traverse)
+#endif
 
 import Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as Ctx
