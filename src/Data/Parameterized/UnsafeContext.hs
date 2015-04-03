@@ -96,7 +96,6 @@ import Control.DeepSeq
 import qualified Control.Lens as Lens
 import Control.Monad (liftM)
 import qualified Control.Monad as Monad
-import Control.Monad.Identity (Identity(..))
 import qualified Data.Foldable as Fold
 import Data.List (intercalate)
 import Data.Type.Equality
@@ -112,6 +111,7 @@ import Data.Traversable (traverse)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
+import Data.Parameterized.TraversableFC
 
 ------------------------------------------------------------------------
 -- Size
@@ -347,37 +347,45 @@ instance ShowF f => ShowF (Assignment f) where
 instance ShowF f => Show (Assignment f ctx) where
   show a = showF a
 
--- | Convert assignment to list.
-toList :: (forall tp . f tp -> a)
-       -> Assignment f c
-       -> [a]
-toList f (Assignment a) = Fold.toList $ (f . unsafeCoerceFromAny) <$> a
+instance FunctorFC Assignment where
+  fmapFC = fmapFCDefault
+
+instance FoldableFC Assignment where
+  foldMapFC = foldMapFCDefault
+
+instance TraversableFC Assignment where
+  traverseFC f (Assignment v) =
+    force . Assignment <$> traverse (\a -> unsafeCoerceToAny <$> f (unsafeCoerceFromAny a)) v
+
+-- | Map assignment
+map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
+map = fmapFC
 
 -- | A left fold over an assignment.
 foldlF :: (forall tp . r -> f tp -> r)
        -> r
        -> Assignment f c
        -> r
-foldlF f r0 (Assignment v) = Fold.foldl (\r a -> f r (unsafeCoerceFromAny a)) r0 v
+foldlF = foldlFC
 
 -- | A right fold over an assignment.
 foldrF :: (forall tp . f tp -> r -> r)
        -> r
        -> Assignment f c
        -> r
-foldrF f r0 (Assignment v) =
-  Fold.foldr (\a r -> f (unsafeCoerceFromAny a) r) r0 v
+foldrF = foldrFC
 
 traverseF :: Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
           -> m (Assignment g c)
-traverseF f (Assignment v) =
-  force . Assignment <$> traverse (\a -> unsafeCoerceToAny <$> f (unsafeCoerceFromAny a)) v
+traverseF = traverseFC
 
--- | Map assignment
-map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
-map f a = runIdentity (traverseF (pure . f) a)
+-- | Convert assignment to list.
+toList :: (forall tp . f tp -> a)
+       -> Assignment f c
+       -> [a]
+toList = toListFC
 
 zipWithM :: Monad m
          => (forall tp . f tp -> g tp -> m (h tp))

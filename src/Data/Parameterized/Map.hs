@@ -40,6 +40,7 @@ import Control.Applicative ((<$>))
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
+import Data.Parameterized.TraversableF
 
 -- | A hash table mapping parameterid keys to values.
 newtype MapF (ktp :: k -> *) (rtp :: k -> *) = MapF (Map.Map (Some ktp) (Some rtp))

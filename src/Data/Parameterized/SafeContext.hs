@@ -96,6 +96,7 @@ import Control.Applicative (Applicative(..))
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
+import Data.Parameterized.TraversableFC
 
 ------------------------------------------------------------------------
 -- Size
@@ -393,50 +394,47 @@ instance ShowF f => ShowF (Assignment f) where
 instance ShowF f => Show (Assignment f ctx) where
   show a = showF a
 
-toLists :: (forall tp . f tp -> a)
-       -> Assignment f c
-       -> [a] -> [a]
-toLists _ AssignEmpty = id
-toLists f (AssignCons asgn x) = toLists f asgn . ((f x) :)
-toLists f (AssignMap g asgn)  = toLists (\x -> f (g x)) asgn
+instance FunctorFC Assignment where
+  fmapFC = fmapFCDefault
 
--- | Convert assignment to list.
-toList :: (forall tp . f tp -> a)
-       -> Assignment f c
-       -> [a]
-toList f asgn = toLists f asgn []
+instance FoldableFC Assignment where
+  foldMapFC = foldMapFCDefault
+
+instance TraversableFC Assignment where
+  traverseFC _ AssignEmpty = pure AssignEmpty
+  traverseFC f (AssignCons asgn x) = pure AssignCons <*> traverseF f asgn <*> f x
+  traverseFC f (AssignMap g asgn) = traverseF (\x -> f (g x)) asgn
+
+-- | Map assignment
+map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
+map = fmapFC
 
 -- | A left fold over an assignment.
 foldlF :: (forall tp . r -> f tp -> r)
        -> r
        -> Assignment f c
        -> r
-foldlF _ rz AssignEmpty = rz
-foldlF f rz (AssignCons asgn x) = f (foldlF f rz asgn) x
-foldlF f rz (AssignMap g asgn) = foldlF (\r x -> f r (g x)) rz asgn
+foldlF = foldlFC
 
 -- | A right fold over an assignment.
 foldrF :: (forall tp . f tp -> r -> r)
        -> r
        -> Assignment f c
        -> r
-foldrF _ r0 AssignEmpty = r0
-foldrF f r0 (AssignCons asgn x) = foldrF f (f x r0) asgn
-foldrF f r0 (AssignMap g asgn) = foldrF (\x r -> f (g x) r) r0 asgn
+foldrF = foldrFC
 
 traverseF :: forall f g m c
            . Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
           -> m (Assignment g c)
-traverseF _ AssignEmpty = pure AssignEmpty
-traverseF f (AssignCons asgn x) = pure AssignCons <*> traverseF f asgn <*> f x
-traverseF f (AssignMap g asgn) = traverseF (\x -> f (g x)) asgn
+traverseF = traverseFC
 
--- | Map assignment
-map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
-map f (AssignMap g asgn) = AssignMap (\x -> f (g x)) asgn
-map f asgn = AssignMap f asgn
+-- | Convert assignment to list.
+toList :: (forall tp . f tp -> a)
+       -> Assignment f c
+       -> [a]
+toList = toListFC
 
 zipWithM :: Monad m
          => (forall tp . f tp -> g tp -> m (h tp))

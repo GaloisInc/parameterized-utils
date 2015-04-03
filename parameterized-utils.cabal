@@ -1,5 +1,5 @@
 Name:          parameterized-utils
-Version:       0.1.2
+Version:       0.1.3
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com
 Build-type:    Simple
@@ -44,6 +44,8 @@ library
     Data.Parameterized.SafeContext
     Data.Parameterized.Some
     Data.Parameterized.TH.GADT
+    Data.Parameterized.TraversableF
+    Data.Parameterized.TraversableFC
     Data.Parameterized.UnsafeContext
   ghc-options: -Wall -threaded
   ghc-prof-options: -O2 -fprof-auto-top
