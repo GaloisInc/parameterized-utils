@@ -42,6 +42,7 @@ module Data.Parameterized.NatRepr
   , decNat
   , incNat
   , addNat
+  , subNat
   , halfNat
   , someNat
   , maxNat
@@ -162,6 +163,9 @@ halfNat (NatRepr x) = NatRepr (x `div` 2)
 
 addNat :: NatRepr m -> NatRepr n -> NatRepr (m+n)
 addNat (NatRepr m) (NatRepr n) = NatRepr (m+n)
+
+subNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m-n)
+subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
 ------------------------------------------------------------------------
 -- Operations for working with SomeNat
