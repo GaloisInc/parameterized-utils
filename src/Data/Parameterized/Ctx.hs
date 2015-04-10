@@ -9,12 +9,21 @@
 -- This module defines type contexts as a data-kind that consists of
 -- a list of types.  It is used to implement SafeContext and UnsafeContext.
 --------------------------------------------------------------------------
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Ctx
-  ( Ctx(..)
+  ( type Ctx(..)
+  , EmptyCtx
+  , (::>)
   ) where
 
 ------------------------------------------------------------------------
 -- Ctx
+
+type EmptyCtx = 'EmptyCtx
+type (c ::Ctx k) ::> (a::k)  = c '::> a
 
 -- | A kind representing a hetergenous list of values in some key.
 -- The parameter a, may be any kind.

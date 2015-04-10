@@ -35,7 +35,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.SafeContext
-  ( Ctx(..)
+  ( module Data.Parameterized.Ctx
   , KnownContext(..)
     -- * Size
   , Size
