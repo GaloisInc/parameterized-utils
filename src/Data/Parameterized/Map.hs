@@ -9,10 +9,6 @@
 -- This module defines finite maps where the key and value types are
 -- parameterized by an arbitrary kind.
 --
--- A CoerceableF instance is needed to lookup values in these maps; it is
--- used to cast the element in the map (which is put inside an existential
--- datatype) to the requested output type.
---
 -- This uses code taken from containers, but specialized to this case.
 ------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
