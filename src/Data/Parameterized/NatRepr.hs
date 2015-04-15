@@ -38,10 +38,10 @@ module Data.Parameterized.NatRepr
   , isZeroNat
   , NatComparison(..)
   , compareNat
-
   , decNat
   , incNat
   , addNat
+  , subNat
   , halfNat
   , someNat
   , maxNat
@@ -60,6 +60,8 @@ module Data.Parameterized.NatRepr
   , addIsLeq
   , withAddLeq
   , addIsLeqLeft1
+  , withAddPrefixLeq
+  , isPosNat
     -- * Re-exports typelists basics
   , NatK
   , type (+)
@@ -94,6 +96,7 @@ newtype NatRepr (n::Nat) = NatRepr { natValue :: Integer }
 maxInt :: Integer
 maxInt = toInteger (maxBound :: Int)
 
+
 -- | Return the value of the nat representation.
 widthVal :: NatRepr n -> Int
 widthVal (NatRepr i) | i < maxInt = fromInteger i
@@ -110,17 +113,17 @@ instance TestEquality NatRepr where
 -- | Result of comparing two numbers.
 data NatComparison m n where
   -- First number is less than second.
-  NatLT :: !(NatRepr (y+1)) -> NatComparison x (x+(y+1))
+  NatLT :: !(NatRepr y) -> NatComparison x (x+(y+1))
   NatEQ :: NatComparison x x
   -- First number is greater than second.
-  NatGT :: !(NatRepr (y+1)) -> NatComparison (x+(y+1)) x
+  NatGT :: !(NatRepr y) -> NatComparison (x+(y+1)) x
 
 compareNat :: NatRepr m -> NatRepr n -> NatComparison m n
 compareNat m n =
   case compare (natValue m) (natValue n) of
-    LT -> unsafeCoerce $ NatLT (NatRepr (natValue n - natValue m))
+    LT -> unsafeCoerce $ NatLT (NatRepr (natValue n - natValue m - 1))
     EQ -> unsafeCoerce $ NatEQ
-    GT -> unsafeCoerce $ NatGT (NatRepr (natValue m - natValue n))
+    GT -> unsafeCoerce $ NatGT (NatRepr (natValue m - natValue n - 1))
 
 instance OrdF NatRepr where
   compareF x y =
@@ -143,15 +146,15 @@ knownNat = go Proxy
           where v = natVal p
 
 data IsZeroNat n where
-  ZeroNat    :: !(n :~: 0) -> IsZeroNat n
-  NonZeroNat :: !(n :~: m+1) -> IsZeroNat n
+  ZeroNat    :: IsZeroNat 0
+  NonZeroNat :: IsZeroNat (n+1)
 
 isZeroNat :: NatRepr n -> IsZeroNat n
-isZeroNat (NatRepr 0) = ZeroNat (unsafeCoerce Refl)
-isZeroNat (NatRepr _) = NonZeroNat (unsafeCoerce Refl)
+isZeroNat (NatRepr 0) = unsafeCoerce ZeroNat
+isZeroNat (NatRepr _) = unsafeCoerce NonZeroNat
 
 -- | Decrement a @NatRepr@
-decNat :: NatRepr (n+1) -> NatRepr n
+decNat :: (1 <= n) => NatRepr n -> NatRepr n
 decNat (NatRepr i) = NatRepr (i-1)
 
 -- | Increment a @NatRepr@
@@ -163,6 +166,9 @@ halfNat (NatRepr x) = NatRepr (x `div` 2)
 
 addNat :: NatRepr m -> NatRepr n -> NatRepr (m+n)
 addNat (NatRepr m) (NatRepr n) = NatRepr (m+n)
+
+subNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m-n)
+subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
 ------------------------------------------------------------------------
 -- Operations for working with SomeNat
@@ -176,11 +182,11 @@ maxUnsigned :: NatRepr w -> Integer
 maxUnsigned w = 2^(natValue w) - 1
 
 -- | Return minimum value for bitvector in 2s complement with given width.
-minSigned :: NatRepr (w+1) -> Integer
+minSigned :: (1 <= w) => NatRepr w -> Integer
 minSigned w = - 2^(natValue w - 1)
 
 -- | Return maximum value for bitvector in 2s complement with given width.
-maxSigned :: NatRepr (w+1) -> Integer
+maxSigned :: (1 <= w) => NatRepr w -> Integer
 maxSigned w = 2^(natValue w - 1) - 1
 
 ------------------------------------------------------------------------
@@ -213,11 +219,23 @@ testLeq (NatRepr n) (NatRepr m)
    | n <= m    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
    | otherwise = Nothing
 
+isPosNat :: NatRepr n -> Maybe (LeqProof 1 n)
+isPosNat = testLeq (knownNat :: NatRepr 1)
+
 addIsLeq :: forall n m. NatRepr n -> NatRepr m -> LeqProof n (n + m)
 addIsLeq _ _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
 
+addPrefixIsLeq :: forall n m. NatRepr n -> NatRepr m -> LeqProof m (n + m)
+addPrefixIsLeq _ _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+
 addIsLeqLeft1 :: forall n n' m. LeqProof (n + n') m -> LeqProof n m
 addIsLeqLeft1 _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+{-# INLINE withAddPrefixLeq #-}
+withAddPrefixLeq :: NatRepr n -> NatRepr m -> ((m <= n + m) => a) -> a
+withAddPrefixLeq n m c =
+  case addPrefixIsLeq n m of
+    LeqProof -> c
 
 withAddLeq :: forall n m a. NatRepr n -> NatRepr m -> ((n <= n + m) => NatRepr (n + m) -> a) -> a
 withAddLeq n m f = case addIsLeq n m of
@@ -231,7 +249,7 @@ natForEach' l h f
                                     in
                                       f LeqProof LeqProof l : natForEach' (incNat l) h f'
   | otherwise             = []
-                            
+
 
 natForEach :: forall l h a. NatRepr l -> NatRepr h
               -> (forall n. (l <= n, n <= h) => NatRepr n -> a) -> [a]

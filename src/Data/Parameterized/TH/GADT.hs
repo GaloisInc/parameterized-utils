@@ -9,6 +9,7 @@
 -- This module declares template Haskell primitives so that it is easier
 -- to work with GADTs that have many constructors.
 ------------------------------------------------------------------------
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -16,6 +17,7 @@
 module Data.Parameterized.TH.GADT
   ( structuralEquality
   , structuralTypeEquality
+  , structuralTypeOrd
   , structuralTraversal
   , structuralShowsPrec
   , structuralHash
@@ -24,14 +26,21 @@ module Data.Parameterized.TH.GADT
   , DataD(..)
   , lookupDataType'
   , asTypeCon
+  , TypePat(..)
   ) where
 
-import Control.Applicative
 import Control.Monad
 import Data.Hashable (hashWithSalt)
+import Data.List
 import Data.Maybe
-import Data.Traversable (traverse)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Language.Haskell.TH
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+import Data.Traversable (traverse)
+#endif
 
 import Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as Ctx
@@ -39,9 +48,13 @@ import qualified Data.Parameterized.Context as Ctx
 ------------------------------------------------------------------------
 -- Template Haskell utilities
 
+tyVarName :: TyVarBndr -> Name
+tyVarName (PlainTV nm) = nm
+tyVarName (KindedTV nm _) = nm
+
 data DataD = DD { _dataCtx :: Cxt
                 , _dataName :: Name
-                , _dataTypeVars :: [TyVarBndr]
+                , dataTyVarBndrs :: [TyVarBndr]
                 , dataCtors :: [Con]
                 , _dataDeriving :: [Name]
                 } deriving (Show)
@@ -53,7 +66,6 @@ asTyConI _ = Nothing
 asDataD :: Dec -> Maybe DataD
 asDataD (DataD ctx n v ctors d) = Just $ DD ctx n v ctors d
 asDataD _ = Nothing
-
 
 -- | Given a constructor and string, this generates a pattern for matching
 -- the expression, and the names of variables bound by pattern in order
@@ -73,6 +85,14 @@ conPat (InfixC _ nm _) pre = do
   return (InfixP (VarP xnm) nm (VarP ynm), [xnm, ynm])
 conPat (ForallC _ _ c) pre = conPat c pre
 
+-- | Given a constructor, this generates a pattern for matching
+-- the constructor with no bound varibles.
+conPat_ :: Con -> Pat
+conPat_ (NormalC nm a) = ConP nm (replicate (length a) WildP)
+conPat_ (RecC nm a)    = ConP nm (replicate (length a) WildP)
+conPat_ (InfixC _ nm _) = InfixP WildP nm WildP
+conPat_ (ForallC _ _ c) = conPat_ c
+
 -- | Get types of arguments for constructor.
 conArgTypes :: Con
             -> [Type]
@@ -81,22 +101,68 @@ conArgTypes (RecC _ a)                 = (\(_,_,tp) -> tp) <$> a
 conArgTypes (InfixC (_,xtp) _ (_,ytp)) = [xtp, ytp]
 conArgTypes (ForallC _ _ c) = conArgTypes c
 
+
+-- | Return an expression corresponding to the constructor.
+-- Note that this will have the type of a function expecting
+-- the argumetns given.
+conName :: Con -> Name
+conName (NormalC nm _) = nm
+conName (RecC nm _)   = nm
+conName (InfixC _ nm _) = nm
+conName (ForallC _ _ c) = conName c
+
 -- | Return an expression corresponding to the constructor.
 -- Note that this will have the type of a function expecting
 -- the argumetns given.
 conExpr :: Con -> Exp
-conExpr (NormalC nm _) = ConE nm
-conExpr (RecC nm _)   = ConE nm
-conExpr (InfixC _ nm _) = ConE nm
-conExpr (ForallC _ _ c) = conExpr c
+conExpr c = ConE (conName c)
+
+------------------------------------------------------------------------
+-- TypePat
+
+data TypePat
+   = TypeApp TypePat TypePat
+   | AnyType
+   | DataArg Int
+   | ConType TypeQ
+
+matchTypePat :: DataD -> TypePat -> Type -> Q Bool
+matchTypePat d (TypeApp p q) (AppT x y) = do
+  r <- matchTypePat d p x
+  case r of
+    True -> matchTypePat d q y
+    False -> return False
+matchTypePat _ AnyType _ = return True
+matchTypePat d (DataArg i) tp
+  | i < 0 || i > length (dataTyVarBndrs d) = error $ "Illegal type pattern index " ++ show i
+  | otherwise =
+    return $ VarT (tyVarName (dataTyVarBndrs d !! i)) == tp
+matchTypePat _ (ConType tpq) tp = do
+  tp' <- tpq
+  return (tp' == tp)
+matchTypePat _ _ _ = return False
+
+matchTypePats :: DataD -> [TypePat] -> Type -> Q Bool
+matchTypePats _ [] _ = return False
+matchTypePats d (p:pats) tp = do
+  r <- matchTypePat d p tp
+  case r of
+    True -> return True
+    False -> matchTypePats d pats tp
 
 ------------------------------------------------------------------------
 -- Contructor cases
 
-isGroundType :: Type -> Bool
-isGroundType (ConT _) = True
-isGroundType (AppT f a) = isGroundType f && isGroundType a
-isGroundType _ = False
+typeVars :: Type -> Set Name
+typeVars tp = typeVars' tp Set.empty
+
+typeVars' :: Type -> Set Name -> Set Name
+typeVars' (ForallT vars _ tp) s =
+  foldl' (flip Set.delete) (typeVars' tp s) (tyVarName <$> vars)
+typeVars' (AppT x y) s = typeVars' x $! typeVars' y s
+typeVars' (SigT t _) s = typeVars' t s
+typeVars' (VarT nm) s = Set.insert nm s
+typeVars' _ s = s
 
 lookupDataType' :: Name -> Q DataD
 lookupDataType' tpName = do
@@ -105,33 +171,136 @@ lookupDataType' tpName = do
     asDataD =<< asTyConI info
 
 -- | @declareStructuralEquality@ declares a structural equality predicate.
-structuralEquality :: TypeQ -> ExpQ
-structuralEquality tpq = [| \x y -> isJust ($(structuralTypeEquality tpq) x y) |]
+structuralEquality :: TypeQ -> [TypePat] -> ExpQ
+structuralEquality tpq pats =
+  [| \x y -> isJust ($(structuralTypeEquality tpq pats) x y) |]
 
-mkEqF :: Con -> MatchQ
-mkEqF c = do
+joinEqMaybe :: Name -> Name -> ExpQ -> ExpQ
+joinEqMaybe x y r = do
+  [| if $(varE x) == $(varE y) then $(r) else Nothing |]
+
+joinTestEquality :: Name -> Name -> ExpQ -> ExpQ
+joinTestEquality x y r =
+  [| case testEquality $(varE x) $(varE y) of
+      Nothing -> Nothing
+      Just Refl -> $(r)
+   |]
+
+-- | Match equational form.
+mkEqF :: DataD -- ^ Data declaration.
+      -> [TypePat]
+      -> Con
+      -> MatchQ
+mkEqF d pats c = do
   -- Get argument types for constructor.
   (xp,xv) <- conPat c "x"
   (yp,yv) <- conPat c "y"
-  let go :: (Type,Name,Name) -> ExpQ -> ExpQ
-      go (tp, x, y) r | isGroundType tp = [| if $(varE x) == $(varE y) then $(r) else Nothing |]
-      go (AppT (ConT _) (VarT _),  x, y) r = do
-        [| do Refl <- testEquality $(varE x) $(varE y)
-              $(r) |]
-      go (_,  x, y) r = do
-        [| do Refl <- polyEqF $(varE x) $(varE y)
-              $(r) |]
-  let base = [| return Refl |]
-  let rv = foldr go base (zip3 (conArgTypes c) xv yv)
+
+  let go :: Set Name -> [Type] -> [Name] -> [Name] -> ExpQ
+      go bnd (tp:tpl) (x:xl) (y:yl) = do
+        doesMatch <- matchTypePats d pats tp
+        case doesMatch of
+          True -> do
+            let bnd' =
+                  case tp of
+                    AppT _ (VarT nm) -> Set.insert nm bnd
+                    _ -> bnd
+            joinTestEquality x y (go bnd' tpl xl yl)
+          False | typeVars tp `Set.isSubsetOf` bnd -> do
+            joinEqMaybe x y (go bnd tpl xl yl)
+          False -> do
+            fail $ "Unsupported argument type " ++ show (ppr tp)
+                ++ " in " ++ show (ppr (conName c)) ++ "."
+      go _ [] [] [] = [| Just Refl |]
+      go _ [] _ _ = error "Unexpected end of types."
+      go _ _ [] _ = error "Unexpected end of names."
+      go _ _ _ [] = error "Unexpected end of names."
+
+  let dataVars = Set.fromList (tyVarName <$> dataTyVarBndrs d)
+  let rv = go dataVars (conArgTypes c) xv yv
   match (pure (TupP [xp, yp])) (normalB rv) []
 
--- | @declareStructuralEquality@ declares a structural equality predicate.
-structuralTypeEquality :: TypeQ -> ExpQ
-structuralTypeEquality tpq = do
+-- | @structuralTypeEquality f@ returns a function with the type:
+--   forall x y . f x -> f y -> Maybe (x :~: y)
+structuralTypeEquality :: TypeQ -> [TypePat] -> ExpQ
+structuralTypeEquality tpq pats = do
   d <- lookupDataType' =<< asTypeCon "structuralTypeEquality" =<< tpq
-  let trueEqs = (mkEqF <$> dataCtors d)
+  let trueEqs = (mkEqF d pats <$> dataCtors d)
       baseEq = match [p| (_, _)|] (normalB [| Nothing |]) []
   [| \x y -> $(caseE [| (x, y) |] (trueEqs ++ [baseEq])) |]
+
+-- | @structuralTypeEquality f@ returns a function with the type:
+--   forall x y . f x -> f y -> OrderingF x y
+structuralTypeOrd :: TypeQ
+                  -> [TypePat] -- ^ List of type patterns to match.
+                  -> ExpQ
+structuralTypeOrd tpq l = do
+  d <- lookupDataType' =<< asTypeCon "structuralTypeEquality" =<< tpq
+  matchEqs <- traverse (mkOrdF d l) (dataCtors d)
+  case reverse matchEqs of
+    [] -> do
+      [| \_ _ -> EQF |]
+    [t,_,_] : r -> do
+      [| \x y -> $(caseE [| (x, y) |] (concat (reverse ([t]:r)))) |]
+    _ -> error "Bad return value from structuralTypeOrd"
+
+
+joinCompareF :: Name -> Name -> ExpQ -> ExpQ
+joinCompareF x y r = do
+  [| case compareF $(varE x) $(varE y) of
+      LTF -> LTF
+      GTF -> GTF
+      EQF -> $(r)
+   |]
+
+joinCompareToOrdF :: Name -> Name -> ExpQ -> ExpQ
+joinCompareToOrdF x y r =
+  [| case compare $(varE x) $(varE y) of
+      LT -> LTF
+      GT -> GTF
+      EQ -> $(r)
+   |]
+
+-- | Match equational form.
+mkOrdF :: DataD -- ^ Data declaration.
+       -> [TypePat] -- ^ Second order argument types.
+       -> Con
+       -> Q [MatchQ]
+mkOrdF d pats c = do
+  -- Get argument types for constructor.
+  (xp,xv) <- conPat c "x"
+  (yp,yv) <- conPat c "y"
+  -- Match expression with given type to variables
+  let go :: Set Name -> [Type] -> [Name] -> [Name] -> ExpQ
+      -- Use testEquality on vars with second order types.
+      go bnd (tp : tpl) (x:xl) (y:yl) = do
+        doesMatch <- matchTypePats d pats tp
+        case doesMatch of
+          True -> do
+            let bnd' = case tp of
+                         AppT _ (VarT nm) -> Set.insert nm bnd
+                         _ -> bnd
+            joinCompareF x y (go bnd' tpl xl yl)
+          False | typeVars tp `Set.isSubsetOf` bnd -> do
+            joinCompareToOrdF x y (go bnd tpl xl yl)
+          False ->
+            fail $ "Unsupported argument type " ++ show (ppr tp)
+                ++ " in " ++ show (ppr (conName c)) ++ "."
+      go _ [] [] [] = [| EQF |]
+      go _ [] _ _ = error "Unexpected end of types."
+      go _ _ [] _ = error "Unexpected end of names."
+      go _ _ _ [] = error "Unexpected end of names."
+
+  -- Zip types together
+  let dataVars = Set.fromList (tyVarName <$> dataTyVarBndrs d)
+  rv <- go dataVars (conArgTypes c) xv yv
+  ltf <- [| LTF |]
+  gtf <- [| GTF |]
+  -- Return match expression
+  return [ pure $ Match (TupP [xp, yp]) (NormalB rv) []
+         , pure $ Match (TupP [conPat_ c, WildP]) (NormalB ltf) []
+         , pure $ Match (TupP [WildP, conPat_ c]) (NormalB gtf) []
+         ]
 
 -- | Parse type and identify if this is an arg left unchanged
 -- or arg with more inforamtion.

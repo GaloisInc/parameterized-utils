@@ -1,15 +1,16 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Classes
--- Description      : Declares classes for working with types containing a
---                    polymorphic parameter.
+-- Description      : Declares classes for working with types containing
+--                    a polymorphic parameter.
 -- Copyright        : (c) Galois, Inc 2014
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 -- Stability        : provisional
 --
--- This module declares classes for working with types with the kind @k -> *@ for
--- any kind @k@.  These are generalizations of the Data.Functor.Classes types as
--- they work with any kind @k@, and are not restricted to "*".
+-- This module declares classes for working with types with the kind
+-- @k -> *@ for any kind @k@.  These are generalizations of the
+-- @Data.Functor.Classes@ types as they work with any kind @k@, and are
+-- not restricted to "*".
 ------------------------------------------------------------------------
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
@@ -27,10 +28,10 @@ module Data.Parameterized.Classes
     -- * Ordering generalization
   , OrdF(..)
   , OrderingF(..)
+  , orderingF_refl
   , toOrdering
   , fromOrdering
     -- * Typeclass generalizations
-  , FunctorF(..)
   , ShowF(..)
   , HashableF(..)
   , CoerceableF(..)
@@ -61,6 +62,13 @@ data OrderingF x y where
   EQF :: OrderingF x x
   GTF :: OrderingF x y
 
+orderingF_refl :: OrderingF x y -> Maybe (x :~: y)
+orderingF_refl o =
+  case o of
+    LTF -> Nothing
+    EQF -> Just Refl
+    GTF -> Nothing
+
 -- | Convert orderingF to standard ordering
 toOrdering :: OrderingF x y -> Ordering
 toOrdering LTF = LT
@@ -79,10 +87,6 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
   -- Instances must ensure that keys are only equal if the type
   -- parameters are equal.
   compareF :: ktp x -> ktp y -> OrderingF x y
-
--- | A parameterized type that is a function on all instances.
-class FunctorF m where
-  fmapF :: (forall x . f x -> g x) -> m f -> m g
 
 -- | A parameterized type that can be shown on all instances.
 class ShowF f where
