@@ -58,7 +58,8 @@ module Data.Parameterized.NatRepr
   , knownLeq
   , testLeq
   , addIsLeq
-  , withAddLeq  
+  , withAddLeq
+  , addIsLeqLeft1
     -- * Re-exports typelists basics
   , NatK
   , type (+)
