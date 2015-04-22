@@ -58,16 +58,27 @@ module Data.Parameterized.NatRepr
   , signedClamp
     -- * LeqProof
   , LeqProof(..)
-  , knownLeq
   , testLeq
+  , leqRefl
+  , leqTrans
+  , leqCong1
+  , leqCong2
+  , leqAdd
+  , leqSub
+    -- * LeqProof combinators
+  , isPosNat
   , addIsLeq
   , withAddLeq
-  , addIsLeqLeft1
+  , addPrefixIsLeq
   , withAddPrefixLeq
-  , isPosNat
+  , addIsLeqLeft1
+    -- * Arithmetic proof
+  , plusComm
+  , plusMinusCancel
     -- * Re-exports typelists basics
   , NatK
   , type (+)
+  , type (-)
   , type (*)
   , type (<=)
   , Equality.TestEquality(..)
@@ -201,7 +212,7 @@ toUnsigned w i = maxUnsigned w .&. i
 -- signed number in two's complement notation and returns that value.
 toSigned :: (1 <= w) => NatRepr w -> Integer -> Integer
 toSigned w i
-  | i > maxSigned w = i - 2^(widthVal w)
+  | i > maxSigned w = i - 2^(natValue w)
   | otherwise       = i
 
 -- | @unsignedClamp w i@ rounds @i@ to the nearest value between
@@ -234,6 +245,17 @@ maxNat x y
   | otherwise = Some y
 
 ------------------------------------------------------------------------
+-- Arithmetic
+
+-- | Produce evidence that + is commutative.
+plusComm :: f m -> g n -> m+n :~: n+m
+plusComm _ _ = unsafeCoerce (Refl :: 0 :~: 0)
+
+-- | Cancel an add followed b a subtract
+plusMinusCancel :: f m -> g n -> (m + n) - n :~: m
+plusMinusCancel _ _ = unsafeCoerce (Refl :: 0 :~: 0)
+
+------------------------------------------------------------------------
 -- LeqProof
 
 -- | @LeqProof m n@ is a type whose values are only inhabited when @m@
@@ -241,26 +263,57 @@ maxNat x y
 data LeqProof m n where
   LeqProof :: (m <= n) => LeqProof m n
 
--- | Return a LeqProof from compile time information.
-knownLeq :: (m <= n, KnownNat m, KnownNat n) => LeqProof m n
-knownLeq = LeqProof
-
 testLeq :: NatRepr n -> NatRepr m -> Maybe (LeqProof n m)
 testLeq (NatRepr n) (NatRepr m)
    | n <= m    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
    | otherwise = Nothing
 
+-- | Apply reflexivity to LeqProof
+leqRefl :: f n -> LeqProof n n
+leqRefl _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+-- | Apply transitivity to LeqProof
+leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
+leqTrans x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+-- | Replace first argument in proof with equivalent type.
+leqCong1 :: LeqProof m p -> m :~: n -> LeqProof n p
+leqCong1 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+-- | Replace second argument in proof with equivalent type.
+leqCong2 :: LeqProof p m  -> m :~: n -> LeqProof p n
+leqCong2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+-- | Produce proof that adding a value to the larger element in an LeqProof
+-- is larger
+leqAdd :: LeqProof m n -> f p -> LeqProof m (n+p)
+leqAdd x _ = seq x $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+-- | Produce proof that subtracting a value from the smaller element is smaller.
+leqSub :: LeqProof m n -> LeqProof p m -> LeqProof (m-p) n
+leqSub x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+
+------------------------------------------------------------------------
+-- LeqProof combinators
+
+-- | Test whether natural number is positive.
 isPosNat :: NatRepr n -> Maybe (LeqProof 1 n)
 isPosNat = testLeq (knownNat :: NatRepr 1)
 
-addIsLeq :: forall n m. NatRepr n -> NatRepr m -> LeqProof n (n + m)
-addIsLeq _ _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+addIsLeq :: f n -> g m -> LeqProof n (n + m)
+addIsLeq n m = leqAdd (leqRefl n) m
 
-addPrefixIsLeq :: forall n m. NatRepr n -> NatRepr m -> LeqProof m (n + m)
-addPrefixIsLeq _ _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+addPrefixIsLeq :: f m -> g n -> LeqProof n (m + n)
+addPrefixIsLeq m n = leqCong2 (addIsLeq n m) (plusComm n m)
 
-addIsLeqLeft1 :: forall n n' m. LeqProof (n + n') m -> LeqProof n m
-addIsLeqLeft1 _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+addIsLeqLeft1 :: forall n n' m . LeqProof (n + n') m -> LeqProof n m
+addIsLeqLeft1 p = leqCong1 (leqSub p le) (plusMinusCancel n n')
+  where n :: Proxy n
+        n = Proxy
+        n' :: Proxy n'
+        n' = Proxy
+        le :: LeqProof n' (n + n')
+        le = addPrefixIsLeq n n'
 
 {-# INLINE withAddPrefixLeq #-}
 withAddPrefixLeq :: NatRepr n -> NatRepr m -> ((m <= n + m) => a) -> a
