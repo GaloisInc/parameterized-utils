@@ -66,12 +66,15 @@ module Data.Parameterized.NatRepr
   , leqAdd
   , leqSub
     -- * LeqProof combinators
+  , leqProof
+  , withLeqProof
   , isPosNat
   , addIsLeq
   , withAddLeq
   , addPrefixIsLeq
   , withAddPrefixLeq
   , addIsLeqLeft1
+  , dblPosIsPos
     -- * Arithmetic proof
   , plusComm
   , plusMinusCancel
@@ -296,6 +299,15 @@ leqSub x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
 ------------------------------------------------------------------------
 -- LeqProof combinators
 
+-- | Create a leqProof using two proxies
+leqProof :: (m <= n) => f m -> f n -> LeqProof m n
+leqProof _ _ = LeqProof
+
+withLeqProof :: LeqProof m n -> ((m <= n) => a) -> a
+withLeqProof p a =
+  case p of
+    LeqProof -> a
+
 -- | Test whether natural number is positive.
 isPosNat :: NatRepr n -> Maybe (LeqProof 1 n)
 isPosNat = testLeq (knownNat :: NatRepr 1)
@@ -305,6 +317,9 @@ addIsLeq n m = leqAdd (leqRefl n) m
 
 addPrefixIsLeq :: f m -> g n -> LeqProof n (m + n)
 addPrefixIsLeq m n = leqCong2 (addIsLeq n m) (plusComm n m)
+
+dblPosIsPos :: forall n . LeqProof 1 n -> LeqProof 1 (n+n)
+dblPosIsPos x = leqAdd x Proxy
 
 addIsLeqLeft1 :: forall n n' m . LeqProof (n + n') m -> LeqProof n m
 addIsLeqLeft1 p = leqCong1 (leqSub p le) (plusMinusCancel n n')
@@ -317,13 +332,10 @@ addIsLeqLeft1 p = leqCong1 (leqSub p le) (plusMinusCancel n n')
 
 {-# INLINE withAddPrefixLeq #-}
 withAddPrefixLeq :: NatRepr n -> NatRepr m -> ((m <= n + m) => a) -> a
-withAddPrefixLeq n m c =
-  case addPrefixIsLeq n m of
-    LeqProof -> c
+withAddPrefixLeq n m = withLeqProof (addPrefixIsLeq n m)
 
 withAddLeq :: forall n m a. NatRepr n -> NatRepr m -> ((n <= n + m) => NatRepr (n + m) -> a) -> a
-withAddLeq n m f = case addIsLeq n m of
-                      LeqProof -> f (addNat n m)
+withAddLeq n m f = withLeqProof (addIsLeq n m) (f (addNat n m))
 
 natForEach' :: forall l h a. NatRepr l -> NatRepr h
               -> (forall n. LeqProof l n -> LeqProof n h -> NatRepr n -> a) -> [a]
