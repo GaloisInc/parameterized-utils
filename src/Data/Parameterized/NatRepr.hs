@@ -61,14 +61,14 @@ module Data.Parameterized.NatRepr
   , testLeq
   , leqRefl
   , leqTrans
-  , leqCong1
-  , leqCong2
-  , leqAdd
-  , leqSub
+  , leqAdd2
+  , leqSub2
     -- * LeqProof combinators
   , leqProof
   , withLeqProof
   , isPosNat
+  , leqAdd
+  , leqSub
   , addIsLeq
   , withAddLeq
   , addPrefixIsLeq
@@ -266,6 +266,7 @@ plusMinusCancel _ _ = unsafeCoerce (Refl :: 0 :~: 0)
 data LeqProof m n where
   LeqProof :: (m <= n) => LeqProof m n
 
+-- | @x `testLeq` y@ checks whether @x@ is less than or equal to @y@.
 testLeq :: NatRepr n -> NatRepr m -> Maybe (LeqProof n m)
 testLeq (NatRepr n) (NatRepr m)
    | n <= m    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
@@ -279,22 +280,15 @@ leqRefl _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
 leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
 leqTrans x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
 
--- | Replace first argument in proof with equivalent type.
-leqCong1 :: LeqProof m p -> m :~: n -> LeqProof n p
-leqCong1 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+-- | Add both sides of two inequalities
+leqAdd2 :: LeqProof x_l x_h -> LeqProof y_l y_h -> LeqProof (x_l + y_l) (x_h + y_h)
+leqAdd2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
 
--- | Replace second argument in proof with equivalent type.
-leqCong2 :: LeqProof p m  -> m :~: n -> LeqProof p n
-leqCong2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
-
--- | Produce proof that adding a value to the larger element in an LeqProof
--- is larger
-leqAdd :: LeqProof m n -> f p -> LeqProof m (n+p)
-leqAdd x _ = seq x $ unsafeCoerce (LeqProof :: LeqProof 0 0)
-
--- | Produce proof that subtracting a value from the smaller element is smaller.
-leqSub :: LeqProof m n -> LeqProof p m -> LeqProof (m-p) n
-leqSub x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+-- | Subtract sides of two inequalities.
+leqSub2 :: LeqProof x_l x_h
+        -> LeqProof y_l y_h
+        -> LeqProof (x_l-y_h) (x_h-y_l)
+leqSub2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
 
 ------------------------------------------------------------------------
 -- LeqProof combinators
@@ -312,17 +306,30 @@ withLeqProof p a =
 isPosNat :: NatRepr n -> Maybe (LeqProof 1 n)
 isPosNat = testLeq (knownNat :: NatRepr 1)
 
+-- | Produce proof that adding a value to the larger element in an LeqProof
+-- is larger
+leqAdd :: forall f m n p . LeqProof m n -> f p -> LeqProof m (n+p)
+leqAdd x _ = leqAdd2 x (LeqProof :: LeqProof 0 p)
+
+-- | Produce proof that subtracting a value from the smaller element is smaller.
+leqSub :: forall m n p . LeqProof m n -> LeqProof p m -> LeqProof (m-p) n
+leqSub x _ = leqSub2 x (LeqProof :: LeqProof 0 p)
+
 addIsLeq :: f n -> g m -> LeqProof n (n + m)
 addIsLeq n m = leqAdd (leqRefl n) m
 
 addPrefixIsLeq :: f m -> g n -> LeqProof n (m + n)
-addPrefixIsLeq m n = leqCong2 (addIsLeq n m) (plusComm n m)
+addPrefixIsLeq m n =
+  case plusComm n m of
+    Refl -> addIsLeq n m
 
 dblPosIsPos :: forall n . LeqProof 1 n -> LeqProof 1 (n+n)
 dblPosIsPos x = leqAdd x Proxy
 
 addIsLeqLeft1 :: forall n n' m . LeqProof (n + n') m -> LeqProof n m
-addIsLeqLeft1 p = leqCong1 (leqSub p le) (plusMinusCancel n n')
+addIsLeqLeft1 p =
+    case plusMinusCancel n n' of
+      Refl -> leqSub p le
   where n :: Proxy n
         n = Proxy
         n' :: Proxy n'
