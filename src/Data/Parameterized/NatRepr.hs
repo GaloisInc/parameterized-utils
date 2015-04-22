@@ -52,7 +52,10 @@ module Data.Parameterized.NatRepr
   , maxUnsigned
   , minSigned
   , maxSigned
-
+  , toUnsigned
+  , toSigned
+  , unsignedClamp
+  , signedClamp
     -- * LeqProof
   , LeqProof(..)
   , knownLeq
@@ -73,6 +76,7 @@ module Data.Parameterized.NatRepr
   ) where
 
 import Control.Exception (assert)
+import Data.Bits ((.&.))
 import Data.Hashable
 import Data.Proxy as Proxy
 import Data.Type.Equality as Equality
@@ -171,7 +175,7 @@ subNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m-n)
 subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
 ------------------------------------------------------------------------
--- Operations for working with SomeNat
+-- Operations for using NatRepr as a bitwidth.
 
 -- | Return minimum unsigned value for bitvector with given width (always 0).
 minUnsigned :: NatRepr w -> Integer
@@ -189,8 +193,35 @@ minSigned w = - 2^(natValue w - 1)
 maxSigned :: (1 <= w) => NatRepr w -> Integer
 maxSigned w = 2^(natValue w - 1) - 1
 
+-- | @toUnsigned w i@ maps @i@ to a @i `mod` 2^w@.
+toUnsigned :: NatRepr w -> Integer -> Integer
+toUnsigned w i = maxUnsigned w .&. i
+
+-- | @toSigned w i@ interprets the least-significnt @w@ bits in @i@ as a
+-- signed number in two's complement notation and returns that value.
+toSigned :: (1 <= w) => NatRepr w -> Integer -> Integer
+toSigned w i
+  | i > maxSigned w = i - 2^(widthVal w)
+  | otherwise       = i
+
+-- | @unsignedClamp w i@ rounds @i@ to the nearest value between
+-- @0@ and @2^w-i@ (inclusive).
+unsignedClamp :: NatRepr w -> Integer -> Integer
+unsignedClamp w i
+  | i < minUnsigned w = minUnsigned w
+  | i > maxUnsigned w = maxUnsigned w
+  | otherwise         = i
+
+-- | @signedClamp w i@ rounds @i@ to the nearest value between
+-- @-2^(w-1)@ and @2^(w-1)-i@ (inclusive).
+signedClamp :: (1 <= w) => NatRepr w -> Integer -> Integer
+signedClamp w i
+  | i < minSigned w = minSigned w
+  | i > maxSigned w = maxSigned w
+  | otherwise       = i
+
 ------------------------------------------------------------------------
--- SomeNat
+-- Some NatRepr
 
 someNat :: Integer -> Maybe (Some NatRepr)
 someNat n | 0 <= n && n <= toInteger intMax = Just (Some (NatRepr (fromInteger n)))
