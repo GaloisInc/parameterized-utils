@@ -20,15 +20,23 @@
 module Data.Parameterized.Map
   ( MapF
   , empty
-  , insert
-  , union
   , lookup
+  , insert
+  , delete
+  , union
+
   , map
   , elems
+    -- * Complex interface.
+  , UpdateRequest(..)
+  , Updated(..)
+  , updatedValue
+  , updateAtKey
   , module Data.Parameterized.Classes
   ) where
 
-import Data.List (intercalate)
+import Control.Applicative (Applicative(..), (<$>))
+import Data.List (foldl', intercalate)
 import Data.Maybe
 import Prelude hiding (lookup, map)
 
@@ -48,26 +56,6 @@ data MapF (ktp :: k -> *) (rtp :: k -> *) where
 
 type Size = Int
 
-map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
-map _ Tip = Tip
-map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
-
-#if __GLASGOW_HASKELL__ >= 709
-{-# RULES
-"map/coerce" map coerce = coerce
- #-}
-#endif
-
-instance FunctorF (MapF ktp) where
-  fmapF = map
-
-instance FoldableF (MapF ktp) where
-
-  foldrF f z = go z
-    where go z' Tip             = z'
-          go z' (Bin _ _ x l r) = go (f x (go z' r)) l
-
-
 empty :: MapF ktp rtp
 empty = Tip
 
@@ -79,112 +67,24 @@ size Tip              = 0
 size (Bin sz _ _ _ _) = sz
 {-# INLINE size #-}
 
-delta,ratio :: Int
-delta = 3
-ratio = 2
+------------------------------------------------------------------------
+-- Traversals
 
--- balanceL is called when left subtree might have been inserted to or when
--- right subtree might have been deleted from.
-balanceL :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
-balanceL k x l r = case r of
-  Tip -> case l of
-           Tip -> Bin 1 k x Tip Tip
-           (Bin _ _ _ Tip Tip) -> Bin 2 k x l Tip
-           (Bin _ lk lx Tip (Bin _ lrk lrx _ _)) -> Bin 3 lrk lrx (Bin 1 lk lx Tip Tip) (Bin 1 k x Tip Tip)
-           (Bin _ lk lx ll@(Bin _ _ _ _ _) Tip) -> Bin 3 lk lx ll (Bin 1 k x Tip Tip)
-           (Bin ls lk lx ll@(Bin lls _ _ _ _) lr@(Bin lrs lrk lrx lrl lrr))
-             | lrs < ratio*lls -> Bin (1+ls) lk lx ll (Bin (1+lrs) k x lr Tip)
-             | otherwise -> Bin (1+ls) lrk lrx (Bin (1+lls+size lrl) lk lx ll lrl) (Bin (1+size lrr) k x lrr Tip)
+-- | Modify elements in a
+map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
+map _ Tip = Tip
+map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
 
-  (Bin rs _ _ _ _) -> case l of
-           Tip -> Bin (1+rs) k x Tip r
-
-           (Bin ls lk lx ll lr)
-              | ls > delta*rs  -> case (ll, lr) of
-                   (Bin lls _ _ _ _, Bin lrs lrk lrx lrl lrr)
-                     | lrs < ratio*lls -> Bin (1+ls+rs) lk lx ll (Bin (1+rs+lrs) k x lr r)
-                     | otherwise -> Bin (1+ls+rs) lrk lrx (Bin (1+lls+size lrl) lk lx ll lrl) (Bin (1+rs+size lrr) k x lrr r)
-                   (_, _) -> error "Failure in Data.Map.balanceL"
-              | otherwise -> Bin (1+ls+rs) k x l r
-{-# NOINLINE balanceL #-}
-
--- balanceR is called when right subtree might have been inserted to or when
--- left subtree might have been deleted from.
-balanceR :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
-balanceR k x l r = case l of
-  Tip -> case r of
-           Tip -> Bin 1 k x Tip Tip
-           (Bin _ _ _ Tip Tip) -> Bin 2 k x Tip r
-           (Bin _ rk rx Tip rr@(Bin _ _ _ _ _)) -> Bin 3 rk rx (Bin 1 k x Tip Tip) rr
-           (Bin _ rk rx (Bin _ rlk rlx _ _) Tip) -> Bin 3 rlk rlx (Bin 1 k x Tip Tip) (Bin 1 rk rx Tip Tip)
-           (Bin rs rk rx rl@(Bin rls rlk rlx rll rlr) rr@(Bin rrs _ _ _ _))
-             | rls < ratio*rrs -> Bin (1+rs) rk rx (Bin (1+rls) k x Tip rl) rr
-             | otherwise -> Bin (1+rs) rlk rlx (Bin (1+size rll) k x Tip rll) (Bin (1+rrs+size rlr) rk rx rlr rr)
-
-  (Bin ls _ _ _ _) -> case r of
-           Tip -> Bin (1+ls) k x l Tip
-
-           (Bin rs rk rx rl rr)
-              | rs > delta*ls  -> case (rl, rr) of
-                   (Bin rls rlk rlx rll rlr, Bin rrs _ _ _ _)
-                     | rls < ratio*rrs -> Bin (1+ls+rs) rk rx (Bin (1+ls+rls) k x l rl) rr
-                     | otherwise -> Bin (1+ls+rs) rlk rlx (Bin (1+ls+size rll) k x l rll) (Bin (1+rrs+size rlr) rk rx rlr rr)
-                   (_, _) -> error "Failure in Data.Map.balanceR"
-              | otherwise -> Bin (1+ls+rs) k x l r
-{-# NOINLINE balanceR #-}
-
-link :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
-link kx x Tip r  = insertMin kx x r
-link kx x l Tip  = insertMax kx x l
-link kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
-  | delta*sizeL < sizeR  = balanceL kz z (link kx x l lz) rz
-  | delta*sizeR < sizeL  = balanceR ky y ly (link kx x ry r)
-  | otherwise            = Bin (sizeL + sizeR + 1) kx x l r
-
-insertMax :: k tp -> a tp -> MapF k a -> MapF k a
-insertMax kx x t =
-  case t of
-    Tip -> singleton kx x
-    Bin _ ky y l r -> balanceR ky y l (insertMax kx x r)
-
-insertMin :: k tp -> a tp -> MapF k a -> MapF k a
-insertMin kx x t =
-  case t of
-    Tip -> singleton kx x
-    Bin _ ky y l r -> balanceL ky y (insertMin kx x l) r
-
--- See Note: Type of local 'go' function
-insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-insert = \k -> seq k (go k)
-  where
-    go :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-    go kx x Tip = singleton kx x
-    go kx x (Bin sz ky y l r) =
-        case compareF kx ky of
-            LTF -> balanceL ky y (go kx x l) r
-            GTF -> balanceR ky y l (go kx x r)
-            EQF -> Bin sz kx x l r
-#if __GLASGOW_HASKELL__ >= 700
-{-# INLINABLE insert #-}
-#else
-{-# INLINE insert #-}
+#if __GLASGOW_HASKELL__ >= 709
+{-# RULES
+"map/coerce" map coerce = coerce
+ #-}
 #endif
 
-foldrWithKey :: (forall s . k s -> a s -> b -> b) -> b -> MapF k a -> b
-foldrWithKey f z = go z
-  where
-    go z' Tip = z'
-    go z' (Bin _ kx x l r) = go (f kx x (go z' r)) l
-
-instance (ShowF ktp, ShowF rtp) => Show (MapF ktp rtp) where
-  show m = showMap showF showF m
-
-showMap :: (forall tp . ktp tp -> String)
-        -> (forall tp . rtp tp -> String)
-        -> MapF ktp rtp
-        -> String
-showMap ppk ppv m = "{ " ++ intercalate "," l ++ " }"
-  where l = foldrWithKey (\k a l0 -> (ppk k ++ " -> " ++ ppv a) : l0) [] m
+-- | Modify elements in a
+traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
+traverse _ Tip = pure Tip
+traverse f (Bin sx kx x l r) = Bin sx kx <$> f x <*> traverse f l <*> traverse f r
 
 -- | Lookup value in map.
 lookup :: OrdF k => k tp -> MapF k a -> Maybe (a tp)
@@ -197,8 +97,341 @@ lookup k0 = seq k0 (go k0)
         LTF -> go k l
         GTF -> go k r
         EQF -> Just x
-
 {-# INLINABLE lookup #-}
+
+instance FunctorF (MapF ktp) where
+  fmapF = map
+
+instance FoldableF (MapF ktp) where
+  foldrF f z = go z
+    where go z' Tip             = z'
+          go z' (Bin _ _ x l r) = go (f x (go z' r)) l
+
+instance TraversableF (MapF ktp) where
+  traverseF = traverse
+
+instance (ShowF ktp, ShowF rtp) => Show (MapF ktp rtp) where
+  show m = showMap showF showF m
+
+-- | Return elements in the tree sorted by key.
+elems :: MapF k a -> [Some a]
+elems = foldrF (\e l -> Some e : l) []
+
+-- | Perform a fold with the key also provided.
+foldrWithKey :: (forall s . k s -> a s -> b -> b) -> b -> MapF k a -> b
+foldrWithKey f z = go z
+  where
+    go z' Tip = z'
+    go z' (Bin _ kx x l r) = go (f kx x (go z' r)) l
+
+showMap :: (forall tp . ktp tp -> String)
+        -> (forall tp . rtp tp -> String)
+        -> MapF ktp rtp
+        -> String
+showMap ppk ppv m = "{ " ++ intercalate "," l ++ " }"
+  where l = foldrWithKey (\k a l0 -> (ppk k ++ " -> " ++ ppv a) : l0) [] m
+
+------------------------------------------------------------------------
+-- Balancing operations
+
+delta,ratio :: Int
+delta = 3
+ratio = 2
+
+-- balanceL is called when left subtree might have been inserted to or when
+-- right subtree might have been deleted from.
+balanceL :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
+balanceL k x l r =
+  case r of
+    Tip ->
+      case l of
+        Tip -> Bin 1 k x Tip Tip
+        (Bin _ _ _ Tip Tip) -> Bin 2 k x l Tip
+        (Bin _ lk lx Tip (Bin _ lrk lrx _ _)) -> Bin 3 lrk lrx (Bin 1 lk lx Tip Tip) (Bin 1 k x Tip Tip)
+        (Bin _ lk lx ll@(Bin _ _ _ _ _) Tip) -> Bin 3 lk lx ll (Bin 1 k x Tip Tip)
+        (Bin ls lk lx ll@(Bin lls _ _ _ _) lr@(Bin lrs lrk lrx lrl lrr))
+          | lrs < ratio*lls -> Bin (1+ls) lk lx ll (Bin (1+lrs) k x lr Tip)
+          | otherwise -> Bin (1+ls) lrk lrx (Bin (1+lls+size lrl) lk lx ll lrl) (Bin (1+size lrr) k x lrr Tip)
+
+    (Bin rs _ _ _ _) ->
+      case l of
+        Tip -> Bin (1+rs) k x Tip r
+
+        (Bin ls lk lx ll lr)
+          | ls > delta*rs ->
+            case (ll, lr) of
+              (Bin lls _ _ _ _, Bin lrs lrk lrx lrl lrr)
+                | lrs < ratio*lls -> Bin (1+ls+rs) lk lx ll (Bin (1+rs+lrs) k x lr r)
+                | otherwise -> Bin (1+ls+rs) lrk lrx (Bin (1+lls+size lrl) lk lx ll lrl) (Bin (1+rs+size lrr) k x lrr r)
+              (_, _) -> error "Failure in Data.Map.balanceL"
+          | otherwise -> Bin (1+ls+rs) k x l r
+{-# NOINLINE balanceL #-}
+
+-- balanceR is called when right subtree might have been inserted to or when
+-- left subtree might have been deleted from.
+balanceR :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
+balanceR k x l r =
+  case l of
+    Tip ->
+      case r of
+        Tip -> Bin 1 k x Tip Tip
+        (Bin _ _ _ Tip Tip) -> Bin 2 k x Tip r
+        (Bin _ rk rx Tip rr@(Bin _ _ _ _ _)) -> Bin 3 rk rx (Bin 1 k x Tip Tip) rr
+        (Bin _ rk rx (Bin _ rlk rlx _ _) Tip) ->
+          Bin 3 rlk rlx (Bin 1 k x Tip Tip) (Bin 1 rk rx Tip Tip)
+        (Bin rs rk rx rl@(Bin rls rlk rlx rll rlr) rr@(Bin rrs _ _ _ _))
+          | rls < ratio*rrs -> Bin (1+rs) rk rx (Bin (1+rls) k x Tip rl) rr
+          | otherwise ->
+              Bin (1+rs)
+                  rlk
+                  rlx
+                  (Bin (1+size rll) k x Tip rll)
+                  (Bin (1+rrs+size rlr) rk rx rlr rr)
+
+    (Bin ls _ _ _ _) ->
+      case r of
+        Tip -> Bin (1+ls) k x l Tip
+        (Bin rs rk rx rl rr)
+          | rs > delta*ls  ->
+            case (rl, rr) of
+              (Bin rls rlk rlx rll rlr, Bin rrs _ _ _ _)
+                | rls < ratio*rrs -> Bin (1+ls+rs) rk rx (Bin (1+ls+rls) k x l rl) rr
+                | otherwise -> Bin (1+ls+rs) rlk rlx (Bin (1+ls+size rll) k x l rll) (Bin (1+rrs+size rlr) rk rx rlr rr)
+              (_, _) -> error "Failure in Data.Map.balanceR"
+          | otherwise -> Bin (1+ls+rs) k x l r
+{-# NOINLINE balanceR #-}
+
+-- link is called to insert a key and value between two disjoint subtrees.
+link :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
+link kx x Tip r  = insertMin kx x r
+link kx x l Tip  = insertMax kx x l
+link kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
+  | delta*sizeL < sizeR  = balanceL kz z (link kx x l lz) rz
+  | delta*sizeR < sizeL  = balanceR ky y ly (link kx x ry r)
+  | otherwise            = Bin (sizeL + sizeR + 1) kx x l r
+
+------------------------------------------------------------------------
+-- MapCtx
+
+-- | This represents the context of a tree outside a part of the tree
+-- that may be modified.
+data MapCtx k a where
+  -- We did a computation that may modify the right subtree.
+  ModRight :: !Size -> !(k tp) -> !(a tp) -> !(MapF k a) -> MapCtx k a
+  -- We did a computation that may modify the left subtree.
+  ModLeft  :: !Size -> !(k tp) -> !(a tp) -> !(MapF k a) -> MapCtx k a
+
+-- | Update the tree after a value has been inserted into a subtree.
+afterInsert :: [MapCtx k a] -> MapF k a -> MapF k a
+afterInsert ctx m0 = foldl' go m0 ctx
+  where go r (ModRight _ k v l) = balanceR k v l r
+        go l (ModLeft  _ k v r) = balanceL k v l r
+
+afterModify :: [MapCtx k a] -> MapF k a -> MapF k a
+afterModify ctx m0 = foldl' go m0 ctx
+  where go r (ModRight sz k v l) = Bin sz k v l r
+        go l (ModLeft  sz k v r) = Bin sz k v l r
+
+afterDelete :: [MapCtx k a] -> MapF k a -> MapF k a
+afterDelete ctx m0 = foldl' go m0 ctx
+  where go r (ModRight _ k v l) = balanceL k v l r
+        go l (ModLeft  _ k v r) = balanceR k v l r
+
+------------------------------------------------------------------------
+-- Modify minimal/maximal elements.
+
+-- | Insert a new maximal element.
+insertMax :: k tp -> a tp -> MapF k a -> MapF k a
+insertMax kx x t =
+  case t of
+    Tip -> singleton kx x
+    Bin _ ky y l r -> balanceR ky y l (insertMax kx x r)
+
+insertMin :: k tp -> a tp -> MapF k a -> MapF k a
+insertMin kx x t =
+  case t of
+    Tip -> singleton kx x
+    Bin _ ky y l r -> balanceL ky y (insertMin kx x l) r
+
+data SomePair k a where
+  SomePair :: !(k tp) -> !(a tp) -> !(MapF k a) -> SomePair k a
+
+-- | /O(log n)/. Delete and find the minimal element.
+deleteFindMin :: MapF k a -> SomePair k a
+deleteFindMin = go id
+  where go f (Bin _ k x Tip r) = SomePair k x (f r)
+        go f (Bin _ k x l   r) = go (\l' -> f (balanceR k x l' r)) l
+        go _ Tip = error "Map.deleteFindMin: can not return the minimal element of an empty map"
+
+-- | /O(log n)/. Delete and find the maximal element.
+deleteFindMax :: MapF k a -> SomePair k a
+deleteFindMax = go id
+  where go f (Bin _ k x l Tip) = SomePair k x (f l)
+        go f (Bin _ k x l r)   = go (\r' -> f (balanceL k x l r')) r
+        go _ Tip = error "Map.deleteFindMax: can not return the maximal element of an empty map"
+
+------------------------------------------------------------------------
+-- filter
+
+-- | @filterGt k m@ returns submap of @m@ that only contains entries
+-- that are larger than @k@.
+filterGt :: OrdF k => k tp -> MapF k v -> MapF k v
+filterGt _   Tip = Tip
+filterGt k (Bin _ kx x l r) =
+  case compareF k kx of
+    LTF -> link kx x (filterGt k l) r
+    EQF -> r
+    GTF -> filterGt k r
+
+-- | @filterLt k m@ returns submap of @m@ that only contains entries
+-- that are smaller than @k@.
+filterLt :: OrdF k => k tp -> MapF k v -> MapF k v
+filterLt _   Tip = Tip
+filterLt k (Bin _ kx x l r) =
+  case compareF kx k of
+    LTF -> link kx x l (filterLt k r)
+    EQF -> l
+    GTF -> filterLt k l
+{-# INLINABLE filterLt #-}
+
+------------------------------------------------------------------------
+-- User operations
+
+-- See Note: Type of local 'go' function
+insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
+insert = \k -> seq k (go k)
+  where
+    go :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
+    go kx x Tip = singleton kx x
+    go kx x (Bin sz ky y l r) =
+        case compareF kx ky of
+            LTF -> balanceL ky y (go kx x l) r
+            GTF -> balanceR ky y l (go kx x r)
+            EQF -> Bin sz kx x l r
+{-# INLINABLE insert #-}
+
+-- glue l r glues two trees together.
+-- Assumes that [l] and [r] are already balanced with respect to each other.
+glue :: MapF k a -> MapF k a -> MapF k a
+glue Tip r = r
+glue l Tip = l
+glue l r
+  | size l > size r =
+    case deleteFindMax l of
+      SomePair km m l' -> balanceR km m l' r
+  | otherwise =
+    case deleteFindMin r of
+      SomePair km m r' -> balanceL km m l r'
+
+-- | Delete a value from the map if present.
+delete :: OrdF k => k tp -> MapF k a -> MapF k a
+delete = \k m -> seq k (go k m)
+  where
+    go :: OrdF k => k tp -> MapF k a -> MapF k a
+    go _ Tip = Tip
+    go k (Bin _ kx x l r) =
+      case compareF k kx of
+        LTF -> balanceR kx x (go k l) r
+        GTF -> balanceL kx x l (go k r)
+        EQF -> glue l r
+{-# INLINABLE delete #-}
+
+------------------------------------------------------------------------
+-- updateAtKey
+
+data UpdateRequest v where
+  Keep :: UpdateRequest v
+  Set :: !v -> UpdateRequest v
+  Delete :: UpdateRequest v
+
+data Updated a where
+  Updated   :: !a -> Updated a
+  Unchanged :: !a -> Updated a
+
+updatedValue :: Updated a -> a
+updatedValue (Updated a) = a
+updatedValue (Unchanged a) = a
+
+atKey' :: (OrdF k, Functor f)
+       => MapF k a -- ^ Original map (returned if value is not changed).
+       -> k tp
+       -> f (Maybe (a tp)) -- ^ Function to call if no element is found.
+       -> (a tp -> f (UpdateRequest (a tp)))
+       -> [MapCtx k a]
+       -> MapF k a
+       -> f (Updated (MapF k a))
+atKey' orig k onNotFound onFound ctx t =
+  case t of
+    Tip -> ins <$> onNotFound
+      where ins Nothing  = Unchanged orig
+            ins (Just v) = Updated (afterInsert ctx (singleton k v))
+    Bin sz kx y l r ->
+      case compareF k kx of
+        LTF -> atKey' orig k onNotFound onFound ctx' l
+          where ctx' = ModLeft sz kx y r : ctx
+        GTF -> atKey' orig k onNotFound onFound ctx' r
+          where ctx' = ModRight sz kx y l : ctx
+        EQF -> ins <$> onFound y
+          where ins Keep = Unchanged orig
+                ins (Set x) = Updated (afterModify ctx (Bin sz kx x l r))
+                ins Delete  = Updated (afterDelete ctx (glue l r))
+
+-- | Log-time algorithm that allows a value at a specific key to be added, replaced,
+-- or deleted.
+updateAtKey :: (OrdF k, Functor f)
+            => k tp -- ^ Key to update
+            -> f (Maybe (a tp))
+               -- ^ Action to call if nothing is found
+            -> (a tp -> f (UpdateRequest (a tp)))
+               -- ^ Action to call if value is found.
+            -> MapF k a
+               -- ^ Map to update
+            -> f (Updated (MapF k a))
+updateAtKey k onNotFound onFound t = atKey' t k onNotFound onFound [] t
+
+------------------------------------------------------------------------
+-- Maybe filters (used for union)
+
+data KeyBound (a :: k -> *) where
+  Unbounded :: KeyBound a
+  KeyBound :: !(a tp) -> KeyBound a
+
+maybeFilterGt :: OrdF k => KeyBound k -> MapF k v -> MapF k v
+maybeFilterGt Unbounded t = t
+maybeFilterGt (KeyBound b) t = filterGt b t
+{-# INLINABLE maybeFilterGt #-}
+
+-- |
+maybeFilterLt :: OrdF k => KeyBound k -> MapF k v -> MapF k v
+maybeFilterLt Unbounded t = t
+maybeFilterLt (KeyBound b) t = filterLt b t
+{-# INLINABLE maybeFilterLt #-}
+
+
+-- | @trim lo hi m@ returns a subtree of @m@ that has removed all
+-- subtrees that are definitely out of the bounds (@lo@ to @hi@).
+trim :: OrdF k => KeyBound k -> KeyBound k -> MapF k a -> MapF k a
+trim Unbounded   Unbounded   t = t
+
+trim (KeyBound lk) Unbounded   t = greater lk t
+  where greater :: OrdF k => k tp -> MapF k a -> MapF k a
+        greater lo (Bin _ k _ _ r) | k `leqF` lo = greater lo r
+        greater _  t' = t'
+
+trim Unbounded   (KeyBound hk) t = lesser hk t
+  where lesser :: OrdF k => k tp -> MapF k a -> MapF k a
+        lesser  hi (Bin _ k _ l _) | k `geqF` hi = lesser  hi l
+        lesser  _  t' = t'
+
+trim (KeyBound lk) (KeyBound hk) t = middle lk hk t
+  where middle :: OrdF k => k tp -> k v -> MapF k a -> MapF k a
+        middle lo hi (Bin _ k _ _ r) | k `leqF` lo = middle lo hi r
+        middle lo hi (Bin _ k _ l _) | k `geqF` hi = middle lo hi l
+        middle _  _  t' = t'
+{-# INLINABLE trim #-}
+
+------------------------------------------------------------------------
+-- Union
 
 -- Insert a new key and value in the map if it is not already present.
 -- Used by `union`.
@@ -213,70 +446,21 @@ insertR  = \k v m -> seq k (go k v m)
           GTF -> balanceR ky y l (go kx x r)
           EQF -> t
 
-{--------------------------------------------------------------------
-  [filterGt b t] filter all keys >[b] from tree [t]
-  [filterLt b t] filter all keys <[b] from tree [t]
---------------------------------------------------------------------}
-filterGt :: OrdF k => MaybeS k -> MapF k v -> MapF k v
-filterGt NothingS t = t
-filterGt (JustS b) t = filter' b t
-  where filter' _   Tip = Tip
-        filter' b' (Bin _ kx x l r) =
-          case compareF b' kx of
-            LTF -> link kx x (filter' b' l) r
-            EQF -> r
-            GTF -> filter' b' r
-{-# INLINABLE filterGt #-}
+-- left-biased hedge union
+hedgeUnion :: OrdF a => KeyBound a -> KeyBound a -> MapF a b -> MapF a b -> MapF a b
+hedgeUnion _   _   t1  Tip = t1
+hedgeUnion blo bhi Tip (Bin _ kx x l r) =
+  link kx x (maybeFilterGt blo l) (maybeFilterLt bhi r)
 
-filterLt :: OrdF k => MaybeS k -> MapF k v -> MapF k v
-filterLt NothingS t = t
-filterLt (JustS b) t = filter' b t
-  where filter' _   Tip = Tip
-        filter' b' (Bin _ kx x l r) =
-          case compareF kx b' of
-            LTF -> link kx x l (filter' b' r)
-            EQF -> l
-            GTF -> filter' b' l
-{-# INLINABLE filterLt #-}
+-- According to benchmarks, this special case increases                                           -- performance up to 30%. It does not help in difference or intersection.
+hedgeUnion _   _   t1  (Bin _ kx x Tip Tip) = insertR kx x t1
 
-
-data MaybeS (a :: k -> *) where
-  NothingS :: MaybeS a
-  JustS :: !(a tp) -> MaybeS a
-
-trim :: OrdF k => MaybeS k -> MaybeS k -> MapF k a -> MapF k a
-trim NothingS   NothingS   t = t
-trim (JustS lk) NothingS   t = greater lk t
-  where greater :: OrdF k => k tp -> MapF k a -> MapF k a
-        greater lo (Bin _ k _ _ r) | k `leqF` lo = greater lo r
-        greater _  t' = t'
-trim NothingS   (JustS hk) t = lesser hk t
-  where lesser :: OrdF k => k u -> MapF k a -> MapF k a
-        lesser  hi (Bin _ k _ l _) | k `geqF` hi = lesser  hi l
-        lesser  _  t' = t'
-trim (JustS lk) (JustS hk) t = middle lk hk t
-  where middle :: OrdF k => k u -> k v -> MapF k a -> MapF k a
-        middle lo hi (Bin _ k _ _ r) | k `leqF` lo = middle lo hi r
-        middle lo hi (Bin _ k _ l _) | k `geqF` hi = middle lo hi l
-        middle _  _  t' = t'
-{-# INLINABLE trim #-}
+hedgeUnion blo bhi (Bin _ kx x l r) t2 = link kx x (hedgeUnion blo bmi l (trim blo bmi t2))
+                                                   (hedgeUnion bmi bhi r (trim bmi bhi t2))
+  where bmi = KeyBound kx
+{-# INLINABLE hedgeUnion #-}
 
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a
 union Tip t2  = t2
 union t1 Tip  = t1
-union t1 t2 = hedgeUnion NothingS NothingS t1 t2
-
--- left-biased hedge union
-hedgeUnion :: OrdF a => MaybeS a -> MaybeS a -> MapF a b -> MapF a b -> MapF a b
-hedgeUnion _   _   t1  Tip = t1
-hedgeUnion blo bhi Tip (Bin _ kx x l r) = link kx x (filterGt blo l) (filterLt bhi r)
-hedgeUnion _   _   t1  (Bin _ kx x Tip Tip) = insertR kx x t1  -- According to benchmarks, this special case increases
-                                                              -- performance up to 30%. It does not help in difference or intersection.
-hedgeUnion blo bhi (Bin _ kx x l r) t2 = link kx x (hedgeUnion blo bmi l (trim blo bmi t2))
-                                                   (hedgeUnion bmi bhi r (trim bmi bhi t2))
-  where bmi = JustS kx
-{-# INLINABLE hedgeUnion #-}
-
-
-elems :: MapF k a -> [Some a]
-elems = foldrF (\e l -> Some e : l) []
+union t1 t2 = hedgeUnion Unbounded Unbounded t1 t2
