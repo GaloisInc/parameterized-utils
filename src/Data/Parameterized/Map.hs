@@ -302,15 +302,15 @@ filterLt k (Bin _ kx x l r) =
 
 -- See Note: Type of local 'go' function
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-insert = \k -> seq k (go k)
+insert = \k v m -> seq k (go k v m)
   where
     go :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
     go kx x Tip = singleton kx x
     go kx x (Bin sz ky y l r) =
-        case compareF kx ky of
-            LTF -> balanceL ky y (go kx x l) r
-            GTF -> balanceR ky y l (go kx x r)
-            EQF -> Bin sz kx x l r
+      case compareF kx ky of
+        LTF -> balanceL ky y (go kx x l) r
+        GTF -> balanceR ky y l (go kx x r)
+        EQF -> Bin sz kx x l r
 {-# INLINABLE insert #-}
 
 -- glue l r glues two trees together.
@@ -328,15 +328,15 @@ glue l r
 
 -- | Delete a value from the map if present.
 delete :: OrdF k => k tp -> MapF k a -> MapF k a
-delete = \k m -> seq k (go k m)
+delete = \k m -> seq k (go m k m id)
   where
-    go :: OrdF k => k tp -> MapF k a -> MapF k a
-    go _ Tip = Tip
-    go k (Bin _ kx x l r) =
+    go :: OrdF k => r -> k tp -> MapF k a -> (MapF k a -> r) -> r
+    go orig _ Tip _ = orig
+    go orig k (Bin _ kx x l r) f =
       case compareF k kx of
-        LTF -> balanceR kx x (go k l) r
-        GTF -> balanceL kx x l (go k r)
-        EQF -> glue l r
+        LTF -> go orig k l (\l' -> f (balanceR kx x l' r))
+        GTF -> go orig k r (\r' -> f (balanceL kx x l r'))
+        EQF -> f (glue l r)
 {-# INLINABLE delete #-}
 
 ------------------------------------------------------------------------
