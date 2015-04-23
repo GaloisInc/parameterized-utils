@@ -59,6 +59,7 @@ module Data.Parameterized.NatRepr
     -- * LeqProof
   , LeqProof(..)
   , testLeq
+  , testStrictLeq
   , leqRefl
   , leqTrans
   , leqAdd2
@@ -266,10 +267,18 @@ plusMinusCancel _ _ = unsafeCoerce (Refl :: 0 :~: 0)
 data LeqProof m n where
   LeqProof :: (m <= n) => LeqProof m n
 
+testStrictLeq :: (m <= n)
+            => NatRepr m
+            -> NatRepr n
+            -> Either (LeqProof (m+1) n) (m :~: n)
+testStrictLeq (NatRepr m) (NatRepr n)
+  | m < n = Left (unsafeCoerce (LeqProof :: LeqProof 0 0))
+  | otherwise = Right (unsafeCoerce (Refl :: 0 :~: 0))
+
 -- | @x `testLeq` y@ checks whether @x@ is less than or equal to @y@.
-testLeq :: NatRepr n -> NatRepr m -> Maybe (LeqProof n m)
-testLeq (NatRepr n) (NatRepr m)
-   | n <= m    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
+testLeq :: NatRepr m -> NatRepr n -> Maybe (LeqProof m n)
+testLeq (NatRepr m) (NatRepr n)
+   | m <= n    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
    | otherwise = Nothing
 
 -- | Apply reflexivity to LeqProof

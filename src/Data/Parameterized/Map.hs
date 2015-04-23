@@ -21,6 +21,7 @@ module Data.Parameterized.Map
   ( MapF
   , empty
   , insert
+  , union
   , lookup
   , map
   , elems
@@ -132,6 +133,25 @@ balanceR k x l r = case l of
               | otherwise -> Bin (1+ls+rs) k x l r
 {-# NOINLINE balanceR #-}
 
+link :: k tp -> a tp -> MapF k a -> MapF k a -> MapF k a
+link kx x Tip r  = insertMin kx x r
+link kx x l Tip  = insertMax kx x l
+link kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
+  | delta*sizeL < sizeR  = balanceL kz z (link kx x l lz) rz
+  | delta*sizeR < sizeL  = balanceR ky y ly (link kx x ry r)
+  | otherwise            = Bin (sizeL + sizeR + 1) kx x l r
+
+insertMax :: k tp -> a tp -> MapF k a -> MapF k a
+insertMax kx x t =
+  case t of
+    Tip -> singleton kx x
+    Bin _ ky y l r -> balanceR ky y l (insertMax kx x r)
+
+insertMin :: k tp -> a tp -> MapF k a -> MapF k a
+insertMin kx x t =
+  case t of
+    Tip -> singleton kx x
+    Bin _ ky y l r -> balanceL ky y (insertMin kx x l) r
 
 -- See Note: Type of local 'go' function
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
@@ -178,11 +198,85 @@ lookup k0 = seq k0 (go k0)
         GTF -> go k r
         EQF -> Just x
 
-#if __GLASGOW_HASKELL__ >= 700
 {-# INLINABLE lookup #-}
-#else
-{-# INLINE lookup #-}
-#endif
+
+-- Insert a new key and value in the map if it is not already present.
+-- Used by `union`.
+insertR :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
+insertR  = \k v m -> seq k (go k v m)
+  where
+    go :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
+    go kx x Tip = singleton kx x
+    go kx x t@(Bin _ ky y l r) =
+        case compareF kx ky of
+          LTF -> balanceL ky y (go kx x l) r
+          GTF -> balanceR ky y l (go kx x r)
+          EQF -> t
+
+{--------------------------------------------------------------------
+  [filterGt b t] filter all keys >[b] from tree [t]
+  [filterLt b t] filter all keys <[b] from tree [t]
+--------------------------------------------------------------------}
+filterGt :: OrdF k => MaybeS k -> MapF k v -> MapF k v
+filterGt NothingS t = t
+filterGt (JustS b) t = filter' b t
+  where filter' _   Tip = Tip
+        filter' b' (Bin _ kx x l r) =
+          case compareF b' kx of
+            LTF -> link kx x (filter' b' l) r
+            EQF -> r
+            GTF -> filter' b' r
+{-# INLINABLE filterGt #-}
+
+filterLt :: OrdF k => MaybeS k -> MapF k v -> MapF k v
+filterLt NothingS t = t
+filterLt (JustS b) t = filter' b t
+  where filter' _   Tip = Tip
+        filter' b' (Bin _ kx x l r) =
+          case compareF kx b' of
+            LTF -> link kx x l (filter' b' r)
+            EQF -> l
+            GTF -> filter' b' l
+{-# INLINABLE filterLt #-}
+
+
+data MaybeS (a :: k -> *) where
+  NothingS :: MaybeS a
+  JustS :: !(a tp) -> MaybeS a
+
+trim :: OrdF k => MaybeS k -> MaybeS k -> MapF k a -> MapF k a
+trim NothingS   NothingS   t = t
+trim (JustS lk) NothingS   t = greater lk t
+  where greater :: OrdF k => k tp -> MapF k a -> MapF k a
+        greater lo (Bin _ k _ _ r) | k `leqF` lo = greater lo r
+        greater _  t' = t'
+trim NothingS   (JustS hk) t = lesser hk t
+  where lesser :: OrdF k => k u -> MapF k a -> MapF k a
+        lesser  hi (Bin _ k _ l _) | k `geqF` hi = lesser  hi l
+        lesser  _  t' = t'
+trim (JustS lk) (JustS hk) t = middle lk hk t
+  where middle :: OrdF k => k u -> k v -> MapF k a -> MapF k a
+        middle lo hi (Bin _ k _ _ r) | k `leqF` lo = middle lo hi r
+        middle lo hi (Bin _ k _ l _) | k `geqF` hi = middle lo hi l
+        middle _  _  t' = t'
+{-# INLINABLE trim #-}
+
+union :: OrdF k => MapF k a -> MapF k a -> MapF k a
+union Tip t2  = t2
+union t1 Tip  = t1
+union t1 t2 = hedgeUnion NothingS NothingS t1 t2
+
+-- left-biased hedge union
+hedgeUnion :: OrdF a => MaybeS a -> MaybeS a -> MapF a b -> MapF a b -> MapF a b
+hedgeUnion _   _   t1  Tip = t1
+hedgeUnion blo bhi Tip (Bin _ kx x l r) = link kx x (filterGt blo l) (filterLt bhi r)
+hedgeUnion _   _   t1  (Bin _ kx x Tip Tip) = insertR kx x t1  -- According to benchmarks, this special case increases
+                                                              -- performance up to 30%. It does not help in difference or intersection.
+hedgeUnion blo bhi (Bin _ kx x l r) t2 = link kx x (hedgeUnion blo bmi l (trim blo bmi t2))
+                                                   (hedgeUnion bmi bhi r (trim bmi bhi t2))
+  where bmi = JustS kx
+{-# INLINABLE hedgeUnion #-}
+
 
 elems :: MapF k a -> [Some a]
 elems = foldrF (\e l -> Some e : l) []

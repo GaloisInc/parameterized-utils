@@ -88,6 +88,20 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
   -- parameters are equal.
   compareF :: ktp x -> ktp y -> OrderingF x y
 
+  leqF :: ktp x -> ktp y -> Bool
+  leqF x y =
+    case compareF x y of
+      LTF -> True
+      EQF -> True
+      GTF -> False
+
+  geqF :: ktp x -> ktp y -> Bool
+  geqF x y =
+    case compareF x y of
+      LTF -> False
+      EQF -> True
+      GTF -> True
+
 -- | A parameterized type that can be shown on all instances.
 class ShowF f where
   showF :: f tp -> String
