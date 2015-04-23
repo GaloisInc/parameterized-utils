@@ -227,11 +227,13 @@ afterInsert ctx m0 = foldl' go m0 ctx
   where go r (ModRight _ k v l) = balanceR k v l r
         go l (ModLeft  _ k v r) = balanceL k v l r
 
+-- | Update the tree after a value has been modified.
 afterModify :: [MapCtx k a] -> MapF k a -> MapF k a
 afterModify ctx m0 = foldl' go m0 ctx
   where go r (ModRight sz k v l) = Bin sz k v l r
         go l (ModLeft  sz k v r) = Bin sz k v l r
 
+-- | Update the tree after a value has been deleted.
 afterDelete :: [MapCtx k a] -> MapF k a -> MapF k a
 afterDelete ctx m0 = foldl' go m0 ctx
   where go r (ModRight _ k v l) = balanceL k v l r
@@ -247,6 +249,7 @@ insertMax kx x t =
     Tip -> singleton kx x
     Bin _ ky y l r -> balanceR ky y l (insertMax kx x r)
 
+-- | Insert a new minimal element.
 insertMin :: k tp -> a tp -> MapF k a -> MapF k a
 insertMin kx x t =
   case t of
@@ -339,11 +342,17 @@ delete = \k m -> seq k (go k m)
 ------------------------------------------------------------------------
 -- updateAtKey
 
+-- | Update request tells when to do with value
 data UpdateRequest v where
+  -- | Keep the current value.
   Keep :: UpdateRequest v
+  -- | Set the value to a new value.
   Set :: !v -> UpdateRequest v
+  -- | Delete a value.
   Delete :: UpdateRequest v
 
+-- | Updated a contains a value that has been flagged on whether it was
+-- modified by an operation.
 data Updated a where
   Updated   :: !a -> Updated a
   Unchanged :: !a -> Updated a
@@ -390,77 +399,78 @@ updateAtKey :: (OrdF k, Functor f)
 updateAtKey k onNotFound onFound t = atKey' t k onNotFound onFound [] t
 
 ------------------------------------------------------------------------
--- Maybe filters (used for union)
-
-data KeyBound (a :: k -> *) where
-  Unbounded :: KeyBound a
-  KeyBound :: !(a tp) -> KeyBound a
-
-maybeFilterGt :: OrdF k => KeyBound k -> MapF k v -> MapF k v
-maybeFilterGt Unbounded t = t
-maybeFilterGt (KeyBound b) t = filterGt b t
-{-# INLINABLE maybeFilterGt #-}
-
--- |
-maybeFilterLt :: OrdF k => KeyBound k -> MapF k v -> MapF k v
-maybeFilterLt Unbounded t = t
-maybeFilterLt (KeyBound b) t = filterLt b t
-{-# INLINABLE maybeFilterLt #-}
-
-
--- | @trim lo hi m@ returns a subtree of @m@ that has removed all
--- subtrees that are definitely out of the bounds (@lo@ to @hi@).
-trim :: OrdF k => KeyBound k -> KeyBound k -> MapF k a -> MapF k a
-trim Unbounded   Unbounded   t = t
-
-trim (KeyBound lk) Unbounded   t = greater lk t
-  where greater :: OrdF k => k tp -> MapF k a -> MapF k a
-        greater lo (Bin _ k _ _ r) | k `leqF` lo = greater lo r
-        greater _  t' = t'
-
-trim Unbounded   (KeyBound hk) t = lesser hk t
-  where lesser :: OrdF k => k tp -> MapF k a -> MapF k a
-        lesser  hi (Bin _ k _ l _) | k `geqF` hi = lesser  hi l
-        lesser  _  t' = t'
-
-trim (KeyBound lk) (KeyBound hk) t = middle lk hk t
-  where middle :: OrdF k => k tp -> k v -> MapF k a -> MapF k a
-        middle lo hi (Bin _ k _ _ r) | k `leqF` lo = middle lo hi r
-        middle lo hi (Bin _ k _ l _) | k `geqF` hi = middle lo hi l
-        middle _  _  t' = t'
-{-# INLINABLE trim #-}
-
-------------------------------------------------------------------------
 -- Union
 
 -- Insert a new key and value in the map if it is not already present.
 -- Used by `union`.
 insertR :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-insertR  = \k v m -> seq k (go k v m)
+insertR  = \k v m -> seq k (go m k v m id)
   where
-    go :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-    go kx x Tip = singleton kx x
-    go kx x t@(Bin _ ky y l r) =
+    go :: OrdF k => r -> k tp -> a tp -> MapF k a -> (MapF k a -> r) -> r
+    go _ kx x Tip f = f (singleton kx x)
+    go orig kx x (Bin _ ky y l r) f =
         case compareF kx ky of
-          LTF -> balanceL ky y (go kx x l) r
-          GTF -> balanceR ky y l (go kx x r)
-          EQF -> t
+          LTF -> go orig kx x l (\l' -> f (balanceL ky y l' r))
+          GTF -> go orig kx x r (\r' -> f (balanceR ky y l r'))
+          EQF -> orig
 
--- left-biased hedge union
-hedgeUnion :: OrdF a => KeyBound a -> KeyBound a -> MapF a b -> MapF a b -> MapF a b
-hedgeUnion _   _   t1  Tip = t1
-hedgeUnion blo bhi Tip (Bin _ kx x l r) =
-  link kx x (maybeFilterGt blo l) (maybeFilterLt bhi r)
-
--- According to benchmarks, this special case increases                                           -- performance up to 30%. It does not help in difference or intersection.
-hedgeUnion _   _   t1  (Bin _ kx x Tip Tip) = insertR kx x t1
-
-hedgeUnion blo bhi (Bin _ kx x l r) t2 = link kx x (hedgeUnion blo bmi l (trim blo bmi t2))
-                                                   (hedgeUnion bmi bhi r (trim bmi bhi t2))
-  where bmi = KeyBound kx
-{-# INLINABLE hedgeUnion #-}
-
+-- | Union two sets
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a
 union Tip t2  = t2
 union t1 Tip  = t1
-union t1 t2 = hedgeUnion Unbounded Unbounded t1 t2
+union t1  (Bin _ kx x Tip Tip) = insertR kx x t1
+union (Bin _ kx x l r) t2 = link kx x (hedgeUnion_UB    kx l t2)
+                                      (hedgeUnion_LB kx    r t2)
+{-# INLINABLE union #-}
+
+-- | Hedge union where we only add elements in second map if key is
+-- strictly above a lower bound.
+hedgeUnion_LB :: OrdF k => k tp -> MapF k b -> MapF k b -> MapF k b
+hedgeUnion_LB lo t1 t2 =
+  case (t1, t2) of
+    (_, Tip) -> t1
+    (Tip, _) -> filterGt lo t2
+    -- Prune left tree.
+    (_, Bin _ k _ _ r) | k `leqF` lo -> hedgeUnion_LB lo t1 r
+    -- Special case when t2 is a single element.
+    (_,   Bin _ kx x Tip Tip) -> insertR kx x t1
+    -- Split on left-and-right subtrees of t1.
+    (Bin _ kx x l r, _) -> link kx x (hedgeUnion_LB_UB lo kx l t2)
+                                     (hedgeUnion_LB    kx    r t2)
+{-# INLINABLE hedgeUnion_LB #-}
+
+-- | Hedge union where we only add elements in second map if key is
+-- strictly below a upper bound.
+hedgeUnion_UB :: OrdF k => k tp -> MapF k b -> MapF k b -> MapF k b
+hedgeUnion_UB hi t1 t2 =
+  case (t1, t2) of
+    (_, Tip) -> t1
+    (Tip, _) -> filterLt hi t2
+    -- Prune right tree.
+    (_, Bin _ kx _ l _) | kx `geqF` hi -> hedgeUnion_UB hi t1 l
+    -- Special case when t2 is a single element.
+    (_, Bin _ kx x Tip Tip)  -> insertR kx x t1
+    -- Split on left-and-right subtrees of t1.
+    (Bin _ kx x l r, _) -> link kx x (hedgeUnion_UB       kx l t2)
+                                     (hedgeUnion_LB_UB kx hi r t2)
+{-# INLINABLE hedgeUnion_UB #-}
+
+-- | Hedge union where we only add elements in second map if key is
+-- strictly between a lower and upper bound.
+hedgeUnion_LB_UB :: OrdF k => k u -> k v -> MapF k b -> MapF k b -> MapF k b
+hedgeUnion_LB_UB lo hi t1 t2 =
+  case (t1, t2) of
+    (_, Tip) -> t1
+    -- Prune left tree.
+    (_,   Bin _ k _ _ r) | k `leqF` lo -> hedgeUnion_LB_UB lo hi t1 r
+    -- Prune right tree.
+    (_,   Bin _ k _ l _) | k `geqF` hi -> hedgeUnion_LB_UB lo hi t1 l
+    -- When t1 becomes empty (assumes lo <= k <= hi)
+    (Tip, Bin _ kx x l r) -> link kx x (filterGt lo l) (filterLt hi r)
+    -- Special when t2 is a single element.
+    (_,   Bin _ kx x Tip Tip) -> insertR kx x t1
+    -- Split on left-and-right subtrees of t1.
+    (Bin _ kx x l r, _) ->
+      link kx x (hedgeUnion_LB_UB lo kx l t2)
+                (hedgeUnion_LB_UB kx hi r t2)
+{-# INLINABLE hedgeUnion_LB_UB #-}
