@@ -24,7 +24,6 @@ module Data.Parameterized.Map
   , insert
   , delete
   , union
-
   , map
   , elems
   , filterGt
@@ -72,12 +71,29 @@ size (Bin sz _ _ _ _) = sz
 ------------------------------------------------------------------------
 -- Traversals
 
--- | Modify elements in a
+#ifdef __GLASGOW_HASKELL__
+{-# NOINLINE [1] map #-}
+{-# NOINLINE [1] traverse #-}
+{-# RULES
+"map/map" forall (f :: (forall tp . f tp -> g tp)) (g :: (forall tp . g tp -> h tp)) xs
+               . map g (map f xs) = map (g . f) xs
+"map/traverse" forall (f :: (forall tp . f tp -> m (g tp))) (g :: (forall tp . g tp -> h tp)) xs
+               . fmap (map g) (traverse f xs) = traverse (\v -> g <$> f v) xs
+"traverse/map"
+  forall (f :: (forall tp . f tp -> g tp)) (g :: (forall tp . g tp -> m (h tp))) xs
+       . traverse g (map f xs) = traverse (\v -> g (f v)) xs
+"traverse/traverse"
+  forall (f :: (forall tp . f tp -> m (g tp))) (g :: (forall tp . g tp -> m (h tp))) xs
+       . traverse f xs >>= traverse g = traverse (\v -> f v >>= g) xs
+ #-}
+#endif
+
+-- | Modify elements in a map
 map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
 map _ Tip = Tip
 map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
 
--- | Modify elements in a
+-- | Traverse elements in a map
 traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
 traverse _ Tip = pure Tip
 traverse f (Bin sx kx x l r) = Bin sx kx <$> f x <*> traverse f l <*> traverse f r
