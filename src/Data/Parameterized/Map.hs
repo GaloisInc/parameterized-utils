@@ -19,7 +19,7 @@
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Map
   ( MapF
-  , empty
+  , Data.Parameterized.Map.empty
   , lookup
   , insert
   , delete
@@ -27,6 +27,8 @@ module Data.Parameterized.Map
 
   , map
   , elems
+  , filterGt
+  , filterLt
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
@@ -35,10 +37,10 @@ module Data.Parameterized.Map
   , module Data.Parameterized.Classes
   ) where
 
-import Control.Applicative (Applicative(..), (<$>))
-import Data.List (foldl', intercalate)
+import Control.Applicative
+import Data.List (intercalate)
 import Data.Maybe
-import Prelude hiding (lookup, map)
+import Prelude hiding (lookup, map, traverse)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
@@ -74,12 +76,6 @@ size (Bin sz _ _ _ _) = sz
 map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
 map _ Tip = Tip
 map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
-
-#if __GLASGOW_HASKELL__ >= 709
-{-# RULES
-"map/coerce" map coerce = coerce
- #-}
-#endif
 
 -- | Modify elements in a
 traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
@@ -128,7 +124,7 @@ showMap :: (forall tp . ktp tp -> String)
         -> (forall tp . rtp tp -> String)
         -> MapF ktp rtp
         -> String
-showMap ppk ppv m = "{ " ++ intercalate "," l ++ " }"
+showMap ppk ppv m = "{ " ++ intercalate ", " l ++ " }"
   where l = foldrWithKey (\k a l0 -> (ppk k ++ " -> " ++ ppv a) : l0) [] m
 
 ------------------------------------------------------------------------
@@ -211,35 +207,6 @@ link kx x l@(Bin sizeL ky y ly ry) r@(Bin sizeR kz z lz rz)
   | otherwise            = Bin (sizeL + sizeR + 1) kx x l r
 
 ------------------------------------------------------------------------
--- MapCtx
-
--- | This represents the context of a tree outside a part of the tree
--- that may be modified.
-data MapCtx k a where
-  -- We did a computation that may modify the right subtree.
-  ModRight :: !Size -> !(k tp) -> !(a tp) -> !(MapF k a) -> MapCtx k a
-  -- We did a computation that may modify the left subtree.
-  ModLeft  :: !Size -> !(k tp) -> !(a tp) -> !(MapF k a) -> MapCtx k a
-
--- | Update the tree after a value has been inserted into a subtree.
-afterInsert :: [MapCtx k a] -> MapF k a -> MapF k a
-afterInsert ctx m0 = foldl' go m0 ctx
-  where go r (ModRight _ k v l) = balanceR k v l r
-        go l (ModLeft  _ k v r) = balanceL k v l r
-
--- | Update the tree after a value has been modified.
-afterModify :: [MapCtx k a] -> MapF k a -> MapF k a
-afterModify ctx m0 = foldl' go m0 ctx
-  where go r (ModRight sz k v l) = Bin sz k v l r
-        go l (ModLeft  sz k v r) = Bin sz k v l r
-
--- | Update the tree after a value has been deleted.
-afterDelete :: [MapCtx k a] -> MapF k a -> MapF k a
-afterDelete ctx m0 = foldl' go m0 ctx
-  where go r (ModRight _ k v l) = balanceL k v l r
-        go l (ModLeft  _ k v r) = balanceR k v l r
-
-------------------------------------------------------------------------
 -- Modify minimal/maximal elements.
 
 -- | Insert a new maximal element.
@@ -274,44 +241,99 @@ deleteFindMax = go id
         go _ Tip = error "Map.deleteFindMax: can not return the maximal element of an empty map"
 
 ------------------------------------------------------------------------
+-- MaybeS
+
+data MaybeS v where
+  JustS :: !v -> MaybeS v
+  NothingS :: MaybeS v
+
+instance Functor MaybeS where
+  fmap _ NothingS = NothingS
+  fmap f (JustS v) = JustS (f v)
+
+instance Alternative MaybeS where
+  empty = NothingS
+  mv@JustS{} <|> _ = mv
+  NothingS <|> v = v
+
+instance Applicative MaybeS where
+  pure = JustS
+
+  NothingS <*> _ = NothingS
+  JustS{} <*> NothingS = NothingS
+  JustS f <*> JustS x = JustS (f x)
+
+fromMaybeS :: a -> MaybeS a -> a
+fromMaybeS r NothingS = r
+fromMaybeS _ (JustS v) = v
+
+------------------------------------------------------------------------
 -- filter
 
 -- | @filterGt k m@ returns submap of @m@ that only contains entries
 -- that are larger than @k@.
 filterGt :: OrdF k => k tp -> MapF k v -> MapF k v
-filterGt _   Tip = Tip
-filterGt k (Bin _ kx x l r) =
+filterGt k m = fromMaybeS m (filterGt' k m)
+{-# INLINABLE filterGt #-}
+
+filterGt' :: OrdF k
+          => k tp
+          -> MapF k v
+          -> MaybeS (MapF k v)
+filterGt' _ Tip = NothingS
+filterGt' k (Bin _ kx x l r) =
   case compareF k kx of
-    LTF -> link kx x (filterGt k l) r
-    EQF -> r
-    GTF -> filterGt k r
+    LTF -> (\l' -> link kx x l' r) <$> filterGt' k l
+    GTF -> filterGt' k r <|> JustS r
+    EQF -> JustS r
+{-# INLINABLE filterGt' #-}
 
 -- | @filterLt k m@ returns submap of @m@ that only contains entries
 -- that are smaller than @k@.
 filterLt :: OrdF k => k tp -> MapF k v -> MapF k v
-filterLt _   Tip = Tip
-filterLt k (Bin _ kx x l r) =
-  case compareF kx k of
-    LTF -> link kx x l (filterLt k r)
-    EQF -> l
-    GTF -> filterLt k l
+filterLt k m = fromMaybeS m (filterLt' k m)
 {-# INLINABLE filterLt #-}
+
+-- | @filterLt' k m@ returns submap of @m@ that only contains entries
+-- that are smaller than @k@.  If all the entries
+filterLt' :: OrdF k
+          => k tp
+          -> MapF k v
+          -> MaybeS (MapF k v)
+filterLt' _ Tip = NothingS
+filterLt' k (Bin _ kx x l r) =
+  case compareF k kx of
+    LTF -> filterLt' k l <|> JustS l
+    GTF -> (\r' -> link kx x l r') <$> filterLt' k r
+    EQF -> JustS l
+{-# INLINABLE filterLt' #-}
 
 ------------------------------------------------------------------------
 -- User operations
 
--- See Note: Type of local 'go' function
+-- | Insert a binding into the map, replacing the existing
+-- binding if needed.
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-insert = \k v m -> seq k (go k v m)
-  where
-    go :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-    go kx x Tip = singleton kx x
-    go kx x (Bin sz ky y l r) =
-      case compareF kx ky of
-        LTF -> balanceL ky y (go kx x l) r
-        GTF -> balanceR ky y l (go kx x r)
-        EQF -> Bin sz kx x l r
+insert = \k v m -> seq k $ updatedValue (insert' k v m)
 {-# INLINABLE insert #-}
+
+-- | @insert' k v m@ inserts the binding into @m@.  It returns
+-- an Unchanged value if the map stays the same size and an updated
+-- value if a new entry was inserted.
+insert' :: OrdF k => k tp -> a tp -> MapF k a -> Updated (MapF k a)
+insert' kx x Tip = Updated (singleton kx x)
+insert' kx x (Bin sz ky y l r) =
+  case compareF kx ky of
+    LTF ->
+      case insert' kx x l of
+        Updated l'   -> Updated   (balanceL ky y l' r)
+        Unchanged l' -> Unchanged (Bin sz   ky y l' r)
+    GTF ->
+      case insert' kx x r of
+        Updated r'   -> Updated   (balanceR ky y l r')
+        Unchanged r' -> Unchanged (Bin sz   ky y l r')
+    EQF -> Unchanged (Bin sz kx x l r)
+{-# INLINABLE insert' #-}
 
 -- glue l r glues two trees together.
 -- Assumes that [l] and [r] are already balanced with respect to each other.
@@ -328,15 +350,15 @@ glue l r
 
 -- | Delete a value from the map if present.
 delete :: OrdF k => k tp -> MapF k a -> MapF k a
-delete = \k m -> seq k (go m k m id)
+delete = \k m -> seq k $ fromMaybeS m $ go k m
   where
-    go :: OrdF k => r -> k tp -> MapF k a -> (MapF k a -> r) -> r
-    go orig _ Tip _ = orig
-    go orig k (Bin _ kx x l r) f =
+    go :: OrdF k => k tp -> MapF k a -> MaybeS (MapF k a)
+    go _ Tip = NothingS
+    go k (Bin _ kx x l r) =
       case compareF k kx of
-        LTF -> go orig k l (\l' -> f (balanceR kx x l' r))
-        GTF -> go orig k r (\r' -> f (balanceL kx x l r'))
-        EQF -> f (glue l r)
+        LTF -> (\l' -> balanceR kx x l' r) <$> go k l
+        GTF -> (\r' -> balanceL kx x l r') <$> go k r
+        EQF -> JustS (glue l r)
 {-# INLINABLE delete #-}
 
 ------------------------------------------------------------------------
@@ -361,29 +383,39 @@ updatedValue :: Updated a -> a
 updatedValue (Updated a) = a
 updatedValue (Unchanged a) = a
 
+data AtKeyResult k a where
+  AtKeyUnchanged :: AtKeyResult k a
+  AtKeyInserted :: MapF k a -> AtKeyResult k a
+  AtKeyModified :: MapF k a -> AtKeyResult k a
+  AtKeyDeleted  :: MapF k a -> AtKeyResult k a
+
 atKey' :: (OrdF k, Functor f)
-       => MapF k a -- ^ Original map (returned if value is not changed).
-       -> k tp
+       => k tp
        -> f (Maybe (a tp)) -- ^ Function to call if no element is found.
        -> (a tp -> f (UpdateRequest (a tp)))
-       -> [MapCtx k a]
        -> MapF k a
-       -> f (Updated (MapF k a))
-atKey' orig k onNotFound onFound ctx t =
+       -> f (AtKeyResult k a)
+atKey' k onNotFound onFound t =
   case t of
     Tip -> ins <$> onNotFound
-      where ins Nothing  = Unchanged orig
-            ins (Just v) = Updated (afterInsert ctx (singleton k v))
+      where ins Nothing  = AtKeyUnchanged
+            ins (Just v) = AtKeyInserted (singleton k v)
     Bin sz kx y l r ->
       case compareF k kx of
-        LTF -> atKey' orig k onNotFound onFound ctx' l
-          where ctx' = ModLeft sz kx y r : ctx
-        GTF -> atKey' orig k onNotFound onFound ctx' r
-          where ctx' = ModRight sz kx y l : ctx
+        LTF -> ins <$> atKey' k onNotFound onFound l
+          where ins AtKeyUnchanged = AtKeyUnchanged
+                ins (AtKeyInserted l') = AtKeyInserted (balanceL kx y l' r)
+                ins (AtKeyModified l') = AtKeyModified (Bin sz   kx y l' r)
+                ins (AtKeyDeleted  l') = AtKeyDeleted  (balanceR kx y l' r)
+        GTF -> ins <$> atKey' k onNotFound onFound r
+          where ins AtKeyUnchanged = AtKeyUnchanged
+                ins (AtKeyInserted r') = AtKeyInserted (balanceR kx y l r')
+                ins (AtKeyModified r') = AtKeyModified (Bin sz   kx y l r')
+                ins (AtKeyDeleted  r') = AtKeyDeleted  (balanceL kx y l r')
         EQF -> ins <$> onFound y
-          where ins Keep = Unchanged orig
-                ins (Set x) = Updated (afterModify ctx (Bin sz kx x l r))
-                ins Delete  = Updated (afterDelete ctx (glue l r))
+          where ins Keep    = AtKeyUnchanged
+                ins (Set x) = AtKeyModified (Bin sz kx x l r)
+                ins Delete  = AtKeyDeleted (glue l r)
 
 -- | Log-time algorithm that allows a value at a specific key to be added, replaced,
 -- or deleted.
@@ -396,7 +428,11 @@ updateAtKey :: (OrdF k, Functor f)
             -> MapF k a
                -- ^ Map to update
             -> f (Updated (MapF k a))
-updateAtKey k onNotFound onFound t = atKey' t k onNotFound onFound [] t
+updateAtKey k onNotFound onFound t = ins <$> atKey' k onNotFound onFound t
+  where ins AtKeyUnchanged = Unchanged t
+        ins (AtKeyInserted t') = Updated t'
+        ins (AtKeyModified t') = Updated t'
+        ins (AtKeyDeleted  t') = Updated t'
 
 ------------------------------------------------------------------------
 -- Union
@@ -404,15 +440,15 @@ updateAtKey k onNotFound onFound t = atKey' t k onNotFound onFound [] t
 -- Insert a new key and value in the map if it is not already present.
 -- Used by `union`.
 insertR :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-insertR  = \k v m -> seq k (go m k v m id)
+insertR  = \k v m -> seq k (fromMaybeS m (go k v m))
   where
-    go :: OrdF k => r -> k tp -> a tp -> MapF k a -> (MapF k a -> r) -> r
-    go _ kx x Tip f = f (singleton kx x)
-    go orig kx x (Bin _ ky y l r) f =
+    go :: OrdF k => k tp -> a tp -> MapF k a -> MaybeS (MapF k a)
+    go kx x Tip = JustS (singleton kx x)
+    go kx x (Bin _ ky y l r) =
         case compareF kx ky of
-          LTF -> go orig kx x l (\l' -> f (balanceL ky y l' r))
-          GTF -> go orig kx x r (\r' -> f (balanceR ky y l r'))
-          EQF -> orig
+          LTF -> (\l' -> balanceL ky y l' r) <$> go kx x l
+          GTF -> (\r' -> balanceR ky y l r') <$> go kx x r
+          EQF -> NothingS
 
 -- | Union two sets
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a

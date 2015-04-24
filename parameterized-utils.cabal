@@ -47,7 +47,7 @@ library
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
     Data.Parameterized.UnsafeContext
-  ghc-options: -Wall -threaded
+  ghc-options: -O2 -Wall -threaded
   ghc-prof-options: -O2 -fprof-auto-top
 
   if flag(unsafe-operations)
