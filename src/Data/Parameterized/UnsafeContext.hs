@@ -403,6 +403,8 @@ a %> v = extend a v
 ------------------------------------------------------------------------
 -- Lens combinators
 
+{-# NOINLINE unsafeLens #-}
+
 unsafeLens :: Int -> Lens.Lens (Assignment f ctx) (Assignment f ctx') (f tp) (f u)
 unsafeLens idx = Lens.lens (unsafeIndex idx) (unsafeUpdate idx)
 

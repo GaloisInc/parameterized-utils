@@ -39,11 +39,17 @@ module Data.Parameterized.Map
 import Control.Applicative
 import Data.List (intercalate)
 import Data.Maybe
-import Prelude hiding (lookup, map, traverse)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
 import Data.Parameterized.TraversableF
+
+#if MIN_VERSION_base(4,8,0)
+import Prelude hiding (lookup, map, traverse)
+#else
+import Prelude hiding (lookup, map, traverse)
+#endif
+
 
 data MapF (ktp :: k -> *) (rtp :: k -> *) where
   Bin :: {-# UNPACK #-}

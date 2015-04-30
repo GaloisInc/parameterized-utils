@@ -10,6 +10,7 @@
 -- to work with GADTs that have many constructors.
 ------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -29,6 +30,7 @@ module Data.Parameterized.TH.GADT
   , TypePat(..)
   ) where
 
+import Control.Lens hiding (pre)
 import Control.Monad
 import Data.Hashable (hashWithSalt)
 import Data.List
@@ -39,11 +41,9 @@ import Language.Haskell.TH
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
-import Data.Traversable (traverse)
 #endif
 
 import Data.Parameterized.Classes
-import qualified Data.Parameterized.Context as Ctx
 
 ------------------------------------------------------------------------
 -- Template Haskell utilities
@@ -302,32 +302,38 @@ mkOrdF d pats c = do
          , pure $ Match (TupP [WildP, conPat_ c]) (NormalB gtf) []
          ]
 
--- | Parse type and identify if this is an arg left unchanged
--- or arg with more inforamtion.
--- Returns variable binding arg for pattern matching, and
--- information needed for traversal.
-recurseArg :: Exp -> Name -> Type -> Q (Maybe Exp)
-recurseArg f v (AppT (AppT (ConT cnm) _) _)
-  | nameBase cnm `elem` [ "Assignment" ]
-  = Just <$> [| Ctx.traverseF $(pure f) $(varE v) |]
-recurseArg f v (AppT (ConT _var) (AppT (VarT _) _)) = do
-  Just <$> [| traverse $(pure f) $(varE v) |]
-recurseArg f v (AppT (VarT _) _) = do
-  Just <$> [| $(pure f) $(varE v) |]
-recurseArg _ _ _ = return Nothing
+type TraversePats = [(Type -> Q Bool, ExpQ)]
+
+-- | @recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
+recurseArg :: TraversePats
+           -> ExpQ -- ^ Function to apply
+           -> ExpQ
+           -> Type
+           -> Q (Maybe Exp)
+recurseArg ((p,g):r) f v tp = do
+  b <- p tp
+  if b then
+    Just <$> [| $(g) $(f) $(v) |]
+  else
+    recurseArg r f v tp
+recurseArg [] f v (AppT (ConT _) (AppT (VarT _) _)) = Just <$> [| traverse $(f) $(v) |]
+recurseArg [] f v (AppT (VarT _) _)                 = Just <$> [| $(f) $(v) |]
+recurseArg [] _ _ _ = return Nothing
 
 -- | @traverseAppMatch f c@ builds a case statement that matches a term with
 -- the constructor @c@ and applies @f@ to each argument.
-traverseAppMatch :: Exp -- ^ Function to apply to each argument recursively.
+traverseAppMatch :: TraversePats -- ^ Variables bound in data
+                 -> ExpQ -- ^ Function to apply to each argument recursively.
                  -> Con -- ^ Constructor to match.
                  -> MatchQ -- ^ Match expression that
-traverseAppMatch fv c0 = do
+traverseAppMatch pats fv c0 = do
   (pat,patArgs) <- conPat c0 "p"
-  exprs <- zipWithM (recurseArg fv) patArgs (conArgTypes c0)
+  exprs <- zipWithM (recurseArg pats fv) (varE <$> patArgs) (conArgTypes c0)
 
   let mkRes :: ExpQ -> [(Name, Maybe Exp)] -> ExpQ
       mkRes e [] = e
-      mkRes e ((v,Nothing):r) = mkRes (appE e (varE v)) r
+      mkRes e ((v,Nothing):r) =
+        mkRes (appE e (varE v)) r
       mkRes e ((_,Just{}):r) = do
         v <- newName "r"
         lamE [varP v] (mkRes (appE e (varE v)) r)
@@ -348,13 +354,14 @@ traverseAppMatch fv c0 = do
 
 -- | @structuralTraversal tp@ generates a function that applies
 -- a traversal @f@ to the subterms with free variables in @tp@.
-structuralTraversal :: TypeQ -> ExpQ
-structuralTraversal tpq = do
+structuralTraversal :: TypeQ -> [(TypePat, ExpQ)] -> ExpQ
+structuralTraversal tpq pats0 = do
   d <- lookupDataType' =<< asTypeCon "structuralTraversal" =<< tpq
   f <- newName "f"
   a <- newName "a"
+  let pats = fmap (over _1 (matchTypePat d)) pats0
   lamE [varP f, varP a] $
-    caseE (varE a) (traverseAppMatch (VarE f) <$> dataCtors d)
+    caseE (varE a) (traverseAppMatch pats (varE f) <$> dataCtors d)
 
 asTypeCon :: Monad m => String -> Type -> m Name
 asTypeCon _ (ConT nm) = return nm
