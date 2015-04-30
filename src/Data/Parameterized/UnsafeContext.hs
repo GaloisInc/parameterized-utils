@@ -265,6 +265,7 @@ unsafeCoerceToAny = unsafeCoerce
 unsafeCoerceFromAny :: Any -> f tp
 unsafeCoerceFromAny = unsafeCoerce
 
+{-# NOINLINE generate #-}
 -- | Generate an assignment
 generate :: Size ctx
          -> (forall tp . Index ctx tp -> f tp)
@@ -285,23 +286,29 @@ generateM (Size n) f = (force . Assignment) `liftM` go 0 Seq.empty
           r <- f (Index i)
           go (i+1) ((Seq.|>) s $! unsafeCoerceToAny r)
 
--- | Create empty indexec vector.
+-- | Create empty assignment
 empty :: Assignment f 'EmptyCtx
 empty = Assignment Seq.empty
 
+-- | Append an element to end of context.
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
 extend (Assignment v) e = seq e $ Assignment (v Seq.|> unsafeCoerceToAny e)
+{-# NOINLINE extend #-}
 
 -- This is an unsafe version of update that changes the type of the expression.
 unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
 unsafeUpdate idx (Assignment v) e = Assignment (Seq.update idx (unsafeCoerceToAny e) v)
+{-# NOINLINE unsafeUpdate #-}
 
+-- | Update the assignment at a particular index.
 update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
 update (Index idx) e a = unsafeUpdate idx a e
 
+-- | Modify the value of an assignment at a particular index.
 adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
 adjust f (Index idx) (Assignment v) =
   Assignment (Seq.adjust (unsafeCoerceToAny . f . unsafeCoerceFromAny) idx v)
+{-# NOINLINE adjust #-}
 
 -- | Return assignment with all but the last block.
 init :: Assignment f (ctx '::> tp) -> Assignment f ctx
@@ -313,6 +320,7 @@ init (Assignment v) =
 -- Unexported index that returns an arbitrary type of expression.
 unsafeIndex :: Int -> Assignment f ctx -> f u
 unsafeIndex idx (Assignment v) = unsafeCoerceFromAny (v `Seq.index` idx)
+{-# NOINLINE unsafeIndex #-}
 
 -- | Return value of assignment.
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
@@ -331,6 +339,7 @@ assignmentEq eqC (Assignment xv) (Assignment yv) = do
       go [] [] = Just (unsafeCoerce Refl)
       go _ _ = Nothing
   go (Fold.toList xv) (Fold.toList yv)
+{-# NOINLINE assignmentEq #-}
 
 instance TestEquality f => TestEquality (Assignment f) where
   testEquality = assignmentEq testEquality
@@ -354,8 +363,7 @@ instance FoldableFC Assignment where
   foldMapFC = foldMapFCDefault
 
 instance TraversableFC Assignment where
-  traverseFC f (Assignment v) =
-    force . Assignment <$> traverse (\a -> unsafeCoerceToAny <$> f (unsafeCoerceFromAny a)) v
+  traverseFC = traverseF
 
 -- | Map assignment
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
@@ -375,11 +383,13 @@ foldrF :: (forall tp . f tp -> r -> r)
        -> r
 foldrF = foldrFC
 
+{-# NOINLINE traverseF #-}
 traverseF :: Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
           -> m (Assignment g c)
-traverseF = traverseFC
+traverseF f (Assignment v) =
+  force . Assignment <$> traverse (\a -> unsafeCoerceToAny <$> f (unsafeCoerceFromAny a)) v
 
 -- | Convert assignment to list.
 toList :: (forall tp . f tp -> a)
@@ -387,6 +397,7 @@ toList :: (forall tp . f tp -> a)
        -> [a]
 toList = toListFC
 
+{-# NOINLINE zipWithM #-}
 zipWithM :: Monad m
          => (forall tp . f tp -> g tp -> m (h tp))
          -> Assignment f c
@@ -402,8 +413,6 @@ a %> v = extend a v
 
 ------------------------------------------------------------------------
 -- Lens combinators
-
-{-# NOINLINE unsafeLens #-}
 
 unsafeLens :: Int -> Lens.Lens (Assignment f ctx) (Assignment f ctx') (f tp) (f u)
 unsafeLens idx = Lens.lens (unsafeIndex idx) (unsafeUpdate idx)
