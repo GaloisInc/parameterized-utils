@@ -36,6 +36,8 @@ module Data.Parameterized.Map
   , updatedValue
   , updateAtKey
   , module Data.Parameterized.Classes
+    -- * Internals
+  , Pair
   ) where
 
 import Control.Applicative
@@ -113,7 +115,7 @@ instance Bin.IsBinTreeM (MapF k a) Identity (Pair k a) where
   size Tip              = 0
   size (Bin sz _ _ _ _) = sz
 
-instance Bin.IsBinTree (MapF k a) (Pair k a) where
+--instance Bin.IsBinTree (MapF k a) (Pair k a) where
 --  bin p l r = runIdentity (bin' p l r)
 --  bin (Pair k v) l r = Bin (size l + size r + 1) k v l r
 
@@ -217,7 +219,7 @@ filterLt k m = fromMaybeS m (Bin.filterLt (compareKeyPair k) m)
 -- binding if needed.
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
 insert = \k v m -> seq k $ updatedValue (Bin.insert (Pair k v) m)
-{-# INLINE insert #-}
+{-# INLINABLE insert #-}
 {-# SPECIALIZE Bin.insert :: OrdF k => Pair k a -> MapF k a -> Updated (MapF k a) #-}
 
 

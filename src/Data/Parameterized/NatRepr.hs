@@ -202,7 +202,7 @@ maxUnsigned w = 2^(natValue w) - 1
 
 -- | Return minimum value for bitvector in 2s complement with given width.
 minSigned :: (1 <= w) => NatRepr w -> Integer
-minSigned w = - 2^(natValue w - 1)
+minSigned w = negate (2^(natValue w - 1))
 
 -- | Return maximum value for bitvector in 2s complement with given width.
 maxSigned :: (1 <= w) => NatRepr w -> Integer
@@ -363,6 +363,9 @@ natForEach' l h f
   | otherwise             = []
 
 
-natForEach :: forall l h a. NatRepr l -> NatRepr h
-              -> (forall n. (l <= n, n <= h) => NatRepr n -> a) -> [a]
+natForEach :: forall l h a
+            . NatRepr l
+           -> NatRepr h
+           -> (forall n. (l <= n, n <= h) => NatRepr n -> a)
+           -> [a]
 natForEach l h f = natForEach' l h (\LeqProof LeqProof -> f)

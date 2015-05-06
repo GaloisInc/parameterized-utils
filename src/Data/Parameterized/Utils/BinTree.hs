@@ -9,8 +9,10 @@
 -- This module defines utilities for working with balanced binary trees.
 ------------------------------------------------------------------------
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ViewPatterns #-}
 module Data.Parameterized.Utils.BinTree
@@ -30,6 +32,9 @@ module Data.Parameterized.Utils.BinTree
   , insert
   , delete
   , union
+    -- Internals
+  , insert'
+  , Context
   ) where
 
 import Control.Applicative
@@ -78,30 +83,28 @@ updatedValue (Unchanged a) = a
 ------------------------------------------------------------------------
 -- IsBinTree
 
-data TreeApp p t
-   = BinTree !p !t !t
+data TreeApp e t
+   = BinTree !e !t !t
    | TipTree
 
-class (Applicative m, Monad m) => IsBinTreeM c m e | c -> e, c -> m where
-  asBin :: c -> TreeApp e c
-  tip :: c
+class (Applicative m, Monad m) => IsBinTreeM t m e | t -> e, t -> m where
+  asBin :: t -> TreeApp e t
+  tip :: t
 
-  bin' :: e -> c -> c -> m c
-  size :: c -> Int
+  bin' :: e -> t -> t -> Identity t
+  size :: t -> Int
 
-binM :: IsBinTreeM c m e => e -> m c -> m c -> m c
+binM :: (m ~ Identity, IsBinTreeM c m e) => e -> m c -> m c -> m c
 binM c mx my = do
   x <- mx
   y <- my
   bin' c x y
 
-class IsBinTreeM c Identity e => IsBinTree c e where
- bin :: e -> c -> c -> c
- bin p l r = runIdentity (bin' p l r)
+type IsBinTree c e = IsBinTreeM c Identity e
 
--- bin :: IsBinTree c e => e -> c -> c -> c
--- bin = \x l r -> runIdentity (bin' x l r)
--- {-# INLINE bin #-}
+bin :: IsBinTree c e => e -> c -> c -> c
+bin = \x l r -> runIdentity (bin' x l r)
+{-# INLINE bin #-}
 
 delta,ratio :: Int
 delta = 3
@@ -109,7 +112,7 @@ ratio = 2
 
 -- balanceL is called when left subtree might have been inserted to or when
 -- right subtree might have been deleted from.
-balanceLM :: IsBinTreeM c m e => e -> c -> c -> m c
+balanceLM :: (m ~ Identity, IsBinTreeM c m e) => e -> c -> c -> m c
 balanceLM p l r = do
   case asBin l of
     BinTree l_pair ll lr | size l > max 1 (delta*size r) ->
@@ -120,11 +123,10 @@ balanceLM p l r = do
 
     _ -> binM p (pure l) (pure r)
 {-# INLINE balanceLM #-}
-{-# SPECIALIZE balanceLM :: IsBinTree c e => e -> c -> c -> Identity c #-}
 
 -- balanceR is called when right subtree might have been inserted to or when
 -- left subtree might have been deleted from.
-balanceRM :: IsBinTreeM c m e => e -> c -> c -> m c
+balanceRM :: (m ~ Identity, IsBinTreeM c m e) => e -> c -> c -> m c
 balanceRM p l r = do
   case asBin r of
     BinTree r_pair rl rr | size r > max 1 (delta*size l) ->
@@ -137,7 +139,6 @@ balanceRM p l r = do
 
     _ -> bin' p l r
 {-# INLINE balanceRM #-}
-{-# SPECIALIZE balanceRM :: IsBinTree c e => e -> c -> c -> Identity c #-}
 
 -- balanceL is called when left subtree might have been inserted to or when
 -- right subtree might have been deleted from.
@@ -238,10 +239,11 @@ glue l r =
 ------------------------------------------------------------------------
 -- Ordered operations
 
--- | @insert' p m@ inserts the binding into @m@.  It returns
+-- | @insert p m@ inserts the binding into @m@.  It returns
 -- an Unchanged value if the map stays the same size and an updated
 -- value if a new entry was inserted.
 insert :: (IsBinTree c e, Ord e) => e -> c -> Updated c
+--insert x t = seq x $ insert' EmptyContext x t
 --insert x t = runIdentity (insertM x t)
 insert x t =
   case asBin t of
@@ -257,8 +259,52 @@ insert x t =
             Updated r'   -> Updated   (balanceR y l r')
             Unchanged r' -> Unchanged (bin       y l r')
         EQ -> Unchanged (bin x l r)
+{-
+insert = insert' EmptyContext
+  where insert' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Updated t
+        insert' c x t = seq c $ seq x $ seq t $
+          case asBin t of
+            TipTree -> Updated (insCtx c (bin x tip tip))
+            BinTree y l r ->
+              case compare x y of
+                LT -> insert' (AddRightTree c y r) x l
+                GT -> insert' (AddLeftTree  c l y) x r
+                EQ -> Unchanged (addCtx c (bin x l r))
+-}
 {-# INLINABLE insert #-}
 
+data Context t e
+   = AddLeftTree !(Context t e) !t !e
+   | AddRightTree !(Context t e) !e !t
+   | EmptyContext
+
+addCtx :: IsBinTree t e => Context t e -> t -> t
+addCtx EmptyContext t = t
+addCtx (AddLeftTree  c l e) r = addCtx c $! bin e l r
+addCtx (AddRightTree c e r) l = addCtx c $! bin e l r
+{-# INLINABLE addCtx #-}
+
+insCtx :: IsBinTree t e => Context t e -> t -> t
+insCtx EmptyContext t = t
+insCtx (AddLeftTree  c l e) r' = insCtx c $! balanceR e l  r'
+insCtx (AddRightTree c e r) l' = insCtx c $! balanceL e l' r
+{-# INLINABLE insCtx #-}
+
+-- | @insert p m@ inserts the binding into @m@.  It returns
+-- an Unchanged value if the map stays the same size and an updated
+-- value if a new entry was inserted.
+insert' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Updated t
+insert' c x t = seq c $
+  case asBin t of
+    TipTree -> Updated (insCtx c (bin x tip tip))
+    BinTree y l r ->
+      case compare x y of
+        LT -> insert' (AddRightTree c y r) x l
+        GT -> insert' (AddLeftTree  c l y) x r
+        EQ -> Unchanged (addCtx c (bin x l r))
+{-# INLINABLE insert' #-}
+
+{-
 insertM :: (IsBinTreeM c m e, Ord e) => e -> c -> m (Updated c)
 insertM x t =
   case asBin t of
@@ -278,6 +324,7 @@ insertM x t =
         EQ -> Unchanged <$> bin' x l r
 {-# INLINABLE insertM #-}
 {-# SPECIALIZE insertM :: (IsBinTree c e, Ord e) => e -> c -> Identity (Updated c) #-}
+-}
 
 delete :: IsBinTree c e
        => (e -> Ordering)
