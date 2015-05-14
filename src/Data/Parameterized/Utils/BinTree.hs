@@ -33,8 +33,9 @@ module Data.Parameterized.Utils.BinTree
   , delete
   , union
     -- Internals
-  , insert'
-  , Context
+--  , insert'
+--  , insertM'
+  , Context(..)
   ) where
 
 import Control.Applicative
@@ -243,8 +244,6 @@ glue l r =
 -- an Unchanged value if the map stays the same size and an updated
 -- value if a new entry was inserted.
 insert :: (IsBinTree c e, Ord e) => e -> c -> Updated c
---insert x t = seq x $ insert' EmptyContext x t
---insert x t = runIdentity (insertM x t)
 insert x t =
   case asBin t of
     TipTree -> Updated (bin x tip tip)
@@ -259,6 +258,8 @@ insert x t =
             Updated r'   -> Updated   (balanceR y l r')
             Unchanged r' -> Unchanged (bin       y l r')
         EQ -> Unchanged (bin x l r)
+{-# INLINABLE insert #-}
+
 {-
 insert = insert' EmptyContext
   where insert' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Updated t
@@ -271,13 +272,13 @@ insert = insert' EmptyContext
                 GT -> insert' (AddLeftTree  c l y) x r
                 EQ -> Unchanged (addCtx c (bin x l r))
 -}
-{-# INLINABLE insert #-}
 
 data Context t e
    = AddLeftTree !(Context t e) !t !e
    | AddRightTree !(Context t e) !e !t
    | EmptyContext
 
+{-
 addCtx :: IsBinTree t e => Context t e -> t -> t
 addCtx EmptyContext t = t
 addCtx (AddLeftTree  c l e) r = addCtx c $! bin e l r
@@ -290,9 +291,6 @@ insCtx (AddLeftTree  c l e) r' = insCtx c $! balanceR e l  r'
 insCtx (AddRightTree c e r) l' = insCtx c $! balanceL e l' r
 {-# INLINABLE insCtx #-}
 
--- | @insert p m@ inserts the binding into @m@.  It returns
--- an Unchanged value if the map stays the same size and an updated
--- value if a new entry was inserted.
 insert' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Updated t
 insert' c x t = seq c $
   case asBin t of
@@ -303,25 +301,45 @@ insert' c x t = seq c $
         GT -> insert' (AddLeftTree  c l y) x r
         EQ -> Unchanged (addCtx c (bin x l r))
 {-# INLINABLE insert' #-}
+-}
 
 {-
-insertM :: (IsBinTreeM c m e, Ord e) => e -> c -> m (Updated c)
-insertM x t =
+liftMS :: Monad m => (a -> b) -> m a -> m b
+liftMS f m = do
+  v <- m
+  seq v $ return $! f v
+-}
+
+{-
+insertM' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Identity (Updated t)
+insertM' c x t = seq c $
   case asBin t of
-    TipTree -> Updated <$> bin' x tip tip
+    TipTree -> return $ Updated (insCtx c (bin x tip tip))
+    BinTree y l r ->
+      case compare x y of
+        LT -> insertM' (AddRightTree c y r) x l
+        GT -> insertM' (AddLeftTree  c l y) x r
+        EQ -> return $ Unchanged (addCtx c (bin x l r))
+{-# INLINABLE insertM' #-}
+{-# SPECIALIZE insertM' :: (IsBinTree c e, Ord e) => e -> c -> Identity (Updated c) #-}
+
+insertM :: (IsBinTreeM c m e, Ord e, m ~ Identity) => e -> c -> m (Updated c)
+insertM x t = seq x $ seq t $
+  case asBin t of
+    TipTree -> liftMS Updated $ bin' x tip tip
     BinTree y l r ->
       case compare x y of
         LT -> do
           ml <- insertM x l
           case ml of
-            Updated l'   -> Updated   <$> balanceLM y l' r
-            Unchanged l' -> Unchanged <$> bin'      y l' r
+            Updated l'   -> liftMS Updated $ balanceLM y l' r
+            Unchanged l' -> liftMS Unchanged $ bin'      y l' r
         GT -> do
           mr <- insertM x r
           case mr of
-            Updated r'   -> Updated   <$> balanceRM y l r'
-            Unchanged r' -> Unchanged <$> bin'      y l r'
-        EQ -> Unchanged <$> bin' x l r
+            Updated r'   -> liftMS Updated $ balanceRM y l r'
+            Unchanged r' -> liftMS Unchanged $ bin'      y l r'
+        EQ -> liftMS Unchanged $ bin' x l r
 {-# INLINABLE insertM #-}
 {-# SPECIALIZE insertM :: (IsBinTree c e, Ord e) => e -> c -> Identity (Updated c) #-}
 -}

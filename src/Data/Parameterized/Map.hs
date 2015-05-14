@@ -115,10 +115,6 @@ instance Bin.IsBinTreeM (MapF k a) Identity (Pair k a) where
   size Tip              = 0
   size (Bin sz _ _ _ _) = sz
 
---instance Bin.IsBinTree (MapF k a) (Pair k a) where
---  bin p l r = runIdentity (bin' p l r)
---  bin (Pair k v) l r = Bin (size l + size r + 1) k v l r
-
 ------------------------------------------------------------------------
 -- Traversals
 

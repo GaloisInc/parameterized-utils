@@ -127,9 +127,6 @@ zeroSize = Size 0
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize (Size n) = Size (n+1)
 
-------------------------------------------------------------------------
--- Size
-
 -- | A context that can be determined statically at compiler time.
 class KnownContext (ctx :: Ctx k) where
   knownSize :: Size ctx
@@ -211,7 +208,7 @@ skip (Index i) = Index i
 
 -- | Return the index of a element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
-nextIndex (Size n) = Index n
+nextIndex n = Index (sizeInt n)
 
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
@@ -229,9 +226,9 @@ forIndex :: forall ctx r
          -> (forall tp . r -> Index ctx tp -> r)
          -> r
          -> r
-forIndex (Size n) f = go 0
+forIndex n f = go 0
   where go :: Int -> r -> r
-        go i v | i < n = go (i+1) (f v (Index i))
+        go i v | i < sizeInt n = go (i+1) (f v (Index i))
                | otherwise = v
 
 data SomeIndex ctx where
@@ -249,7 +246,17 @@ instance ShowF (Index ctx) where
    showF = show
 
 ------------------------------------------------------------------------
+-- Utilities
+
+unsafeCoerceToAny :: f tp -> Any
+unsafeCoerceToAny = unsafeCoerce
+
+unsafeCoerceFromAny :: Any -> f tp
+unsafeCoerceFromAny = unsafeCoerce
+
+------------------------------------------------------------------------
 -- Assignment
+
 
 newtype Assignment (f :: k -> *) (c :: Ctx k) = Assignment (Seq.Seq Any)
 
@@ -259,19 +266,13 @@ instance NFData (Assignment f ctx) where
 size :: Assignment f ctx -> Size ctx
 size (Assignment v) = Size (Seq.length v)
 
-unsafeCoerceToAny :: f tp -> Any
-unsafeCoerceToAny = unsafeCoerce
-
-unsafeCoerceFromAny :: Any -> f tp
-unsafeCoerceFromAny = unsafeCoerce
-
 {-# NOINLINE generate #-}
 -- | Generate an assignment
 generate :: Size ctx
          -> (forall tp . Index ctx tp -> f tp)
          -> Assignment f ctx
-generate (Size n) f = force $ Assignment $ go 0 Seq.empty
-  where go i s | i == n = s
+generate n f = force $ Assignment $ go 0 Seq.empty
+  where go i s | i == sizeInt n = s
         go i s = go (i+1) (s Seq.|> unsafeCoerceToAny (f (Index i)))
 
 {-# NOINLINE generateM #-}
@@ -280,8 +281,8 @@ generateM :: Monad m
           => Size ctx
           -> (forall tp . Index ctx tp -> m (f tp))
           -> m (Assignment f ctx)
-generateM (Size n) f = (force . Assignment) `liftM` go 0 Seq.empty
-  where go i s | i == n = return s
+generateM n f = (force . Assignment) `liftM` go 0 Seq.empty
+  where go i s | i == sizeInt n = return s
         go i s = do
           r <- f (Index i)
           go (i+1) ((Seq.|>) s $! unsafeCoerceToAny r)
@@ -317,7 +318,7 @@ init (Assignment v) =
     u Seq.:> _ -> Assignment u
     _ -> error "internal: init given bad value"
 
--- Unexported index that returns an arbitrary type of expression.
+-- | Unexported index that returns an arbitrary type of expression.
 unsafeIndex :: Int -> Assignment f ctx -> f u
 unsafeIndex idx (Assignment v) = unsafeCoerceFromAny (v `Seq.index` idx)
 {-# NOINLINE unsafeIndex #-}
@@ -404,9 +405,24 @@ zipWithM :: Monad m
          -> Assignment g c
          -> m (Assignment h c)
 zipWithM f (Assignment u0) (Assignment v0) = do
-  let go a b = unsafeCoerceToAny `liftM` f (unsafeCoerceFromAny a) (unsafeCoerceFromAny b)
+  let go x y = do
+        r <- f (unsafeCoerceFromAny x) (unsafeCoerceFromAny y)
+        return $ unsafeCoerceToAny r
   r <- (Assignment . Seq.fromList) `liftM` Monad.zipWithM go (Fold.toList u0) (Fold.toList v0)
   deepseq r $ return r
+
+{-
+{-# NOINLINE zipWithM #-}
+zipWithM :: Monad m
+         => (forall tp . f tp -> g tp -> m (h tp))
+         -> Assignment f c
+         -> Assignment g c
+         -> m (Assignment h c)
+zipWithM f (Assignment u0) (Assignment v0) = do
+  let go x y = unsafeCoerceToAny `liftM` f (unsafeCoerceFromAny a) (unsafeCoerceFromAny b)
+  r <- (Assignment . Seq.fromList) `liftM` Monad.zipWithM go (Fold.toList u0) (Fold.toList v0)
+  deepseq r $ return r
+-}
 
 (%>) :: Assignment f x -> f tp -> Assignment f (x '::> tp)
 a %> v = extend a v
