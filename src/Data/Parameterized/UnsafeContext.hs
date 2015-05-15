@@ -1,61 +1,26 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.UnsafeContext
--- Description      : Finite dependent products
--- Copyright        : (c) Galois, Inc 2014
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
---
--- This module defines type contexts as a data-kind that consists of
--- a list of types.  Indexes are defined on contexts in a way that
--- respects the type context: index 0 carries a type parameter that is
--- equal to the 0th element of its associated type context, etc.
---
--- In addition, finite dependent products (Assignements) are defined over
--- type contexts.  The elements of an assignment can be accessed using
--- appropriately-typed indices.
---
--- For performance reasons, unsafeCoerce is used to fib about the typing.
--- Thus, contexts are actually just vectors, and indices actually just
--- Ints.  We rely on the external type system to keep things straight.
--- See "SafeTypeContext" for a parallel implementation of this module
--- that uses only safe operations.
---
--- This unsafe implementation has the advantage that indices can be
--- cast into extended contexts just using DataCoerce.coerce, because Index
--- is just a newtype over Int, and because we count from the beginning of
--- the context (rather than the end, as in the safe implementation).
--- This turns out to be critical for good performance, as otherwise we must
--- repeatedly rebuild large datastructures just to extend embedded
--- context indices.
-------------------------------------------------------------------------
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE IncoherentInstances #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Data.Parameterized.UnsafeContext
   ( module Data.Parameterized.Ctx
-  , KnownContext(..)
-    -- * Size
   , Size
   , sizeInt
   , zeroSize
   , incSize
   , extSize
+  , KnownContext(..)
     -- * Diff
   , Diff
   , noDiff
-
   , extendRight
   , KnownDiff(..)
     -- * Indexing
@@ -68,7 +33,6 @@ module Data.Parameterized.UnsafeContext
   , extendIndex
   , extendIndex'
   , forIndex
-  , SomeIndex(..)
   , intIndex
     -- * Assignments
   , Assignment
@@ -76,10 +40,13 @@ module Data.Parameterized.UnsafeContext
   , generate
   , generateM
   , empty
+  , null
   , extend
   , update
   , adjust
   , init
+  , AssignView(..)
+  , view
   , (!)
   , (!!)
   , toList
@@ -87,30 +54,28 @@ module Data.Parameterized.UnsafeContext
   , foldrF
   , traverseF
   , map
+  , zipWith
   , zipWithM
   , (%>)
   ) where
 
+import Control.Applicative hiding (empty)
 import qualified Control.Category as Cat
 import Control.DeepSeq
+import Control.Exception
 import qualified Control.Lens as Lens
-import Control.Monad (liftM)
-import qualified Control.Monad as Monad
-import qualified Data.Foldable as Fold
+import Control.Monad.Identity (Identity(..))
+import Data.Bits
+import Data.Hashable
 import Data.List (intercalate)
-import Data.Type.Equality
-import qualified Data.Sequence as Seq
-import GHC.Prim (Any)
-import Prelude hiding (init, map, succ, (!!))
+import Data.Proxy
 import Unsafe.Coerce
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative ((<$>), Applicative(..))
-import Data.Traversable (traverse)
-#endif
+import Prelude hiding (init, map, null, succ, zipWith, (!!))
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
+import Data.Parameterized.Some
 import Data.Parameterized.TraversableFC
 
 ------------------------------------------------------------------------
@@ -126,6 +91,9 @@ zeroSize = Size 0
 -- | Increment the size to the next value.
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize (Size n) = Size (n+1)
+
+instance Show (Size ctx) where
+  show (Size i) = show i
 
 -- | A context that can be determined statically at compiler time.
 class KnownContext (ctx :: Ctx k) where
@@ -231,13 +199,10 @@ forIndex n f = go 0
         go i v | i < sizeInt n = go (i+1) (f v (Index i))
                | otherwise = v
 
-data SomeIndex ctx where
-  SomeIndex :: Index ctx tp -> SomeIndex ctx
-
 -- | Return index at given integer or nothing if integer is out of bounds.
-intIndex :: Int -> Size ctx -> Maybe (SomeIndex ctx)
-intIndex i (Size n) | 0 <= i && i < n = Just (SomeIndex (Index i))
-                           | otherwise = Nothing
+intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
+intIndex i n | 0 <= i && i < sizeInt n = Just (Some (Index i))
+             | otherwise = Nothing
 
 instance Show (Index ctx tp) where
    show = show . indexVal
@@ -246,116 +211,571 @@ instance ShowF (Index ctx) where
    showF = show
 
 ------------------------------------------------------------------------
--- Utilities
+-- BinTreeKind
 
-unsafeCoerceToAny :: f tp -> Any
-unsafeCoerceToAny = unsafeCoerce
+data BinTreeKind (x :: *) = PType (BinTreeKind x) (BinTreeKind x)
+                          | Elt x
 
-unsafeCoerceFromAny :: Any -> f tp
-unsafeCoerceFromAny = unsafeCoerce
+type family Fst (x :: BinTreeKind k) :: BinTreeKind k
+type instance Fst ('PType x y) = x
+
+type family Snd (x :: BinTreeKind k) :: BinTreeKind k
+type instance Snd ('PType x y) = y
+
+-- | This pairs adjacent elements in a context.
+type family PairCtx (x :: Ctx (BinTreeKind k)) :: Ctx (BinTreeKind k)
+type instance PairCtx EmptyCtx = EmptyCtx
+type instance PairCtx ((x ::> y) ::> z) = PairCtx x ::> 'PType y z
+
+-- | This pairs adjacent elements in a context.
+type family UnPairCtx (x :: Ctx (BinTreeKind k)) :: Ctx (BinTreeKind k)
+type instance UnPairCtx EmptyCtx = EmptyCtx
+type instance UnPairCtx (x ::> 'PType y z) = UnPairCtx x ::> y ::> z
+
+------------------------------------------------------------------------
+-- Height
+
+data Height = Zero | Succ Height
+
+
+type family Pred (k :: Height) :: Height
+type instance Pred ('Succ h) = h
+
+------------------------------------------------------------------------
+-- BalancedTree
+
+-- | A balanced tree where all leaves are at the same height.
+data BalancedTree h f (p :: BinTreeKind k) where
+  BalLeaf :: !(f x) -> BalancedTree 'Zero f ('Elt x)
+  BalPair :: !(BalancedTree h f x)
+          -> !(BalancedTree h f y)
+          -> BalancedTree ('Succ h) f ('PType x y)
+
+bal_height :: BalancedTree h f p -> Int
+bal_height (BalLeaf _) = 0
+bal_height (BalPair x _) = 1 + bal_height x
+
+bal_size :: BalancedTree h f p -> Int
+bal_size (BalLeaf _) = 1
+bal_size (BalPair x y) = bal_size x + bal_size y
+
+instance TestEquality f => TestEquality (BalancedTree h f) where
+  testEquality (BalLeaf x) (BalLeaf y) = do
+    Refl <- testEquality x y
+    return Refl
+  testEquality (BalPair x1 x2) (BalPair y1 y2) = do
+    Refl <- testEquality x1 y1
+    Refl <- testEquality x2 y2
+    return Refl
+  testEquality _ _ = Nothing
+
+instance HashableF f => HashableF (BalancedTree h f) where
+  hashWithSaltF s t =
+    case t of
+      BalLeaf x -> s `hashWithSaltF` x
+      BalPair x y -> s `hashWithSaltF` x `hashWithSaltF` y
+
+instance FunctorFC (BalancedTree h) where
+  fmapFC = fmapFCDefault
+
+instance FoldableFC (BalancedTree h) where
+  foldMapFC = foldMapFCDefault
+
+instance TraversableFC (BalancedTree h) where
+  traverseFC f (BalLeaf x) = BalLeaf <$> f x
+  traverseFC f (BalPair x y) = BalPair <$> traverseFC f x <*> traverseFC f y
+
+instance ShowF f => ShowF (BalancedTree h f) where
+  showF (BalLeaf x) = showF x
+  showF (BalPair x y) = "BalPair " ++ showF x ++ " " ++ showF y
+
+unsafe_bal_generate :: forall ctx h f t
+                     . Int -- ^ Height of tree to generate
+                    -> Int -- ^ Starting offset for entries.
+                    -> (forall tp . Index ctx tp -> f tp)
+                    -> BalancedTree h f t
+unsafe_bal_generate h o f
+  | h <  0 = error "unsafe_bal_generate given negative height"
+  | h == 0 = unsafeCoerce $ BalLeaf (f (Index o))
+  | otherwise =
+    let l = unsafe_bal_generate (h-1) o f
+        o' = o + 1 `shiftL` (h-1)
+        u = assert (o + bal_size l == o') $ unsafe_bal_generate (h-1) o' f
+        r :: BalancedTree ('Succ (Pred h)) f ('PType (Fst t) (Snd t))
+        r = BalPair l u
+     in unsafeCoerce r
+
+unsafe_bal_generateM :: forall m ctx h f t
+                      . Applicative m
+                     => Int -- ^ Height of tree to generate
+                     -> Int -- ^ Starting offset for entries.
+                     -> (forall x . Index ctx x -> m (f x))
+                     -> m (BalancedTree h f t)
+unsafe_bal_generateM h o f
+  | h == 0 = fmap unsafeCoerce $ BalLeaf <$> f (Index o)
+  | otherwise =
+    let l = unsafe_bal_generateM (h-1) o f
+        o' = o + 1 `shiftL` (h-1)
+        u = unsafe_bal_generateM (h-1) o' f
+        r :: m (BalancedTree ('Succ (Pred h)) f ('PType (Fst t) (Snd t)))
+        r = (\lv uv -> assert (o' == o + bal_size lv) $ BalPair lv uv) <$> l <*> u
+      in fmap unsafeCoerce r
+
+-- | Lookup index in tree.
+bal_index :: BalancedTree h f a -- ^ Tree to lookup.
+          -> Int -- ^ Index to lookup.
+          -> Int  -- ^ Height of tree
+          -> Some f
+bal_index (BalLeaf u) _ i = assert (i == 0) $ Some u
+bal_index (BalPair x y) j i
+  | j `testBit` (i-1) = bal_index y j (i-1)
+  | otherwise         = bal_index x j (i-1)
+
+-- | Lookup index in tree.
+unsafe_bal_index :: BalancedTree h f a -- ^ Tree to lookup.
+                 -> Int -- ^ Index to lookup.
+                 -> Int  -- ^ Height of tree
+                 -> f tp
+unsafe_bal_index _ j i
+  | seq j $ seq i $ False = error "bad unsafe_bal_index"
+unsafe_bal_index (BalLeaf u) _ i = assert (i == 0) $ unsafeCoerce u
+unsafe_bal_index (BalPair x y) j i
+  | j `testBit` (i-1) = unsafe_bal_index y j $! (i-1)
+  | otherwise         = unsafe_bal_index x j $! (i-1)
+
+-- | Update value at index in tree.
+unsafe_bal_adjust :: (f x -> f y)
+                  -> BalancedTree h f a -- ^ Tree to update
+                  -> Int -- ^ Index to lookup.
+                  -> Int  -- ^ Height of tree
+                  -> BalancedTree h f b
+unsafe_bal_adjust f (BalLeaf u) _ i = assert (i == 0) $
+  unsafeCoerce (BalLeaf (f (unsafeCoerce u)))
+unsafe_bal_adjust f (BalPair x y) j i
+  | j `testBit` (i-1) = unsafeCoerce $ BalPair x (unsafe_bal_adjust f y j (i-1))
+  | otherwise         = unsafeCoerce $ BalPair (unsafe_bal_adjust f x j (i-1)) y
+
+-- | Zip two balanced trees together.
+bal_zipWithM :: Applicative m
+             => (forall x . f x -> g x -> m (h x))
+             -> BalancedTree u f a
+             -> BalancedTree u g a
+             -> m (BalancedTree u h a)
+bal_zipWithM f (BalLeaf x) (BalLeaf y) = BalLeaf <$> f x y
+bal_zipWithM f (BalPair x1 x2) (BalPair y1 y2) =
+  BalPair <$> bal_zipWithM f x1 y1 <*> bal_zipWithM f x2 y2
+bal_zipWithM _ _ _ = error "ilegal args to bal_zipWithM"
+{-# INLINABLE bal_zipWithM #-}
+
+------------------------------------------------------------------------
+-- BinomialTree
+
+data BinomialTree (h::Height) (f :: k -> *) :: Ctx (BinTreeKind k) -> * where
+  Empty :: BinomialTree h f EmptyCtx
+
+  -- Contains size of the subtree, subtree, then element.
+  PlusOne  :: (x ~ PairCtx z)
+           => !Int
+           -> !(BinomialTree ('Succ h) f x)
+           -> !(BalancedTree h f y)
+           -> BinomialTree h f (z ::> y)
+
+  -- Contains size of the subtree, subtree, then element.
+  PlusZero  :: (x ~ PairCtx z)
+            => !Int
+            -> !(BinomialTree ('Succ h) f x)
+            -> BinomialTree h f z
+
+
+tsize :: BinomialTree h f a -> Int
+tsize Empty = 0
+tsize (PlusOne s _ _) = 2*s+1
+tsize (PlusZero  s _) = 2*s
+
+t_cnt_size :: BinomialTree h f a -> Int
+t_cnt_size Empty = 0
+t_cnt_size (PlusOne _ l r) = t_cnt_size l + bal_size r
+t_cnt_size (PlusZero  _ l) = t_cnt_size l
+
+append :: BinomialTree h f x
+       -> BalancedTree h f (y :: BinTreeKind k)
+       -> BinomialTree h f (x ::> y)
+append Empty y = PlusOne 0 Empty y
+append (PlusOne _ t x) y = PlusZero (tsize t') t'
+  where t' = append t (BalPair x y)
+append (PlusZero s t) x = PlusOne s t x
+
+instance TestEquality f => TestEquality (BinomialTree h f) where
+  testEquality Empty Empty = return Refl
+  testEquality (PlusZero _ x1) (PlusZero _ y1) = do
+    Refl <- testEquality x1 y1
+    return (unsafeCoerce Refl)
+  testEquality (PlusOne _ x1 x2) (PlusOne _ y1 y2) = do
+    Refl <- testEquality x1 y1
+    Refl <- testEquality x2 y2
+    return (unsafeCoerce Refl)
+  testEquality _ _ = Nothing
+
+instance HashableF f => HashableF (BinomialTree h f) where
+  hashWithSaltF s t =
+    case t of
+      Empty -> s
+      PlusZero _ x   -> s `hashWithSaltF` x
+      PlusOne  _ x y -> s `hashWithSaltF` x `hashWithSaltF` y
+
+instance FunctorFC (BinomialTree h) where
+  fmapFC = fmapFCDefault
+
+instance FoldableFC (BinomialTree h) where
+  foldMapFC = foldMapFCDefault
+
+instance TraversableFC (BinomialTree h) where
+  traverseFC _ Empty = pure Empty
+  traverseFC f (PlusOne s t x) = PlusOne s  <$> traverseFC f t <*> traverseFC f x
+  traverseFC f (PlusZero s t)  = PlusZero s <$> traverseFC f t
+
+unsafe_bin_generate :: forall h f ctx t
+                     . Int -- ^ Size of tree to generate
+                    -> Int -- ^ Height of each element.
+                    -> (forall x . Index ctx x -> f x)
+                    -> BinomialTree h f t
+unsafe_bin_generate sz h f
+  | sz == 0 = unsafeCoerce Empty
+  | sz `testBit` 0 =
+    let s = sz `shiftR` 1
+        t = unsafe_bin_generate s (h+1) f
+        o = s * 2^(h+1)
+        u = assert (o == t_cnt_size t) $ unsafe_bal_generate h o f
+        r :: BinomialTree h f (InitCtx t ::> LastCtx t)
+        r = PlusOne s t u
+     in unsafeCoerce r
+  | otherwise =
+    let s = sz `shiftR` 1
+        t = unsafe_bin_generate (sz `shiftR` 1) (h+1) f
+        r :: BinomialTree h f t
+        r = PlusZero s t
+     in r
+
+unsafe_bin_generateM :: forall m h f ctx t
+                      . Applicative m
+                     => Int -- ^ Size of tree to generate
+                     -> Int -- ^ Height of each element.
+                     -> (forall x . Index ctx x -> m (f x))
+                     -> m (BinomialTree h f t)
+unsafe_bin_generateM sz h f
+  | sz == 0 = pure (unsafeCoerce Empty)
+  | sz `testBit` 0 =
+    let s = sz `shiftR` 1
+        t = unsafe_bin_generateM s (h+1) f
+        -- Next offset
+        o = s * 2^(h+1)
+        u = unsafe_bal_generateM h o f
+        r :: m (BinomialTree h f (InitCtx t ::> LastCtx t))
+        r = PlusOne s <$> t <*> u
+     in fmap unsafeCoerce r
+  | otherwise =
+    let s = sz `shiftR` 1
+        t = unsafe_bin_generateM s (h+1) f
+        r :: m (BinomialTree h f t)
+        r = PlusZero s <$> t
+     in r
+
+type family Flatten1 (x :: Ctx (BinTreeKind k)) :: Ctx (BinTreeKind k)
+type instance Flatten1 EmptyCtx = EmptyCtx
+
+type family Flatten (h :: Height) (x :: Ctx (BinTreeKind k)) :: Ctx (BinTreeKind k)
+type instance Flatten 'Zero     x = x
+type instance Flatten ('Succ h) x = Flatten h (Flatten1 x)
+
+type family Append (x :: Ctx k) (y :: Ctx k) :: Ctx k
+type instance Append x EmptyCtx = x
+type instance Append x (y ::> z) = Append x y ::> z
+
+
+type family FlattenBin (x :: BinTreeKind k) :: Ctx (BinTreeKind k)
+type instance FlattenBin ('Elt x) = EmptyCtx ::> 'Elt x
+type instance FlattenBin ('PType x y) = Append (FlattenBin x) (FlattenBin y)
+
+-- | Drop last element from binary and flatten it.
+type family DropBin (x :: BinTreeKind k) :: Ctx (BinTreeKind k)
+type instance DropBin ('Elt x) = EmptyCtx
+type instance DropBin ('PType x y) = Append (FlattenBin x) (DropBin y)
+
+type family InitCtx (x :: Ctx k) :: Ctx k
+type instance InitCtx (x ::> y) = x
+
+type family LastCtx (x :: Ctx k) :: k
+type instance LastCtx (x ::> y) = y
+
+data DropResult f (ctx :: Ctx (BinTreeKind k)) where
+  DropEmpty :: DropResult f EmptyCtx
+  DropExt   :: BinomialTree 'Zero f (InitCtx ctx)
+            -> f (LastCtx (UnElt ctx))
+            -> DropResult f ctx
+
+bal_drop :: forall h f x y
+          . BinomialTree h f x
+         -> BalancedTree h f y
+         -> DropResult f (Append x (FlattenBin y))
+bal_drop t (BalLeaf e) = DropExt t e
+bal_drop t (BalPair x y) =
+  let m :: BinomialTree h f (PairCtx (UnPairCtx x))
+      m = unsafeCoerce t
+
+      n :: ('Succ g ~ h) => BinomialTree g f (UnPairCtx x ::> Fst y)
+      n = PlusOne (tsize t) m x
+
+      a :: DropResult f (Append (UnPairCtx x ::> Fst y) (FlattenBin (Snd y)))
+      a = bal_drop n y
+
+      w :: DropResult f (Append x (FlattenBin y))
+      w = unsafeCoerce a
+
+   in w
+
+bin_drop :: forall h f ctx
+          . BinomialTree h f ctx
+         -> DropResult f (Flatten h ctx)
+bin_drop Empty = unsafeCoerce DropEmpty
+bin_drop (PlusZero _ u) =
+  let v :: DropResult f (Flatten h (Flatten1 (PairCtx ctx)))
+      v = bin_drop u
+   in unsafeCoerce v
+bin_drop (PlusOne s t u) =
+  let m :: BinomialTree h f (InitCtx ctx)
+      m = PlusZero s t
+      q :: DropResult f (Append (InitCtx ctx) (FlattenBin (LastCtx ctx)))
+      q = bal_drop m u
+   in unsafeCoerce q
+
+-- | Lookup value in tree.
+bin_index :: BinomialTree h f a -- ^ Tree to lookup in.
+          -> Int
+          -> Int -- ^ Size of tree
+          -> Some f
+bin_index Empty _ _ = error "bin_index reached end of list"
+bin_index (PlusOne sz t u) j i
+  | sz == j `shiftR` (1+i) = bal_index u j i
+  | otherwise = bin_index t j (1+i)
+bin_index (PlusZero sz t) j i
+  | sz == j `shiftR` (1+i) = error "bin_index stopped at PlusZero"
+  | otherwise = bin_index t j (1+i)
+
+-- | Lookup value in tree.
+unsafe_bin_index :: BinomialTree h f a -- ^ Tree to lookup in.
+                 -> Int
+                 -> Int -- ^ Size of tree
+                 -> f u
+unsafe_bin_index _ _ i
+  | seq i False = error "bad unsafe_bin_index"
+unsafe_bin_index Empty _ _ = error "unsafe_bin_index reached end of list"
+unsafe_bin_index (PlusOne sz t u) j i
+  | sz == j `shiftR` (1+i) = unsafe_bal_index u j i
+  | otherwise = unsafe_bin_index t j $! (1+i)
+unsafe_bin_index (PlusZero sz t) j i
+  | sz == j `shiftR` (1+i) = error "unsafe_bin_index stopped at PlusZero"
+  | otherwise = unsafe_bin_index t j $! (1+i)
+
+-- | Lookup value in tree.
+unsafe_bin_adjust :: forall h f x y a b
+                   . (f x -> f y)
+                  -> BinomialTree h f a -- ^ Tree to lookup in.
+                  -> Int
+                  -> Int -- ^ Size of tree
+                  -> BinomialTree h f b
+unsafe_bin_adjust _ Empty _ _ = error "unsafe_bin_adjust reached end of list"
+unsafe_bin_adjust f (PlusOne sz t u) j i
+  | sz == j `shiftR` (1+i) = do
+    let t' :: BinomialTree ('Succ h) f (PairCtx (InitCtx b))
+        t' = unsafeCoerce t
+        u' :: BalancedTree h f (LastCtx b)
+        u' = unsafe_bal_adjust f u j i
+        r :: BinomialTree h f (InitCtx b ::> LastCtx b)
+        r = PlusOne sz t' u'
+     in unsafeCoerce r
+  | otherwise =
+    let t' :: BinomialTree ('Succ h) f (PairCtx (InitCtx b))
+        t' = unsafe_bin_adjust f t j (i+1)
+        u' :: BalancedTree h f (LastCtx b)
+        u' = unsafeCoerce u
+        r  :: BinomialTree h f (InitCtx b ::> LastCtx b)
+        r  = PlusOne sz t' u'
+     in unsafeCoerce r
+unsafe_bin_adjust f (PlusZero sz t) j i
+  | sz == j `shiftR` (1+i) = error "unsafe_bin_adjust stopped at PlusZero"
+  | otherwise =
+    let t' :: BinomialTree ('Succ h) f (PairCtx b)
+        t' = unsafe_bin_adjust f t j (i+1)
+        r  :: BinomialTree h f b
+        r  = PlusZero sz t'
+     in r
+{-# NOINLINE unsafe_bin_adjust #-}
+
+
+tree_zipWithM :: Applicative m
+             => (forall x . f x -> g x -> m (h x))
+             -> BinomialTree u f a
+             -> BinomialTree u g a
+             -> m (BinomialTree u h a)
+tree_zipWithM _ Empty Empty = pure Empty
+tree_zipWithM f (PlusOne s x1 x2) (PlusOne _ y1 y2) =
+  PlusOne s <$> tree_zipWithM f x1 y1
+            <*> bal_zipWithM  f x2 y2
+tree_zipWithM f (PlusZero s x1) (PlusZero _ y1) =
+  PlusZero s <$> tree_zipWithM f x1 y1
+tree_zipWithM _ _ _ = error "ilegal args to tree_zipWithM"
+{-# INLINABLE tree_zipWithM #-}
 
 ------------------------------------------------------------------------
 -- Assignment
 
+type family UnElt (x :: Ctx (BinTreeKind k)) :: Ctx k
+type instance UnElt EmptyCtx = EmptyCtx
+type instance UnElt (c ::> 'Elt y) = UnElt c ::> y
 
-newtype Assignment (f :: k -> *) (c :: Ctx k) = Assignment (Seq.Seq Any)
+type family UnFlatten (x :: Ctx k) :: Ctx (BinTreeKind k)
+type instance UnFlatten EmptyCtx = EmptyCtx
+type instance UnFlatten (c ::> y) = UnFlatten c ::> 'Elt y
+
+newtype Assignment (f :: k -> *) (ctx :: Ctx k)
+      = Assignment (BinomialTree 'Zero f (UnFlatten ctx))
 
 instance NFData (Assignment f ctx) where
-  rnf (Assignment v) = seq (Fold.all (\e -> e `seq` True) v) ()
+  rnf a = seq a ()
 
+-- | Return number of elements in assignment.
 size :: Assignment f ctx -> Size ctx
-size (Assignment v) = Size (Seq.length v)
+size (Assignment t) = Size (tsize t)
 
-{-# NOINLINE generate #-}
 -- | Generate an assignment
 generate :: Size ctx
          -> (forall tp . Index ctx tp -> f tp)
          -> Assignment f ctx
-generate n f = force $ Assignment $ go 0 Seq.empty
-  where go i s | i == sizeInt n = s
-        go i s = go (i+1) (s Seq.|> unsafeCoerceToAny (f (Index i)))
+generate n f | tsize r == sizeInt n = Assignment r
+             | otherwise = error $ "generate incorrect: " ++ show (tsize r, sizeInt n)
+  where r = unsafe_bin_generate (sizeInt n) 0 f
+{-# NOINLINE generate #-}
 
-{-# NOINLINE generateM #-}
 -- | Generate an assignment
-generateM :: Monad m
+generateM :: Applicative m
           => Size ctx
           -> (forall tp . Index ctx tp -> m (f tp))
           -> m (Assignment f ctx)
-generateM n f = (force . Assignment) `liftM` go 0 Seq.empty
-  where go i s | i == sizeInt n = return s
-        go i s = do
-          r <- f (Index i)
-          go (i+1) ((Seq.|>) s $! unsafeCoerceToAny r)
+generateM n f = Assignment <$> unsafe_bin_generateM (sizeInt n) 0 f
+{-# NOINLINE generateM #-}
 
--- | Create empty assignment
-empty :: Assignment f 'EmptyCtx
-empty = Assignment Seq.empty
+-- | Return empty assignment
+empty :: Assignment f EmptyCtx
+empty = Assignment Empty
 
--- | Append an element to end of context.
-extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
-extend (Assignment v) e = seq e $ Assignment (v Seq.|> unsafeCoerceToAny e)
-{-# NOINLINE extend #-}
+-- | Return true if assignment is empty.
+null :: Assignment f ctx -> Bool
+null (Assignment Empty) = True
+null (Assignment _) = False
 
--- This is an unsafe version of update that changes the type of the expression.
-unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
-unsafeUpdate idx (Assignment v) e = Assignment (Seq.update idx (unsafeCoerceToAny e) v)
-{-# NOINLINE unsafeUpdate #-}
+extend :: Assignment f ctx -> f x -> Assignment f (ctx ::> x)
+extend (Assignment x) y = Assignment $ append x (BalLeaf y)
 
--- | Update the assignment at a particular index.
-update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
-update (Index idx) e a = unsafeUpdate idx a e
-
--- | Modify the value of an assignment at a particular index.
-adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
-adjust f (Index idx) (Assignment v) =
-  Assignment (Seq.adjust (unsafeCoerceToAny . f . unsafeCoerceFromAny) idx v)
-{-# NOINLINE adjust #-}
-
--- | Return assignment with all but the last block.
-init :: Assignment f (ctx '::> tp) -> Assignment f ctx
-init (Assignment v) =
-  case Seq.viewr v of
-    u Seq.:> _ -> Assignment u
-    _ -> error "internal: init given bad value"
+(%>) :: Assignment f x -> f tp -> Assignment f (x ::> tp)
+a %> v = extend a v
 
 -- | Unexported index that returns an arbitrary type of expression.
-unsafeIndex :: Int -> Assignment f ctx -> f u
-unsafeIndex idx (Assignment v) = unsafeCoerceFromAny (v `Seq.index` idx)
-{-# NOINLINE unsafeIndex #-}
+unsafeIndex :: proxy u -> Int -> Assignment f ctx -> f u
+unsafeIndex _ idx (Assignment t) = seq t $ unsafe_bin_index t idx 0
+{-
+unsafeIndex _ idx (Assignment t) =
+  case bin_index t idx 0 of
+    Some v -> unsafeCoerce v
+-}
 
 -- | Return value of assignment.
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
-a ! Index i = unsafeIndex i a
+a ! Index i = assert (0 <= i && i < sizeInt (size a)) $
+              unsafeIndex Proxy i a
 
 -- | Return value of assignment.
 (!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
 a !! i = a ! extendIndex i
 
-assignmentEq :: (forall u v . f u -> f v -> Maybe (u :~: v))
-             -> Assignment f c -> Assignment f d -> Maybe (c :~: d)
-assignmentEq eqC (Assignment xv) (Assignment yv) = do
-  let go (xh:xr) (yh:yr)
-        | Just _ <- eqC (unsafeCoerceFromAny xh) (unsafeCoerceFromAny yh)
-        = go xr yr
-      go [] [] = Just (unsafeCoerce Refl)
-      go _ _ = Nothing
-  go (Fold.toList xv) (Fold.toList yv)
-{-# NOINLINE assignmentEq #-}
-
-instance TestEquality f => TestEquality (Assignment f) where
-  testEquality = assignmentEq testEquality
-
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
 
-instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
-  polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
+instance TestEquality f => TestEquality (Assignment f) where
+   testEquality (Assignment x) (Assignment y) = do
+     Refl <- testEquality x y
+     return (unsafeCoerce Refl)
+
+instance HashableF f => HashableF (Assignment f) where
+  hashWithSaltF = hashWithSalt
+
+instance HashableF f => Hashable (Assignment f ctx) where
+  hashWithSalt s (Assignment a) = hashWithSaltF s a
 
 instance ShowF f => ShowF (Assignment f) where
   showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
 
 instance ShowF f => Show (Assignment f ctx) where
   show a = showF a
+
+-- | Modify the value of an assignment at a particular index.
+adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
+adjust f (Index i) (Assignment a) = Assignment (unsafe_bin_adjust f a i 0)
+
+-- | Update the assignment at a particular index.
+update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
+update i v a = adjust (\_ -> v) i a
+
+-- This is an unsafe version of update that changes the type of the expression.
+unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
+unsafeUpdate i (Assignment a) e = Assignment (unsafe_bin_adjust (\_ -> e) a i 0)
+
+data AssignView f ctx where
+  AssignEmpty :: AssignView f EmptyCtx
+  AssignExtend :: Assignment f ctx
+               -> f tp
+               -> AssignView f (ctx::>tp)
+
+-- | Return assignment with all but the last block.
+view :: forall f ctx . Assignment f ctx -> AssignView f ctx
+view (Assignment x) =
+  case bin_drop x of
+    DropEmpty -> unsafeCoerce AssignEmpty
+    DropExt t v -> do
+      let t' :: BinomialTree 'Zero f (InitCtx (UnFlatten ctx))
+          t' = t
+          t2 :: BinomialTree 'Zero f (UnFlatten (InitCtx (UnElt (UnFlatten ctx))))
+          t2 = unsafeCoerce t'
+          u :: Assignment f (InitCtx (UnElt (UnFlatten ctx)))
+          u = Assignment t2
+          r :: AssignView f (InitCtx (UnElt (UnFlatten ctx)) ::> LastCtx (UnElt (UnFlatten ctx)))
+          r = AssignExtend u v
+       in unsafeCoerce r
+
+-- | Return assignment with all but the last block.
+init :: Assignment f (ctx '::> tp) -> Assignment f ctx
+init (Assignment x) =
+  case bin_drop x of
+    DropExt t _ -> Assignment t
+    _ -> error "init given bad context"
+
+-- | Convert assignment to list.
+toList :: (forall tp . f tp -> a) -> Assignment f c -> [a]
+toList = toListFC
+{-# DEPRECATED toList "Use toListFC" #-}
+
+zipWith :: (forall x . f x -> g x -> h x)
+        -> Assignment f a
+        -> Assignment g a
+        -> Assignment h a
+zipWith f x y= runIdentity $ zipWithM (\u v -> pure (f u v)) x y
+
+zipWithM :: Applicative m
+         => (forall x . f x -> g x -> m (h x))
+         -> Assignment f a
+         -> Assignment g a
+         -> m (Assignment h a)
+zipWithM f (Assignment x) (Assignment y) = Assignment <$> tree_zipWithM f x y
+{-# INLINABLE zipWithM #-}
 
 instance FunctorFC Assignment where
   fmapFC = fmapFCDefault
@@ -364,12 +784,14 @@ instance FoldableFC Assignment where
   foldMapFC = foldMapFCDefault
 
 instance TraversableFC Assignment where
-  traverseFC = traverseF
+  traverseFC f (Assignment x) = Assignment <$> traverseFC f x
 
+{-# DEPRECATED map "Use fmapFC" #-}
 -- | Map assignment
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
 map = fmapFC
 
+{-# DEPRECATED foldlF "Use foldlFC" #-}
 -- | A left fold over an assignment.
 foldlF :: (forall tp . r -> f tp -> r)
        -> r
@@ -377,6 +799,7 @@ foldlF :: (forall tp . r -> f tp -> r)
        -> r
 foldlF = foldlFC
 
+{-# DEPRECATED foldrF "Use foldrFC" #-}
 -- | A right fold over an assignment.
 foldrF :: (forall tp . f tp -> r -> r)
        -> r
@@ -384,54 +807,19 @@ foldrF :: (forall tp . f tp -> r -> r)
        -> r
 foldrF = foldrFC
 
-{-# NOINLINE traverseF #-}
+{-# DEPRECATED traverseF "Use traverseFC" #-}
 traverseF :: Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
           -> m (Assignment g c)
-traverseF f (Assignment v) =
-  force . Assignment <$> traverse (\a -> unsafeCoerceToAny <$> f (unsafeCoerceFromAny a)) v
-
--- | Convert assignment to list.
-toList :: (forall tp . f tp -> a)
-       -> Assignment f c
-       -> [a]
-toList = toListFC
-
-{-# NOINLINE zipWithM #-}
-zipWithM :: Monad m
-         => (forall tp . f tp -> g tp -> m (h tp))
-         -> Assignment f c
-         -> Assignment g c
-         -> m (Assignment h c)
-zipWithM f (Assignment u0) (Assignment v0) = do
-  let go x y = do
-        r <- f (unsafeCoerceFromAny x) (unsafeCoerceFromAny y)
-        return $ unsafeCoerceToAny r
-  r <- (Assignment . Seq.fromList) `liftM` Monad.zipWithM go (Fold.toList u0) (Fold.toList v0)
-  deepseq r $ return r
-
-{-
-{-# NOINLINE zipWithM #-}
-zipWithM :: Monad m
-         => (forall tp . f tp -> g tp -> m (h tp))
-         -> Assignment f c
-         -> Assignment g c
-         -> m (Assignment h c)
-zipWithM f (Assignment u0) (Assignment v0) = do
-  let go x y = unsafeCoerceToAny `liftM` f (unsafeCoerceFromAny a) (unsafeCoerceFromAny b)
-  r <- (Assignment . Seq.fromList) `liftM` Monad.zipWithM go (Fold.toList u0) (Fold.toList v0)
-  deepseq r $ return r
--}
-
-(%>) :: Assignment f x -> f tp -> Assignment f (x '::> tp)
-a %> v = extend a v
+traverseF = traverseFC
 
 ------------------------------------------------------------------------
 -- Lens combinators
 
 unsafeLens :: Int -> Lens.Lens (Assignment f ctx) (Assignment f ctx') (f tp) (f u)
-unsafeLens idx = Lens.lens (unsafeIndex idx) (unsafeUpdate idx)
+unsafeLens idx =
+  Lens.lens (unsafeIndex Proxy idx) (unsafeUpdate idx)
 
 ------------------------------------------------------------------------
 -- 1 field lens combinators
@@ -752,3 +1140,20 @@ instance Lens.Field9 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 t)
                      (f t)
                      (f u) where
   _9 = unsafeLens 8
+
+{-
+------------------------------------------------------------------------
+-- Test code
+
+newtype C tp = C Int
+
+instance ShowF C where
+  showF (C i) = show i
+
+test5= empty %> C 0 %> C 1 %> C 2 %> C 3 %> C 4
+test7 = test5 %> C 5 %> C 6
+
+
+test9 :: Int -> Int
+test9 c = tsize $ unsafe_bin_generate c 0 (\i -> C (indexVal i))
+-}

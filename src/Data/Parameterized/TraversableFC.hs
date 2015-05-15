@@ -81,7 +81,6 @@ class FoldableFC t => TraversableFC t where
              -> t e c
              -> m (t f c)
 
-
 -- | This function may be used as a value for `fmapF` in a `FunctorF`
 -- instance.
 fmapFCDefault :: TraversableFC t => (forall s . e s -> f s) -> t e c -> t f c

@@ -54,7 +54,6 @@ import Data.Parameterized.Utils.BinTree
   , Updated(..)
   , updatedValue
   , TreeApp(..)
-  , IsBinTree
   , bin
   , IsBinTreeM(..)
   , balanceL
@@ -66,7 +65,7 @@ import qualified Data.Parameterized.Utils.BinTree as Bin
 #if MIN_VERSION_base(4,8,0)
 import Prelude hiding (lookup, map, traverse)
 #else
-import Prelude hiding (lookup, map, traverse)
+import Prelude hiding (lookup, map)
 #endif
 
 ------------------------------------------------------------------------

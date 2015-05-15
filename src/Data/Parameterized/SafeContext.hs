@@ -58,7 +58,6 @@ module Data.Parameterized.SafeContext
   , extendIndex
   , extendIndex'
   , forIndex
-  , SomeIndex(..)
   , intIndex
     -- * Assignments
   , Assignment
@@ -96,6 +95,7 @@ import Control.Applicative (Applicative(..))
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
+import Data.Parameterized.Some
 import Data.Parameterized.TraversableFC
 
 ------------------------------------------------------------------------
@@ -251,17 +251,17 @@ forIndex sz_top f = go id sz_top
        go g (SizeSucc sz) = \r -> go (\i -> g (IndexThere i)) sz  $ f r (g (IndexHere sz))
 
 
-data SomeIndex ctx where
-  SomeIndex :: Index ctx tp -> SomeIndex ctx
-
-indexList :: forall ctx. Size ctx -> [SomeIndex ctx]
+indexList :: forall ctx. Size ctx -> [Some (Index ctx)]
 indexList sz_top = go id [] sz_top
- where go :: (forall tp. Index ctx' tp -> Index ctx tp) -> [SomeIndex ctx] -> Size ctx' -> [SomeIndex ctx]
+ where go :: (forall tp. Index ctx' tp -> Index ctx tp)
+          -> [Some (Index ctx)]
+          -> Size ctx'
+          -> [Some (Index ctx)]
        go _ ls SizeZero       = ls
-       go g ls (SizeSucc sz)  = go (\i -> g (IndexThere i)) (SomeIndex (g (IndexHere sz)) : ls) sz
+       go g ls (SizeSucc sz)  = go (\i -> g (IndexThere i)) (Some (g (IndexHere sz)) : ls) sz
 
 -- | Return index at given integer or nothing if integer is out of bounds.
-intIndex :: Int -> Size ctx -> Maybe (SomeIndex ctx)
+intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
 intIndex n sz = listToMaybe $ drop n $ indexList sz
 
 instance Show (Index ctx tp) where
