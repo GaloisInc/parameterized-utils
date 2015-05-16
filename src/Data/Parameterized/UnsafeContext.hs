@@ -543,7 +543,9 @@ bin_drop (PlusZero _ u) =
    in unsafeCoerce v
 bin_drop (PlusOne s t u) =
   let m :: BinomialTree h f (InitCtx ctx)
-      m = PlusZero s t
+      m = case t of
+            Empty -> unsafeCoerce Empty
+            _ -> PlusZero s t
       q :: DropResult f (Append (InitCtx ctx) (FlattenBin (LastCtx ctx)))
       q = bal_drop m u
    in unsafeCoerce q
