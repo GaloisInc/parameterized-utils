@@ -51,8 +51,8 @@ lookup :: (HashableF key, TestEquality key)
        => HashTable s key val
        -> key tp
        -> ST s (Maybe (val tp))
-lookup (HashTable h) k =
-  fmap unsafeCoerce <$> H.lookup h (Some k)
+lookup (HashTable h) k = fmap unsafeCoerce <$> H.lookup h (Some k)
+{-# INLINE lookup #-}
 
 -- | Insert new key and value mapping into table.
 insert :: (HashableF key, TestEquality key)

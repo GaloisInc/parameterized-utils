@@ -84,15 +84,17 @@ class FoldableFC t => TraversableFC t where
 -- | This function may be used as a value for `fmapF` in a `FunctorF`
 -- instance.
 fmapFCDefault :: TraversableFC t => (forall s . e s -> f s) -> t e c -> t f c
-fmapFCDefault f = runIdentity . traverseFC (Identity . f)
+fmapFCDefault = \f -> runIdentity . traverseFC (Identity . f)
 {-# INLINE fmapFCDefault #-}
 
 -- | This function may be used as a value for `Data.Foldable.foldMap`
 -- in a `Foldable` instance.
 foldMapFCDefault :: (TraversableFC t, Monoid m) => (forall s . e s -> m) -> t e c -> m
-foldMapFCDefault f = getConst . traverseFC (Const . f)
+foldMapFCDefault = \f -> getConst . traverseFC (Const . f)
+{-# INLINE foldMapFCDefault #-}
 
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.
 traverseFC_ :: (FoldableFC t, Applicative f) => (forall s . e s  -> f ()) -> t e c -> f ()
 traverseFC_ f = foldrFC (\e r -> f e *> r) (pure ())
+{-# INLINE traverseFC_ #-}

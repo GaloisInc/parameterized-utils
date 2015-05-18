@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -37,6 +38,7 @@ module Data.Parameterized.UnsafeContext
     -- * Assignments
   , Assignment
   , size
+  , replicate
   , generate
   , generateM
   , empty
@@ -50,10 +52,6 @@ module Data.Parameterized.UnsafeContext
   , (!)
   , (!!)
   , toList
-  , foldlF
-  , foldrF
-  , traverseF
-  , map
   , zipWith
   , zipWithM
   , (%>)
@@ -71,7 +69,7 @@ import Data.List (intercalate)
 import Data.Proxy
 import Unsafe.Coerce
 
-import Prelude hiding (init, map, null, succ, zipWith, (!!))
+import Prelude hiding (init, map, null, replicate, succ, zipWith, (!!))
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
@@ -104,6 +102,7 @@ instance KnownContext 'EmptyCtx where
 
 instance KnownContext ctx => KnownContext (ctx '::> tp) where
   knownSize = incSize knownSize
+
 
 ------------------------------------------------------------------------
 -- Diff
@@ -269,21 +268,54 @@ instance TestEquality f => TestEquality (BalancedTree h f) where
     return Refl
   testEquality _ _ = Nothing
 
+instance OrdF f => OrdF (BalancedTree h f) where
+  compareF (BalLeaf x) (BalLeaf y) = do
+    case compareF x y of
+      LTF -> LTF
+      GTF -> GTF
+      EQF -> EQF
+  compareF BalLeaf{} _ = LTF
+  compareF _ BalLeaf{} = GTF
+
+  compareF (BalPair x1 x2) (BalPair y1 y2) = do
+    case compareF x1 y1 of
+      LTF -> LTF
+      GTF -> GTF
+      EQF ->
+        case compareF x2 y2 of
+          LTF -> LTF
+          GTF -> GTF
+          EQF -> EQF
+
 instance HashableF f => HashableF (BalancedTree h f) where
   hashWithSaltF s t =
     case t of
       BalLeaf x -> s `hashWithSaltF` x
       BalPair x y -> s `hashWithSaltF` x `hashWithSaltF` y
 
-instance FunctorFC (BalancedTree h) where
-  fmapFC = fmapFCDefault
+fmap_bal ::(forall tp . f tp -> g tp)
+             -> BalancedTree h f c
+             -> BalancedTree h g c
+fmap_bal = go
+  where go :: (forall tp . f tp -> g tp)
+              -> BalancedTree h f c
+              -> BalancedTree h g c
+        go f (BalLeaf x) = BalLeaf (f x)
+        go f (BalPair x y) = BalPair (go f x) (go f y)
+{-# INLINABLE fmap_bal #-}
 
-instance FoldableFC (BalancedTree h) where
-  foldMapFC = foldMapFCDefault
-
-instance TraversableFC (BalancedTree h) where
-  traverseFC f (BalLeaf x) = BalLeaf <$> f x
-  traverseFC f (BalPair x y) = BalPair <$> traverseFC f x <*> traverseFC f y
+traverse_bal :: Applicative m
+             => (forall tp . f tp -> m (g tp))
+             -> BalancedTree h f c
+             -> m (BalancedTree h g c)
+traverse_bal = go
+  where go :: Applicative m
+              => (forall tp . f tp -> m (g tp))
+              -> BalancedTree h f c
+              -> m (BalancedTree h g c)
+        go f (BalLeaf x) = BalLeaf <$> f x
+        go f (BalPair x y) = BalPair <$> go f x <*> go f y
+{-# INLINABLE traverse_bal #-}
 
 instance ShowF f => ShowF (BalancedTree h f) where
   showF (BalLeaf x) = showF x
@@ -416,6 +448,29 @@ instance TestEquality f => TestEquality (BinomialTree h f) where
     return (unsafeCoerce Refl)
   testEquality _ _ = Nothing
 
+instance OrdF f => OrdF (BinomialTree h f) where
+  compareF Empty Empty = EQF
+  compareF Empty _ = LTF
+  compareF _ Empty = GTF
+
+  compareF (PlusZero _ x1) (PlusZero _ y1) = do
+    case compareF x1 y1 of
+      LTF -> LTF
+      GTF -> GTF
+      EQF -> unsafeCoerce EQF
+  compareF PlusZero{} _ = LTF
+  compareF _ PlusZero{} = GTF
+
+  compareF (PlusOne _ x1 x2) (PlusOne _ y1 y2) = do
+    case compareF x1 y1 of
+      LTF -> LTF
+      GTF -> GTF
+      EQF ->
+        case compareF x2 y2 of
+          LTF -> LTF
+          GTF -> GTF
+          EQF -> unsafeCoerce EQF
+
 instance HashableF f => HashableF (BinomialTree h f) where
   hashWithSaltF s t =
     case t of
@@ -423,16 +478,31 @@ instance HashableF f => HashableF (BinomialTree h f) where
       PlusZero _ x   -> s `hashWithSaltF` x
       PlusOne  _ x y -> s `hashWithSaltF` x `hashWithSaltF` y
 
-instance FunctorFC (BinomialTree h) where
-  fmapFC = fmapFCDefault
+fmap_bin :: (forall tp . f tp -> g tp)
+            -> BinomialTree h f c
+            -> BinomialTree h g c
+fmap_bin = go
+  where go :: (forall tp . f tp -> g tp)
+              -> BinomialTree h f c
+              -> BinomialTree h g c
+        go _ Empty = Empty
+        go f (PlusOne s t x) = PlusOne s  (fmap_bin f t) (fmap_bal f x)
+        go f (PlusZero s t)  = PlusZero s (fmap_bin f t)
+{-# INLINABLE fmap_bin #-}
 
-instance FoldableFC (BinomialTree h) where
-  foldMapFC = foldMapFCDefault
-
-instance TraversableFC (BinomialTree h) where
-  traverseFC _ Empty = pure Empty
-  traverseFC f (PlusOne s t x) = PlusOne s  <$> traverseFC f t <*> traverseFC f x
-  traverseFC f (PlusZero s t)  = PlusZero s <$> traverseFC f t
+traverse_bin :: Applicative m
+             => (forall tp . f tp -> m (g tp))
+             -> BinomialTree h f c
+             -> m (BinomialTree h g c)
+traverse_bin = go
+  where go :: Applicative m
+              => (forall tp . f tp -> m (g tp))
+              -> BinomialTree h f c
+              -> m (BinomialTree h g c)
+        go _ Empty = pure Empty
+        go f (PlusOne s t x) = PlusOne s  <$> traverse_bin f t <*> traverse_bal f x
+        go f (PlusZero s t)  = PlusZero s <$> traverse_bin f t
+{-# INLINABLE traverse_bin #-}
 
 unsafe_bin_generate :: forall h f ctx t
                      . Int -- ^ Size of tree to generate
@@ -613,7 +683,6 @@ unsafe_bin_adjust f (PlusZero sz t) j i
      in r
 {-# NOINLINE unsafe_bin_adjust #-}
 
-
 tree_zipWithM :: Applicative m
              => (forall x . f x -> g x -> m (h x))
              -> BinomialTree u f a
@@ -639,6 +708,8 @@ type family UnFlatten (x :: Ctx k) :: Ctx (BinTreeKind k)
 type instance UnFlatten EmptyCtx = EmptyCtx
 type instance UnFlatten (c ::> y) = UnFlatten c ::> 'Elt y
 
+type role Assignment representational nominal
+
 newtype Assignment (f :: k -> *) (ctx :: Ctx k)
       = Assignment (BinomialTree 'Zero f (UnFlatten ctx))
 
@@ -649,12 +720,16 @@ instance NFData (Assignment f ctx) where
 size :: Assignment f ctx -> Size ctx
 size (Assignment t) = Size (tsize t)
 
+-- | @replicate n@ make a context with different copies of the same
+-- polymorphic value.
+replicate :: Size ctx -> (forall tp . f tp) -> Assignment f ctx
+replicate n c = generate n (\_ -> c)
+
 -- | Generate an assignment
 generate :: Size ctx
          -> (forall tp . Index ctx tp -> f tp)
          -> Assignment f ctx
-generate n f | tsize r == sizeInt n = Assignment r
-             | otherwise = error $ "generate incorrect: " ++ show (tsize r, sizeInt n)
+generate n f  = Assignment r
   where r = unsafe_bin_generate (sizeInt n) 0 f
 {-# NOINLINE generate #-}
 
@@ -684,11 +759,6 @@ a %> v = extend a v
 -- | Unexported index that returns an arbitrary type of expression.
 unsafeIndex :: proxy u -> Int -> Assignment f ctx -> f u
 unsafeIndex _ idx (Assignment t) = seq t $ unsafe_bin_index t idx 0
-{-
-unsafeIndex _ idx (Assignment t) =
-  case bin_index t idx 0 of
-    Some v -> unsafeCoerce v
--}
 
 -- | Return value of assignment.
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
@@ -706,6 +776,16 @@ instance TestEquality f => TestEquality (Assignment f) where
    testEquality (Assignment x) (Assignment y) = do
      Refl <- testEquality x y
      return (unsafeCoerce Refl)
+
+instance OrdF f => OrdF (Assignment f) where
+  compareF (Assignment x) (Assignment y) = do
+    case compareF x y of
+      LTF -> LTF
+      GTF -> GTF
+      EQF -> unsafeCoerce EQF
+
+instance OrdF f => Ord (Assignment f ctx) where
+  compare x y = toOrdering (compareF x y)
 
 instance HashableF f => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
@@ -769,7 +849,8 @@ zipWith :: (forall x . f x -> g x -> h x)
         -> Assignment f a
         -> Assignment g a
         -> Assignment h a
-zipWith f x y= runIdentity $ zipWithM (\u v -> pure (f u v)) x y
+zipWith f = \x y -> runIdentity $ zipWithM (\u v -> pure (f u v)) x y
+{-# INLINE zipWith #-}
 
 zipWithM :: Applicative m
          => (forall x . f x -> g x -> m (h x))
@@ -780,41 +861,16 @@ zipWithM f (Assignment x) (Assignment y) = Assignment <$> tree_zipWithM f x y
 {-# INLINABLE zipWithM #-}
 
 instance FunctorFC Assignment where
-  fmapFC = fmapFCDefault
+  fmapFC = \f (Assignment x) -> Assignment (fmap_bin f x)
+  {-# INLINE fmapFC #-}
 
 instance FoldableFC Assignment where
   foldMapFC = foldMapFCDefault
+  {-# INLINE foldMapFC #-}
 
 instance TraversableFC Assignment where
-  traverseFC f (Assignment x) = Assignment <$> traverseFC f x
-
-{-# DEPRECATED map "Use fmapFC" #-}
--- | Map assignment
-map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
-map = fmapFC
-
-{-# DEPRECATED foldlF "Use foldlFC" #-}
--- | A left fold over an assignment.
-foldlF :: (forall tp . r -> f tp -> r)
-       -> r
-       -> Assignment f c
-       -> r
-foldlF = foldlFC
-
-{-# DEPRECATED foldrF "Use foldrFC" #-}
--- | A right fold over an assignment.
-foldrF :: (forall tp . f tp -> r -> r)
-       -> r
-       -> Assignment f c
-       -> r
-foldrF = foldrFC
-
-{-# DEPRECATED traverseF "Use traverseFC" #-}
-traverseF :: Applicative m
-          => (forall tp . f tp -> m (g tp))
-          -> Assignment f c
-          -> m (Assignment g c)
-traverseF = traverseFC
+  traverseFC = \f (Assignment x) -> Assignment <$> traverse_bin f x
+  {-# INLINE traverseFC #-}
 
 ------------------------------------------------------------------------
 -- Lens combinators

@@ -142,13 +142,13 @@ matchTypePat _ (ConType tpq) tp = do
   return (tp' == tp)
 matchTypePat _ _ _ = return False
 
-matchTypePats :: DataD -> [TypePat] -> Type -> Q Bool
-matchTypePats _ [] _ = return False
-matchTypePats d (p:pats) tp = do
+assocTypePats :: DataD -> [(TypePat,v)] -> Type -> Q (Maybe v)
+assocTypePats _ [] _ = return Nothing
+assocTypePats d ((p,v):pats) tp = do
   r <- matchTypePat d p tp
   case r of
-    True -> return True
-    False -> matchTypePats d pats tp
+    True -> return (Just v)
+    False -> assocTypePats d pats tp
 
 ------------------------------------------------------------------------
 -- Contructor cases
@@ -171,7 +171,7 @@ lookupDataType' tpName = do
     asDataD =<< asTyConI info
 
 -- | @declareStructuralEquality@ declares a structural equality predicate.
-structuralEquality :: TypeQ -> [TypePat] -> ExpQ
+structuralEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralEquality tpq pats =
   [| \x y -> isJust ($(structuralTypeEquality tpq pats) x y) |]
 
@@ -179,16 +179,16 @@ joinEqMaybe :: Name -> Name -> ExpQ -> ExpQ
 joinEqMaybe x y r = do
   [| if $(varE x) == $(varE y) then $(r) else Nothing |]
 
-joinTestEquality :: Name -> Name -> ExpQ -> ExpQ
-joinTestEquality x y r =
-  [| case testEquality $(varE x) $(varE y) of
+joinTestEquality :: ExpQ -> Name -> Name -> ExpQ -> ExpQ
+joinTestEquality f x y r =
+  [| case $(f) $(varE x) $(varE y) of
       Nothing -> Nothing
       Just Refl -> $(r)
    |]
 
 -- | Match equational form.
 mkEqF :: DataD -- ^ Data declaration.
-      -> [TypePat]
+      -> [(TypePat,ExpQ)]
       -> Con
       -> MatchQ
 mkEqF d pats c = do
@@ -198,17 +198,17 @@ mkEqF d pats c = do
 
   let go :: Set Name -> [Type] -> [Name] -> [Name] -> ExpQ
       go bnd (tp:tpl) (x:xl) (y:yl) = do
-        doesMatch <- matchTypePats d pats tp
+        doesMatch <- assocTypePats d pats tp
         case doesMatch of
-          True -> do
+          Just q -> do
             let bnd' =
                   case tp of
                     AppT _ (VarT nm) -> Set.insert nm bnd
                     _ -> bnd
-            joinTestEquality x y (go bnd' tpl xl yl)
-          False | typeVars tp `Set.isSubsetOf` bnd -> do
+            joinTestEquality q x y (go bnd' tpl xl yl)
+          Nothing | typeVars tp `Set.isSubsetOf` bnd -> do
             joinEqMaybe x y (go bnd tpl xl yl)
-          False -> do
+          Nothing -> do
             fail $ "Unsupported argument type " ++ show (ppr tp)
                 ++ " in " ++ show (ppr (conName c)) ++ "."
       go _ [] [] [] = [| Just Refl |]
@@ -222,7 +222,7 @@ mkEqF d pats c = do
 
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> Maybe (x :~: y)
-structuralTypeEquality :: TypeQ -> [TypePat] -> ExpQ
+structuralTypeEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralTypeEquality tpq pats = do
   d <- lookupDataType' =<< asTypeCon "structuralTypeEquality" =<< tpq
   let trueEqs = (mkEqF d pats <$> dataCtors d)
@@ -232,7 +232,7 @@ structuralTypeEquality tpq pats = do
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> OrderingF x y
 structuralTypeOrd :: TypeQ
-                  -> [TypePat] -- ^ List of type patterns to match.
+                  -> [(TypePat,ExpQ)] -- ^ List of type patterns to match.
                   -> ExpQ
 structuralTypeOrd tpq l = do
   d <- lookupDataType' =<< asTypeCon "structuralTypeEquality" =<< tpq
@@ -245,9 +245,9 @@ structuralTypeOrd tpq l = do
     _ -> error "Bad return value from structuralTypeOrd"
 
 
-joinCompareF :: Name -> Name -> ExpQ -> ExpQ
-joinCompareF x y r = do
-  [| case compareF $(varE x) $(varE y) of
+joinCompareF :: ExpQ -> Name -> Name -> ExpQ -> ExpQ
+joinCompareF f x y r = do
+  [| case $(f) $(varE x) $(varE y) of
       LTF -> LTF
       GTF -> GTF
       EQF -> $(r)
@@ -263,7 +263,7 @@ joinCompareToOrdF x y r =
 
 -- | Match equational form.
 mkOrdF :: DataD -- ^ Data declaration.
-       -> [TypePat] -- ^ Second order argument types.
+       -> [(TypePat,ExpQ)] -- ^ Second order argument types.
        -> Con
        -> Q [MatchQ]
 mkOrdF d pats c = do
@@ -274,16 +274,16 @@ mkOrdF d pats c = do
   let go :: Set Name -> [Type] -> [Name] -> [Name] -> ExpQ
       -- Use testEquality on vars with second order types.
       go bnd (tp : tpl) (x:xl) (y:yl) = do
-        doesMatch <- matchTypePats d pats tp
+        doesMatch <- assocTypePats d pats tp
         case doesMatch of
-          True -> do
+          Just f -> do
             let bnd' = case tp of
                          AppT _ (VarT nm) -> Set.insert nm bnd
                          _ -> bnd
-            joinCompareF x y (go bnd' tpl xl yl)
-          False | typeVars tp `Set.isSubsetOf` bnd -> do
+            joinCompareF f x y (go bnd' tpl xl yl)
+          Nothing | typeVars tp `Set.isSubsetOf` bnd -> do
             joinCompareToOrdF x y (go bnd tpl xl yl)
-          False ->
+          Nothing ->
             fail $ "Unsupported argument type " ++ show (ppr tp)
                 ++ " in " ++ show (ppr (conName c)) ++ "."
       go _ [] [] [] = [| EQF |]
