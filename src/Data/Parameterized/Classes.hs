@@ -24,6 +24,7 @@ module Data.Parameterized.Classes
   ( -- * Equality exports
     Equality.TestEquality(..)
   , (Equality.:~:)(..)
+  , EqF(..)
   , PolyEq(..)
     -- * Ordering generalization
   , OrdF(..)
@@ -46,8 +47,18 @@ import Data.Type.Equality as Equality
 --   all the types of a family.  We generally use this to witness
 --   the fact that the type parameter to rtp is a phantom type
 --   by giving an implementation in terms of Data.Coerce.coerce.
-class CoerceableF (rtp:: k -> *) where
+class CoerceableF (rtp :: k -> *) where
   coerceF :: rtp a -> rtp b
+
+-- | @EqF@ provides a method @eqF@ for testing whether two parameterized
+-- types are equal.
+--
+-- Unlike @testEquality@ it does not provide a proof that the types has
+-- the same type when they are equal, and thus this can be implemented
+-- over parameterized types that are unable to provide the evidence they
+-- are equal.
+class EqF (f :: k -> *) where
+  eqF :: f a -> f b -> Bool
 
 -- | A polymorphic equality operator that generalizes TestEquality.
 class PolyEq u v where
