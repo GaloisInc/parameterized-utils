@@ -53,12 +53,13 @@ class CoerceableF (rtp :: k -> *) where
 -- | @EqF@ provides a method @eqF@ for testing whether two parameterized
 -- types are equal.
 --
--- Unlike @testEquality@ it does not provide a proof that the types has
+-- Unlike @testEquality@, this only works when the type arguments are the
+-- same, and does not provide a proof that the types has
 -- the same type when they are equal, and thus this can be implemented
 -- over parameterized types that are unable to provide the evidence they
 -- are equal.
 class EqF (f :: k -> *) where
-  eqF :: f a -> f b -> Bool
+  eqF :: f a -> f a -> Bool
 
 -- | A polymorphic equality operator that generalizes TestEquality.
 class PolyEq u v where

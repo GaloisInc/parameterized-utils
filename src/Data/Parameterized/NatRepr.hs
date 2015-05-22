@@ -268,9 +268,9 @@ data LeqProof m n where
   LeqProof :: (m <= n) => LeqProof m n
 
 testStrictLeq :: (m <= n)
-            => NatRepr m
-            -> NatRepr n
-            -> Either (LeqProof (m+1) n) (m :~: n)
+              => NatRepr m
+              -> NatRepr n
+              -> Either (LeqProof (m+1) n) (m :~: n)
 testStrictLeq (NatRepr m) (NatRepr n)
   | m < n = Left (unsafeCoerce (LeqProof :: LeqProof 0 0))
   | otherwise = Right (unsafeCoerce (Refl :: 0 :~: 0))
@@ -331,6 +331,9 @@ addPrefixIsLeq :: f m -> g n -> LeqProof n (m + n)
 addPrefixIsLeq m n =
   case plusComm n m of
     Refl -> addIsLeq n m
+
+dblLeqIsLeq :: forall n . LeqProof 1 n -> LeqProof 1 (n+n)
+dblLeqIsLeq x = leqAdd x Proxy
 
 dblPosIsPos :: forall n . LeqProof 1 n -> LeqProof 1 (n+n)
 dblPosIsPos x = leqAdd x Proxy
