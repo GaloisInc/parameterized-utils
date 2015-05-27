@@ -46,6 +46,8 @@ module Data.Parameterized.NatRepr
   , someNat
   , maxNat
   , natForEach
+  , NatCases(..)
+  , testNatCases
     -- * Bitvector utilities
   , widthVal
   , minUnsigned
@@ -267,6 +269,14 @@ plusMinusCancel _ _ = unsafeCoerce (Refl :: 0 :~: 0)
 data LeqProof m n where
   LeqProof :: (m <= n) => LeqProof m n
 
+-- As for NatComparison above, but works with LeqProof
+data NatCases m n where
+  -- First number is less than second.
+  NatCaseLT :: LeqProof (m+1) n -> NatCases m n
+  NatCaseEQ :: NatCases m m
+  -- First number is greater than second.
+  NatCaseGT :: LeqProof (n+1) m -> NatCases m n
+
 testStrictLeq :: (m <= n)
               => NatRepr m
               -> NatRepr n
@@ -274,6 +284,16 @@ testStrictLeq :: (m <= n)
 testStrictLeq (NatRepr m) (NatRepr n)
   | m < n = Left (unsafeCoerce (LeqProof :: LeqProof 0 0))
   | otherwise = Right (unsafeCoerce (Refl :: 0 :~: 0))
+
+-- FIXME: use a datatype for this?
+testNatCases ::  NatRepr m
+              -> NatRepr n
+              -> NatCases m n
+testNatCases m n =
+  case compare (natValue m) (natValue n) of
+    LT -> NatCaseLT (unsafeCoerce (LeqProof :: LeqProof 0 0))
+    EQ -> unsafeCoerce $ (NatCaseEQ :: NatCases 0 0)
+    GT -> NatCaseGT (unsafeCoerce (LeqProof :: LeqProof 0 0))
 
 -- | @x `testLeq` y@ checks whether @x@ is less than or equal to @y@.
 testLeq :: NatRepr m -> NatRepr n -> Maybe (LeqProof m n)
