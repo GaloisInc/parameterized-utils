@@ -33,16 +33,16 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.SafeContext
   ( module Data.Parameterized.Ctx
-  , KnownContext(..)
-    -- * Size
   , Size
   , sizeInt
   , zeroSize
   , incSize
   , extSize
+  , KnownContext(..)
     -- * Diff
   , Diff
   , noDiff
@@ -62,34 +62,37 @@ module Data.Parameterized.SafeContext
     -- * Assignments
   , Assignment
   , size
+  , replicate
   , generate
   , generateM
   , empty
+  , null
   , extend
   , update
   , adjust
-
   , init
+  , AssignView(..)
+  , view
   , (!)
   , (!!)
   , toList
-  , foldlF
-  , foldrF
-  , traverseF
-  , map
+  , zipWith
   , zipWithM
-
   , (%>)
   ) where
 
 import qualified Control.Category as Cat
 import Control.DeepSeq
+import qualified Control.Lens as Lens
+import Control.Monad.Identity (Identity(..))
+import Data.Hashable
 import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Data.Type.Equality
-import Prelude hiding (init, map, succ, (!!))
+import Prelude hiding (init, map, null, replicate, succ, zipWith, (!!))
 
 #if !MIN_VERSION_base(4,8,0)
+import Data.Functor
 import Control.Applicative (Applicative(..))
 #endif
 
@@ -273,24 +276,24 @@ instance ShowF (Index ctx) where
 ------------------------------------------------------------------------
 -- Assignment
 
-data Assignment (f :: k -> *) (c :: Ctx k) where
-  AssignEmpty  :: Assignment f 'EmptyCtx
-  AssignCons   :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
-  AssignMap    :: forall f g ctx
-                . (forall tp . f tp -> g tp)
-               -> Assignment f ctx
-               -> Assignment g ctx
+type Assignment = AssignView
 
+data AssignView f ctx where
+  AssignEmpty :: AssignView f EmptyCtx
+  AssignExtend :: Assignment f ctx
+               -> f tp
+               -> AssignView f (ctx::>tp)
+
+view :: forall f ctx . Assignment f ctx -> AssignView f ctx
+view asgn = asgn
 
 instance NFData (Assignment f ctx) where
   rnf AssignEmpty = ()
-  rnf (AssignCons asgn x) = rnf asgn `seq` x `seq` ()
-  rnf (AssignMap _ asgn) = rnf asgn `seq` ()
+  rnf (AssignExtend asgn x) = rnf asgn `seq` x `seq` ()
 
 size :: Assignment f ctx -> Size ctx
 size AssignEmpty = SizeZero
-size (AssignCons asgn _) = SizeSucc (size asgn)
-size (AssignMap _ asgn) = size asgn
+size (AssignExtend asgn _) = SizeSucc (size asgn)
 
 -- | Generate an assignment
 generate :: forall ctx f
@@ -306,28 +309,36 @@ generate sz_top f = go id sz_top
        go g (SizeSucc sz) =
             let ctx = go (\i -> g (IndexThere i)) sz
                 x = f (g (IndexHere sz))
-             in AssignCons ctx x
+             in AssignExtend ctx x
 
 -- | Generate an assignment
 generateM :: forall ctx m f
-           . Monad m
+           . Applicative m
           => Size ctx
           -> (forall tp . Index ctx tp -> m (f tp))
           -> m (Assignment f ctx)
 generateM sz_top f = go id sz_top
  where go :: forall ctx'. (forall tp. Index ctx' tp -> Index ctx tp) -> Size ctx' -> m (Assignment f ctx')
-       go _ SizeZero = return AssignEmpty
-       go g (SizeSucc sz) = do
-             asgn <- go (\i -> g (IndexThere i)) sz
-             x <- f (g (IndexHere sz))
-             return $ AssignCons asgn x
+       go _ SizeZero = pure AssignEmpty
+       go g (SizeSucc sz) =
+             AssignExtend <$> (go (\i -> g (IndexThere i)) sz) <*> f (g (IndexHere sz))
+
+-- | @replicate n@ make a context with different copies of the same
+-- polymorphic value.
+replicate :: Size ctx -> (forall tp . f tp) -> Assignment f ctx
+replicate n c = generate n (\_ -> c)
 
 -- | Create empty indexec vector.
 empty :: Assignment f 'EmptyCtx
 empty = AssignEmpty
 
+-- | Return true if assignment is empty.
+null :: Assignment f ctx -> Bool
+null AssignEmpty = True
+null _ = False
+
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
-extend asgn e = AssignCons asgn e
+extend asgn e = AssignExtend asgn e
 
 update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
 update idx e asgn = adjust (\_ -> e) idx asgn
@@ -336,22 +347,20 @@ adjust :: forall f ctx tp. (f tp -> f tp) -> Index ctx tp -> Assignment f ctx ->
 adjust f = go (\x -> x)
  where
   go :: (forall tp'. g tp' -> f tp') -> Index ctx' tp -> Assignment g ctx' -> Assignment f ctx'
-  go g idx (AssignMap g' asgn) = go (\x -> (g (g' x))) idx asgn
-  go g (IndexHere _)    (AssignCons asgn x) = AssignCons (AssignMap g asgn) (f (g x))
-  go g (IndexThere idx) (AssignCons asgn x) = AssignCons (go g idx asgn) (g x)
+  go g (IndexHere _)    (AssignExtend asgn x) = AssignExtend (map g asgn) (f (g x))
+  go g (IndexThere idx) (AssignExtend asgn x) = AssignExtend (go g idx asgn) (g x)
 --  go _ (IndexHere _) AssignEmpty = undefined
 --  go _ (IndexThere _) AssignEmpty = undefined
   go _ _ _ = error "SafeTypeContext.adjust: impossible!"
 
+
 -- | Return assignment with all but the last block.
 init :: Assignment f (ctx '::> tp) -> Assignment f ctx
-init (AssignCons asgn _) = asgn
-init _ = error "Data.Parameterized.SafeContext.init: impossible!"
+init (AssignExtend asgn _) = asgn
 
 idxlookup :: (forall tp. a tp -> b tp) -> Assignment a ctx -> forall tp. Index ctx tp -> b tp
-idxlookup f (AssignCons _   x) (IndexHere _) = f x
-idxlookup f (AssignCons ctx _) (IndexThere idx) = idxlookup f ctx idx
-idxlookup f (AssignMap g ctx) idx = idxlookup (\x -> f (g x)) ctx idx
+idxlookup f (AssignExtend _   x) (IndexHere _) = f x
+idxlookup f (AssignExtend ctx _) (IndexThere idx) = idxlookup f ctx idx
 idxlookup _ AssignEmpty _ = error "Data.Parameterized.SafeContext.lookup: impossible case"
 
 -- | Return value of assignment.
@@ -365,14 +374,9 @@ a !! i = a ! extendIndex i
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
 
-simplAssign :: (forall tp. a tp -> b tp) -> forall tp. Assignment a tp -> Assignment b tp
-simplAssign _ AssignEmpty = AssignEmpty
-simplAssign f (AssignCons asgn x) = AssignCons (simplAssign f asgn) (f x)
-simplAssign f (AssignMap g asgn) = simplAssign (\x -> f (g x)) asgn
-
 testEq :: TestEquality f => Assignment f cxt1 -> Assignment f cxt2 -> Maybe (cxt1 :~: cxt2)
 testEq AssignEmpty AssignEmpty = Just Refl
-testEq (AssignCons ctx1 x1) (AssignCons ctx2 x2) =
+testEq (AssignExtend ctx1 x1) (AssignExtend ctx2 x2) =
      case testEq ctx1 ctx2 of
        Nothing -> Nothing
        Just Refl ->
@@ -383,10 +387,22 @@ testEq _ _ = error "Data.Parameterized.SafeContext.testEquality: impossible!"
 
 
 instance TestEquality f => TestEquality (Assignment f) where
-   testEquality x y = testEq (simplAssign id x) (simplAssign id y)
+   testEquality x y = testEq x y
 
 instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
   polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
+
+instance OrdF f => OrdF (Assignment f) where
+  compareF _x _y = error "UNDEFINED ORDF ON ASSIGNEMENTS"
+
+instance OrdF f => Ord (Assignment f ctx) where
+  compare x y = toOrdering (compareF x y)
+
+instance HashableF f => HashableF (Assignment f) where
+  hashWithSaltF = hashWithSalt
+
+instance HashableF f => Hashable (Assignment f ctx) where
+  hashWithSalt _s _asgn = error "UNDEFINED HASHWITHSALT ON ASSIGNEMENTS"
 
 instance ShowF f => ShowF (Assignment f) where
   showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
@@ -401,34 +417,19 @@ instance FoldableFC Assignment where
   foldMapFC = foldMapFCDefault
 
 instance TraversableFC Assignment where
-  traverseFC _ AssignEmpty = pure AssignEmpty
-  traverseFC f (AssignCons asgn x) = pure AssignCons <*> traverseF f asgn <*> f x
-  traverseFC f (AssignMap g asgn) = traverseF (\x -> f (g x)) asgn
+  traverseFC = traverseF
 
 -- | Map assignment
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
 map = fmapFC
 
--- | A left fold over an assignment.
-foldlF :: (forall tp . r -> f tp -> r)
-       -> r
-       -> Assignment f c
-       -> r
-foldlF = foldlFC
-
--- | A right fold over an assignment.
-foldrF :: (forall tp . f tp -> r -> r)
-       -> r
-       -> Assignment f c
-       -> r
-foldrF = foldrFC
-
-traverseF :: forall f g m c
+traverseF :: forall (f:: k -> *) (g::k -> *) (m:: * -> *) (c::Ctx k)
            . Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
           -> m (Assignment g c)
-traverseF = traverseFC
+traverseF _ AssignEmpty = pure AssignEmpty
+traverseF f (AssignExtend asgn x) = pure AssignExtend <*> traverseF f asgn <*> f x
 
 -- | Convert assignment to list.
 toList :: (forall tp . f tp -> a)
@@ -436,18 +437,421 @@ toList :: (forall tp . f tp -> a)
        -> [a]
 toList = toListFC
 
-zipWithM :: Monad m
+zipWithM :: Applicative m
          => (forall tp . f tp -> g tp -> m (h tp))
          -> Assignment f c
          -> Assignment g c
          -> m (Assignment h c)
-zipWithM f x y = go (simplAssign id x) (simplAssign id y)
- where go AssignEmpty AssignEmpty = return AssignEmpty
-       go (AssignCons asgn1 x1) (AssignCons asgn2 x2) = do
-           asgn' <- zipWithM f asgn1 asgn2
-           x' <- f x1 x2
-           return $ AssignCons asgn' x'
-       go _ _ = error "Data.Parameterized.SafeContext.zipWithM: impossible!"
+zipWithM f x y = go x y
+ where go AssignEmpty AssignEmpty = pure AssignEmpty
+       go (AssignExtend asgn1 x1) (AssignExtend asgn2 x2) =
+             AssignExtend <$> (zipWithM f asgn1 asgn2) <*> (f x1 x2)
+
+zipWith :: (forall x . f x -> g x -> h x)
+        -> Assignment f a
+        -> Assignment g a
+        -> Assignment h a
+zipWith f = \x y -> runIdentity $ zipWithM (\u v -> pure (f u v)) x y
+{-# INLINE zipWith #-}
 
 (%>) :: Assignment f x -> f tp -> Assignment f (x '::> tp)
 a %> v = extend a v
+
+
+--------------------------------------------------------------------------------------
+-- lookups and update for lenses
+
+data MyNat where
+  MyZ :: MyNat
+  MyS :: MyNat -> MyNat
+
+type MyZ = 'MyZ
+type MyS = 'MyS
+
+data MyNatRepr :: MyNat -> * where
+  MyZR :: MyNatRepr MyZ
+  MySR :: MyNatRepr n -> MyNatRepr (MyS n)
+
+type family StrongCtxUpdate (n::MyNat) (ctx::Ctx k) (z::k) :: Ctx k where
+  StrongCtxUpdate n       EmptyCtx     z = EmptyCtx
+  StrongCtxUpdate MyZ     (ctx::>x)    z = ctx ::> z
+  StrongCtxUpdate (MyS n) (ctx::>x)    z = (StrongCtxUpdate n ctx z) ::> x
+
+type family MyNatLookup (n::MyNat) (ctx::Ctx k) (f::k -> *) :: * where
+  MyNatLookup n       EmptyCtx  f = ()
+  MyNatLookup MyZ     (ctx::>x) f = f x
+  MyNatLookup (MyS n) (ctx::>x) f = MyNatLookup n ctx f
+
+mynat_lookup :: MyNatRepr n -> Assignment f ctx -> MyNatLookup n ctx f
+mynat_lookup _   AssignEmpty = ()
+mynat_lookup MyZR     (AssignExtend _    x) = x
+mynat_lookup (MySR n) (AssignExtend asgn _) = mynat_lookup n asgn
+
+strong_ctx_update :: MyNatRepr n -> Assignment f ctx -> f tp -> Assignment f (StrongCtxUpdate n ctx tp)
+strong_ctx_update _        AssignEmpty           _ = AssignEmpty
+strong_ctx_update MyZR     (AssignExtend asgn _) z = AssignExtend asgn z
+strong_ctx_update (MySR n) (AssignExtend asgn x) z = AssignExtend (strong_ctx_update n asgn z) x
+
+------------------------------------------------------------------------
+-- 1 field lens combinators
+
+type Assignment1 f x1 = Assignment f ('EmptyCtx '::> x1)
+
+instance Lens.Field1 (Assignment1 f t) (Assignment1 f u) (f t) (f u) where
+
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+------------------------------------------------------------------------
+-- 2 field lens combinators
+
+type Assignment2 f x1 x2
+   = Assignment f ('EmptyCtx '::> x1 '::> x2)
+
+instance Lens.Field1 (Assignment2 f t x2) (Assignment2 f u x2) (f t) (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field2 (Assignment2 f x1 t) (Assignment2 f x1 u) (f t) (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+
+------------------------------------------------------------------------
+-- 3 field lens combinators
+
+type Assignment3 f x1 x2 x3
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3)
+
+instance Lens.Field1 (Assignment3 f t x2 x3)
+                     (Assignment3 f u x2 x3)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field2 (Assignment3 f x1 t x3)
+                     (Assignment3 f x1 u x3)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field3 (Assignment3 f x1 x2 t)
+                     (Assignment3 f x1 x2 u)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+------------------------------------------------------------------------
+-- 4 field lens combinators
+
+type Assignment4 f x1 x2 x3 x4
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3 '::> x4)
+
+instance Lens.Field1 (Assignment4 f t x2 x3 x4)
+                     (Assignment4 f u x2 x3 x4)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field2 (Assignment4 f x1 t x3 x4)
+                     (Assignment4 f x1 u x3 x4)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field3 (Assignment4 f x1 x2 t x4)
+                     (Assignment4 f x1 x2 u x4)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field4 (Assignment4 f x1 x2 x3 t)
+                     (Assignment4 f x1 x2 x3 u)
+                     (f t)
+                     (f u) where
+  _4 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+
+------------------------------------------------------------------------
+-- 5 field lens combinators
+
+type Assignment5 f x1 x2 x3 x4 x5
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3 '::> x4 '::> x5)
+
+instance Lens.Field1 (Assignment5 f t x2 x3 x4 x5)
+                     (Assignment5 f u x2 x3 x4 x5)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field2 (Assignment5 f x1 t x3 x4 x5)
+                     (Assignment5 f x1 u x3 x4 x5)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field3 (Assignment5 f x1 x2 t x4 x5)
+                     (Assignment5 f x1 x2 u x4 x5)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field4 (Assignment5 f x1 x2 x3 t x5)
+                     (Assignment5 f x1 x2 x3 u x5)
+                     (f t)
+                     (f u) where
+  _4 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field5 (Assignment5 f x1 x2 x3 x4 t)
+                     (Assignment5 f x1 x2 x3 x4 u)
+                     (f t)
+                     (f u) where
+  _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+------------------------------------------------------------------------
+-- 6 field lens combinators
+
+type Assignment6 f x1 x2 x3 x4 x5 x6
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3 '::> x4 '::> x5 '::> x6)
+
+instance Lens.Field1 (Assignment6 f t x2 x3 x4 x5 x6)
+                     (Assignment6 f u x2 x3 x4 x5 x6)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field2 (Assignment6 f x1 t x3 x4 x5 x6)
+                     (Assignment6 f x1 u x3 x4 x5 x6)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field3 (Assignment6 f x1 x2 t x4 x5 x6)
+                     (Assignment6 f x1 x2 u x4 x5 x6)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field4 (Assignment6 f x1 x2 x3 t x5 x6)
+                     (Assignment6 f x1 x2 x3 u x5 x6)
+                     (f t)
+                     (f u) where
+  _4 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field5 (Assignment6 f x1 x2 x3 x4 t x6)
+                     (Assignment6 f x1 x2 x3 x4 u x6)
+                     (f t)
+                     (f u) where
+  _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field6 (Assignment6 f x1 x2 x3 x4 x5 t)
+                     (Assignment6 f x1 x2 x3 x4 x5 u)
+                     (f t)
+                     (f u) where
+  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+------------------------------------------------------------------------
+-- 7 field lens combinators
+
+type Assignment7 f x1 x2 x3 x4 x5 x6 x7
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3 '::> x4 '::> x5 '::> x6 '::> x7)
+
+instance Lens.Field1 (Assignment7 f t x2 x3 x4 x5 x6 x7)
+                     (Assignment7 f u x2 x3 x4 x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field2 (Assignment7 f x1 t x3 x4 x5 x6 x7)
+                     (Assignment7 f x1 u x3 x4 x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field3 (Assignment7 f x1 x2 t x4 x5 x6 x7)
+                     (Assignment7 f x1 x2 u x4 x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field4 (Assignment7 f x1 x2 x3 t x5 x6 x7)
+                     (Assignment7 f x1 x2 x3 u x5 x6 x7)
+                     (f t)
+                     (f u) where
+  _4 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field5 (Assignment7 f x1 x2 x3 x4 t x6 x7)
+                     (Assignment7 f x1 x2 x3 x4 u x6 x7)
+                     (f t)
+                     (f u) where
+  _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field6 (Assignment7 f x1 x2 x3 x4 x5 t x7)
+                     (Assignment7 f x1 x2 x3 x4 x5 u x7)
+                     (f t)
+                     (f u) where
+  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field7 (Assignment7 f x1 x2 x3 x4 x5 x6 t)
+                     (Assignment7 f x1 x2 x3 x4 x5 x6 u)
+                     (f t)
+                     (f u) where
+  _7 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+------------------------------------------------------------------------
+-- 8 field lens combinators
+
+type Assignment8 f x1 x2 x3 x4 x5 x6 x7 x8
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3 '::> x4 '::> x5 '::> x6 '::> x7 '::> x8)
+
+instance Lens.Field1 (Assignment8 f t x2 x3 x4 x5 x6 x7 x8)
+                     (Assignment8 f u x2 x3 x4 x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+
+instance Lens.Field2 (Assignment8 f x1 t x3 x4 x5 x6 x7 x8)
+                     (Assignment8 f x1 u x3 x4 x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field3 (Assignment8 f x1 x2 t x4 x5 x6 x7 x8)
+                     (Assignment8 f x1 x2 u x4 x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field4 (Assignment8 f x1 x2 x3 t x5 x6 x7 x8)
+                     (Assignment8 f x1 x2 x3 u x5 x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _4 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field5 (Assignment8 f x1 x2 x3 x4 t x6 x7 x8)
+                     (Assignment8 f x1 x2 x3 x4 u x6 x7 x8)
+                     (f t)
+                     (f u) where
+  _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field6 (Assignment8 f x1 x2 x3 x4 x5 t x7 x8)
+                     (Assignment8 f x1 x2 x3 x4 x5 u x7 x8)
+                     (f t)
+                     (f u) where
+  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field7 (Assignment8 f x1 x2 x3 x4 x5 x6 t x8)
+                     (Assignment8 f x1 x2 x3 x4 x5 x6 u x8)
+                     (f t)
+                     (f u) where
+  _7 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field8 (Assignment8 f x1 x2 x3 x4 x5 x6 x7 t)
+                     (Assignment8 f x1 x2 x3 x4 x5 x6 x7 u)
+                     (f t)
+                     (f u) where
+  _8 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
+
+------------------------------------------------------------------------
+-- 9 field lens combinators
+
+type Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 x9
+   = Assignment f ('EmptyCtx '::> x1 '::> x2 '::> x3 '::> x4 '::> x5 '::> x6 '::> x7 '::> x8 '::> x9)
+
+
+instance Lens.Field1 (Assignment9 f t x2 x3 x4 x5 x6 x7 x8 x9)
+                     (Assignment9 f u x2 x3 x4 x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _1 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field2 (Assignment9 f x1 t x3 x4 x5 x6 x7 x8 x9)
+                     (Assignment9 f x1 u x3 x4 x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _2 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field3 (Assignment9 f x1 x2 t x4 x5 x6 x7 x8 x9)
+                     (Assignment9 f x1 x2 u x4 x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _3 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field4 (Assignment9 f x1 x2 x3 t x5 x6 x7 x8 x9)
+                     (Assignment9 f x1 x2 x3 u x5 x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _4 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field5 (Assignment9 f x1 x2 x3 x4 t x6 x7 x8 x9)
+                     (Assignment9 f x1 x2 x3 x4 u x6 x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field6 (Assignment9 f x1 x2 x3 x4 x5 t x7 x8 x9)
+                     (Assignment9 f x1 x2 x3 x4 x5 u x7 x8 x9)
+                     (f t)
+                     (f u) where
+  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MySR $ MyZR
+
+instance Lens.Field7 (Assignment9 f x1 x2 x3 x4 x5 x6 t x8 x9)
+                     (Assignment9 f x1 x2 x3 x4 x5 x6 u x8 x9)
+                     (f t)
+                     (f u) where
+  _7 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MySR $ MyZR
+
+instance Lens.Field8 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 t x9)
+                     (Assignment9 f x1 x2 x3 x4 x5 x6 x7 u x9)
+                     (f t)
+                     (f u) where
+  _8 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MySR $ MyZR
+
+instance Lens.Field9 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 t)
+                     (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 u)
+                     (f t)
+                     (f u) where
+  _9 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
+        where n = MyZR
