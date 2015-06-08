@@ -39,6 +39,7 @@ module Data.Parameterized.NatRepr
   , NatComparison(..)
   , compareNat
   , decNat
+  , predNat
   , incNat
   , addNat
   , subNat
@@ -175,8 +176,12 @@ isZeroNat (NatRepr 0) = unsafeCoerce ZeroNat
 isZeroNat (NatRepr _) = unsafeCoerce NonZeroNat
 
 -- | Decrement a @NatRepr@
-decNat :: (1 <= n) => NatRepr n -> NatRepr n
+decNat :: (1 <= n) => NatRepr n -> NatRepr (n-1)
 decNat (NatRepr i) = NatRepr (i-1)
+
+-- | Get the predicessor of a nat
+predNat :: NatRepr (n+1) -> NatRepr n
+predNat (NatRepr i) = NatRepr (i-1)
 
 -- | Increment a @NatRepr@
 incNat :: NatRepr n -> NatRepr (n+1)
