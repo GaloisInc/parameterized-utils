@@ -392,8 +392,21 @@ instance TestEquality f => TestEquality (Assignment f) where
 instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
   polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
 
+compareAsgn :: OrdF f => Assignment f ctx1 -> Assignment f ctx2 -> OrderingF ctx1 ctx2
+compareAsgn AssignEmpty AssignEmpty = EQF
+compareAsgn AssignEmpty _ = GTF
+compareAsgn _ AssignEmpty = LTF
+compareAsgn (AssignExtend ctx1 x) (AssignExtend ctx2 y) =
+  case compareAsgn ctx1 ctx2 of
+    LTF -> LTF
+    GTF -> GTF
+    EQF -> case compareF x y of
+              LTF -> LTF
+              GTF -> GTF
+              EQF -> EQF
+
 instance OrdF f => OrdF (Assignment f) where
-  compareF _x _y = error "UNDEFINED ORDF ON ASSIGNEMENTS"
+  compareF = compareAsgn
 
 instance OrdF f => Ord (Assignment f ctx) where
   compare x y = toOrdering (compareF x y)
@@ -402,7 +415,8 @@ instance HashableF f => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
 
 instance HashableF f => Hashable (Assignment f ctx) where
-  hashWithSalt _s _asgn = error "UNDEFINED HASHWITHSALT ON ASSIGNEMENTS"
+  hashWithSalt s AssignEmpty = s
+  hashWithSalt s (AssignExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
 
 instance ShowF f => ShowF (Assignment f) where
   showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
