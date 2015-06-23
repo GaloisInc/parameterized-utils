@@ -82,6 +82,7 @@ module Data.Parameterized.NatRepr
     -- * Arithmetic proof
   , plusComm
   , plusMinusCancel
+  , doubleLeq
     -- * Re-exports typelists basics
   , NatK
   , type (+)
@@ -265,6 +266,9 @@ plusComm _ _ = unsafeCoerce (Refl :: 0 :~: 0)
 -- | Cancel an add followed b a subtract
 plusMinusCancel :: f m -> g n -> (m + n) - n :~: m
 plusMinusCancel _ _ = unsafeCoerce (Refl :: 0 :~: 0)
+
+doubleLeq :: f n -> (n <=? n + n) :~: True
+doubleLeq _ = unsafeCoerce Refl
 
 ------------------------------------------------------------------------
 -- LeqProof
