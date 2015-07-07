@@ -236,13 +236,13 @@ union t1 t2 = Bin.union t1 t2
 -- updateAtKey
 
 -- | Update request tells when to do with value
-data UpdateRequest v where
-  -- | Keep the current value.
-  Keep :: UpdateRequest v
-  -- | Set the value to a new value.
-  Set :: !v -> UpdateRequest v
-  -- | Delete a value.
-  Delete :: UpdateRequest v
+data UpdateRequest v
+   = -- | Keep the current value.
+     Keep
+     -- | Set the value to a new value.
+   | Set !v
+     -- | Delete a value.
+   | Delete
 
 data AtKeyResult k a where
   AtKeyUnchanged :: AtKeyResult k a

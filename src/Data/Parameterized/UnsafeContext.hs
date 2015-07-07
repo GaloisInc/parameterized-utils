@@ -250,9 +250,9 @@ data BalancedTree h f (p :: BinTreeKind k) where
           -> !(BalancedTree h f y)
           -> BalancedTree ('Succ h) f ('PType x y)
 
-bal_height :: BalancedTree h f p -> Int
-bal_height (BalLeaf _) = 0
-bal_height (BalPair x _) = 1 + bal_height x
+_bal_height :: BalancedTree h f p -> Int
+_bal_height (BalLeaf _) = 0
+_bal_height (BalPair x _) = 1 + _bal_height x
 
 bal_size :: BalancedTree h f p -> Int
 bal_size (BalLeaf _) = 1
@@ -354,14 +354,14 @@ unsafe_bal_generateM h o f
       in fmap unsafeCoerce r
 
 -- | Lookup index in tree.
-bal_index :: BalancedTree h f a -- ^ Tree to lookup.
-          -> Int -- ^ Index to lookup.
-          -> Int  -- ^ Height of tree
-          -> Some f
-bal_index (BalLeaf u) _ i = assert (i == 0) $ Some u
-bal_index (BalPair x y) j i
-  | j `testBit` (i-1) = bal_index y j (i-1)
-  | otherwise         = bal_index x j (i-1)
+_bal_index :: BalancedTree h f a -- ^ Tree to lookup.
+           -> Int -- ^ Index to lookup.
+           -> Int  -- ^ Height of tree
+           -> Some f
+_bal_index (BalLeaf u) _ i = assert (i == 0) $ Some u
+_bal_index (BalPair x y) j i
+  | j `testBit` (i-1) = _bal_index y j (i-1)
+  | otherwise         = _bal_index x j (i-1)
 
 -- | Lookup index in tree.
 unsafe_bal_index :: BalancedTree h f a -- ^ Tree to lookup.
@@ -621,17 +621,17 @@ bin_drop (PlusOne s t u) =
    in unsafeCoerce q
 
 -- | Lookup value in tree.
-bin_index :: BinomialTree h f a -- ^ Tree to lookup in.
-          -> Int
-          -> Int -- ^ Size of tree
-          -> Some f
-bin_index Empty _ _ = error "bin_index reached end of list"
-bin_index (PlusOne sz t u) j i
-  | sz == j `shiftR` (1+i) = bal_index u j i
-  | otherwise = bin_index t j (1+i)
-bin_index (PlusZero sz t) j i
+_bin_index :: BinomialTree h f a -- ^ Tree to lookup in.
+           -> Int
+           -> Int -- ^ Size of tree
+           -> Some f
+_bin_index Empty _ _ = error "bin_index reached end of list"
+_bin_index (PlusOne sz t u) j i
+   | sz == j `shiftR` (1+i) = _bal_index u j i
+   | otherwise = _bin_index t j (1+i)
+_bin_index (PlusZero sz t) j i
   | sz == j `shiftR` (1+i) = error "bin_index stopped at PlusZero"
-  | otherwise = bin_index t j (1+i)
+  | otherwise = _bin_index t j (1+i)
 
 -- | Lookup value in tree.
 unsafe_bin_index :: BinomialTree h f a -- ^ Tree to lookup in.
