@@ -103,5 +103,5 @@ traverseFC_ f = foldrFC (\e r -> f e *> r) (pure ())
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.
 forMFC_ :: (FoldableFC t, Applicative f) => t e c -> (forall s . e s  -> f ()) -> f ()
-forMFC_ = flip traverseFC_
+forMFC_ v f = traverseFC_ f v
 {-# INLINE forMFC_ #-}
