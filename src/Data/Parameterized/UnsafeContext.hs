@@ -55,6 +55,7 @@ module Data.Parameterized.UnsafeContext
   , zipWith
   , zipWithM
   , (%>)
+  , traverseWithIndex
   ) where
 
 import Control.Applicative hiding (empty)
@@ -871,6 +872,12 @@ instance FoldableFC Assignment where
 instance TraversableFC Assignment where
   traverseFC = \f (Assignment x) -> Assignment <$> traverse_bin f x
   {-# INLINE traverseFC #-}
+
+traverseWithIndex :: Applicative m
+                  => (forall tp . Index ctx tp -> f tp -> m (g tp))
+                  -> Assignment f ctx
+                  -> m (Assignment g ctx)
+traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
 
 ------------------------------------------------------------------------
 -- Lens combinators

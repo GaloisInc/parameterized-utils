@@ -29,7 +29,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE PatternGuards #-}
-
 module Data.Parameterized.NatRepr
   ( NatRepr
   , natValue
