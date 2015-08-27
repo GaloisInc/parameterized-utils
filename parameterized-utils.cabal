@@ -37,6 +37,7 @@ library
     Data.Parameterized.Classes
     Data.Parameterized.Context
     Data.Parameterized.Ctx
+    Data.Parameterized.FreeParamF
     Data.Parameterized.HashTable
     Data.Parameterized.Map
     Data.Parameterized.NatRepr

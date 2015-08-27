@@ -27,15 +27,15 @@ module Data.Parameterized.Utils.BinTree
   , balanceL
   , balanceR
   , glue
+  , merge
   , filterGt
   , filterLt
   , insert
   , delete
   , union
-    -- Internals
---  , insert'
---  , insertM'
-  , Context(..)
+    -- * Internal
+  , link
+  , PairS(..)
   ) where
 
 import Control.Applicative
@@ -145,16 +145,6 @@ balanceRM p l r = do
 -- right subtree might have been deleted from.
 balanceL :: IsBinTree c e => e -> c -> c -> c
 balanceL p l r = runIdentity (balanceLM p l r)
-{-
-balanceL p l r = do
-  case asBin l of
-    BinTree l_pair ll lr | size l > max 1 (delta*size r) ->
-      case asBin lr of
-        BinTree lr_pair lrl lrr | size lr >= max 2 (ratio*size ll) ->
-          bin lr_pair (bin l_pair ll lrl) (bin p lrr r)
-        _ -> bin l_pair ll (bin p lr r)
-    _ -> bin p l r
--}
 {-# INLINE balanceL #-}
 
 
@@ -162,17 +152,6 @@ balanceL p l r = do
 -- left subtree might have been deleted from.
 balanceR :: IsBinTree c e => e -> c -> c -> c
 balanceR p l r = runIdentity (balanceRM p l r)
-{-
-balanceR p l r = do
-  case asBin r of
-    BinTree r_pair rl rr | size r > max 1 (delta*size l) ->
-      case asBin rl of
-        BinTree rl_pair rll rlr | size rl >= max 2 (ratio*size rr) ->
-          bin rl_pair (bin p l rll) (bin r_pair rlr rr)
-        _ -> bin r_pair (bin p l rl) rr
-
-    _ -> bin p l r
--}
 {-# INLINE balanceR #-}
 
 -- | Insert a new maximal element.
@@ -237,6 +216,17 @@ glue l r =
          PairS q r' -> balanceL q l r'
 {-# INLINABLE glue #-}
 
+-- | Merge two trees that are ordered with respect to each other.
+merge :: IsBinTree c e => c -> c -> c
+merge l r =
+  case (asBin l, asBin r) of
+    (TipTree, _) -> r
+    (_, TipTree) -> l
+    (BinTree x lx rx, BinTree y ly ry)
+      | delta*size l < size r -> balanceL y (merge l ly) ry
+      | delta*size r < size l -> balanceR x lx (merge rx r)
+      | otherwise             -> glue l r
+
 ------------------------------------------------------------------------
 -- Ordered operations
 
@@ -261,87 +251,10 @@ insert x t =
 {-# INLINABLE insert #-}
 
 {-
-insert = insert' EmptyContext
-  where insert' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Updated t
-        insert' c x t = seq c $ seq x $ seq t $
-          case asBin t of
-            TipTree -> Updated (insCtx c (bin x tip tip))
-            BinTree y l r ->
-              case compare x y of
-                LT -> insert' (AddRightTree c y r) x l
-                GT -> insert' (AddLeftTree  c l y) x r
-                EQ -> Unchanged (addCtx c (bin x l r))
--}
-
 data Context t e
    = AddLeftTree !(Context t e) !t !e
    | AddRightTree !(Context t e) !e !t
    | EmptyContext
-
-{-
-addCtx :: IsBinTree t e => Context t e -> t -> t
-addCtx EmptyContext t = t
-addCtx (AddLeftTree  c l e) r = addCtx c $! bin e l r
-addCtx (AddRightTree c e r) l = addCtx c $! bin e l r
-{-# INLINABLE addCtx #-}
-
-insCtx :: IsBinTree t e => Context t e -> t -> t
-insCtx EmptyContext t = t
-insCtx (AddLeftTree  c l e) r' = insCtx c $! balanceR e l  r'
-insCtx (AddRightTree c e r) l' = insCtx c $! balanceL e l' r
-{-# INLINABLE insCtx #-}
-
-insert' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Updated t
-insert' c x t = seq c $
-  case asBin t of
-    TipTree -> Updated (insCtx c (bin x tip tip))
-    BinTree y l r ->
-      case compare x y of
-        LT -> insert' (AddRightTree c y r) x l
-        GT -> insert' (AddLeftTree  c l y) x r
-        EQ -> Unchanged (addCtx c (bin x l r))
-{-# INLINABLE insert' #-}
--}
-
-{-
-liftMS :: Monad m => (a -> b) -> m a -> m b
-liftMS f m = do
-  v <- m
-  seq v $ return $! f v
--}
-
-{-
-insertM' :: (IsBinTree t e, Ord e) => Context t e -> e -> t -> Identity (Updated t)
-insertM' c x t = seq c $
-  case asBin t of
-    TipTree -> return $ Updated (insCtx c (bin x tip tip))
-    BinTree y l r ->
-      case compare x y of
-        LT -> insertM' (AddRightTree c y r) x l
-        GT -> insertM' (AddLeftTree  c l y) x r
-        EQ -> return $ Unchanged (addCtx c (bin x l r))
-{-# INLINABLE insertM' #-}
-{-# SPECIALIZE insertM' :: (IsBinTree c e, Ord e) => e -> c -> Identity (Updated c) #-}
-
-insertM :: (IsBinTreeM c m e, Ord e, m ~ Identity) => e -> c -> m (Updated c)
-insertM x t = seq x $ seq t $
-  case asBin t of
-    TipTree -> liftMS Updated $ bin' x tip tip
-    BinTree y l r ->
-      case compare x y of
-        LT -> do
-          ml <- insertM x l
-          case ml of
-            Updated l'   -> liftMS Updated $ balanceLM y l' r
-            Unchanged l' -> liftMS Unchanged $ bin'      y l' r
-        GT -> do
-          mr <- insertM x r
-          case mr of
-            Updated r'   -> liftMS Updated $ balanceRM y l r'
-            Unchanged r' -> liftMS Unchanged $ bin'      y l r'
-        EQ -> liftMS Unchanged $ bin' x l r
-{-# INLINABLE insertM #-}
-{-# SPECIALIZE insertM :: (IsBinTree c e, Ord e) => e -> c -> Identity (Updated c) #-}
 -}
 
 delete :: IsBinTree c e
@@ -363,6 +276,8 @@ delete k t =
 ------------------------------------------------------------------------
 -- filter
 
+-- | Returns only entries that are less than predicate with respect to the ordering
+-- and Nothing if no elements are discared.
 filterGt :: IsBinTree c e => (e -> Ordering) -> c -> MaybeS c
 filterGt k t =
   case asBin t of

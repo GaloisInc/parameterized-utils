@@ -3,7 +3,7 @@
 -- Module           : Data.Parameterized.Classes
 -- Description      : Declares classes for working with types containing
 --                    a polymorphic parameter.
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 -- Stability        : provisional
 --
@@ -36,7 +36,7 @@ module Data.Parameterized.Classes
   , ShowF(..)
   , HashableF(..)
   , CoerceableF(..)
-    -- * Re-exporrts
+    -- * Re-exports
   , Data.Maybe.isJust
   ) where
 
@@ -107,11 +107,25 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
       EQF -> True
       GTF -> False
 
+  ltF :: ktp x -> ktp y -> Bool
+  ltF x y =
+    case compareF x y of
+      LTF -> True
+      EQF -> False
+      GTF -> False
+
   geqF :: ktp x -> ktp y -> Bool
   geqF x y =
     case compareF x y of
       LTF -> False
       EQF -> True
+      GTF -> True
+
+  gtF :: ktp x -> ktp y -> Bool
+  gtF x y =
+    case compareF x y of
+      LTF -> False
+      EQF -> False
       GTF -> True
 
 -- | A parameterized type that can be shown on all instances.

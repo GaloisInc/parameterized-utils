@@ -15,13 +15,16 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 module Data.Parameterized.Map
   ( MapF
   , Data.Parameterized.Map.empty
+  , null
   , lookup
   , insert
   , delete
@@ -30,19 +33,21 @@ module Data.Parameterized.Map
   , elems
   , filterGt
   , filterLt
+  , fromList
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
   , updatedValue
   , updateAtKey
+  , mergeWithKeyM
   , module Data.Parameterized.Classes
-    -- * Internals
-  , Pair
+    -- * Pair
+  , Pair(..)
   ) where
 
 import Control.Applicative
 import Control.Monad.Identity
-import Data.List (intercalate)
+import Data.List (intercalate, foldl')
 import Data.Maybe
 
 import Data.Parameterized.Classes
@@ -63,23 +68,13 @@ import Data.Parameterized.Utils.BinTree
 import qualified Data.Parameterized.Utils.BinTree as Bin
 
 #if MIN_VERSION_base(4,8,0)
-import Prelude hiding (lookup, map, traverse)
+import Prelude hiding (lookup, map, traverse, null)
 #else
-import Prelude hiding (lookup, map)
+import Prelude hiding (lookup, map, null)
 #endif
 
 ------------------------------------------------------------------------
--- MapF
-
-data MapF (ktp :: k -> *) (rtp :: k -> *) where
-  Bin :: {-# UNPACK #-}
-         !Size
-      -> !(ktp a)
-      -> !(rtp a)
-      -> !(MapF ktp rtp)
-      -> !(MapF ktp rtp)
-      -> MapF ktp rtp
-  Tip :: MapF ktp rtp
+-- Pair
 
 data Pair k a where
   Pair :: !(k tp) -> !(a tp) -> Pair k a
@@ -91,15 +86,34 @@ comparePair :: OrdF k => Pair k a -> Pair k a -> Ordering
 comparePair (Pair x _) (Pair y _) = toOrdering (compareF x y)
 {-# INLINABLE comparePair #-}
 
-
 instance OrdF k => Ord (Pair k a) where
   compare = comparePair
 
+------------------------------------------------------------------------
+-- MapF
+
+data MapF (k :: v -> *) (a :: v -> *) where
+  Bin :: {-# UNPACK #-}
+         !Size
+      -> !(k x)
+      -> !(a x)
+      -> !(MapF k a)
+      -> !(MapF k a)
+      -> MapF k a
+  Tip :: MapF k a
+
 type Size = Int
 
-empty :: MapF ktp rtp
+-- | Return empty map
+empty :: MapF k a
 empty = Tip
 
+-- | Return true if map is empty
+null :: MapF k a -> Bool
+null Tip = True
+null Bin{} = False
+
+-- | Return map containing a single element
 singleton :: k tp -> a tp -> MapF k a
 singleton k x = Bin 1 k x Tip Tip
 
@@ -296,3 +310,103 @@ updateAtKey k onNotFound onFound t = ins <$> atKey' k onNotFound onFound t
         ins (AtKeyModified t') = Updated t'
         ins (AtKeyDeleted  t') = Updated t'
 {-# INLINABLE updateAtKey #-}
+
+-- | Create a Map from a list of pairs.
+fromList :: OrdF k => [Pair k a] -> MapF k a
+fromList = foldl' (\m (Pair k a) -> insert k a m) Data.Parameterized.Map.empty
+
+
+filterGtMaybe :: OrdF k => MaybeS (k x) -> MapF k a -> MapF k a
+filterGtMaybe NothingS m = m
+filterGtMaybe (JustS k) m = filterGt k m
+
+filterLtMaybe :: OrdF k => MaybeS (k x) -> MapF k a -> MapF k a
+filterLtMaybe NothingS m = m
+filterLtMaybe (JustS k) m = filterLt k m
+
+mergeWithKeyM :: forall k a b c m
+               . (Applicative m, OrdF k)
+              => (forall tp . k tp -> a tp -> b tp -> m (Maybe (c tp)))
+              -> (MapF k a -> m (MapF k c))
+              -> (MapF k b -> m (MapF k c))
+              -> MapF k a
+              -> MapF k b
+              -> m (MapF k c)
+mergeWithKeyM f g1 g2 = go
+  where
+    go Tip t2 = g2 t2
+    go t1 Tip = g1 t1
+    go t1 t2 = hedgeMerge NothingS NothingS t1 t2
+
+    hedgeMerge :: MaybeS (k x) -> MaybeS (k y) -> MapF k a -> MapF k b -> m (MapF k c)
+    hedgeMerge _   _   t1  Tip = g1 t1
+    hedgeMerge blo bhi Tip (Bin _ kx x l r) =
+      g2 $ Bin.link (Pair kx x) (filterGtMaybe blo l) (filterLtMaybe bhi r)
+    hedgeMerge blo bhi (Bin _ kx x l r) t2 =
+        let Bin.PairS found trim_t2 = trimLookupLo kx bhi t2
+            resolve_g1 :: MapF k c -> MapF k c -> MapF k c -> MapF k c
+            resolve_g1 Tip = Bin.merge
+            resolve_g1 (Bin _ k' x' Tip Tip) = Bin.link (Pair k' x')
+            resolve_g1 _ = error "mergeWithKey: Bad function g1"
+            resolve_f Nothing = Bin.merge
+            resolve_f (Just x') = Bin.link (Pair kx x')
+         in case found of
+              Nothing ->
+                resolve_g1 <$> g1 (singleton kx x)
+                           <*> hedgeMerge blo bmi l (trim blo bmi t2)
+                           <*> hedgeMerge bmi bhi r trim_t2
+              Just x2 ->
+                resolve_f <$> f kx x x2
+                          <*> hedgeMerge blo bmi l (trim blo bmi t2)
+                          <*> hedgeMerge bmi bhi r trim_t2
+      where bmi = JustS kx
+{-# INLINE mergeWithKeyM #-}
+
+{--------------------------------------------------------------------
+  [trim blo bhi t] trims away all subtrees that surely contain no
+  values between the range [blo] to [bhi]. The returned tree is either
+  empty or the key of the root is between @blo@ and @bhi@.
+--------------------------------------------------------------------}
+trim :: OrdF k => MaybeS (k x) -> MaybeS (k y) -> MapF k a -> MapF k a
+trim NothingS   NothingS   t = t
+trim (JustS lk) NothingS   t = filterGt lk t
+trim NothingS   (JustS hk) t = filterLt hk t
+trim (JustS lk) (JustS hk) t = filterMiddle lk hk t
+
+-- | Returns only entries that are strictly between the two keys.
+filterMiddle :: OrdF k => k x -> k y -> MapF k a -> MapF k a
+filterMiddle lo hi (Bin _ k _ _ r)
+  | k `leqF` lo = filterMiddle lo hi r
+filterMiddle lo hi (Bin _ k _ l _)
+  | k `geqF` hi = filterMiddle lo hi l
+filterMiddle _  _  t = t
+{-# INLINABLE filterMiddle #-}
+
+
+
+-- Helper function for 'mergeWithKey'. The @'trimLookupLo' lk hk t@ performs both
+-- @'trim' (JustS lk) hk t@ and @'lookup' lk t@.
+
+-- See Note: Type of local 'go' function
+trimLookupLo :: OrdF k => k tp -> MaybeS (k y) -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
+trimLookupLo lk NothingS t = greater lk t
+  where greater :: OrdF k => k tp -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
+        greater lo t'@(Bin _ kx x l r) =
+           case compareF lo kx of
+             LTF -> Bin.PairS (lookup lo l) t'
+             EQF -> Bin.PairS (Just x) r
+             GTF -> greater lo r
+        greater _ Tip = Bin.PairS Nothing Tip
+trimLookupLo lk (JustS hk) t = middle lk hk t
+  where middle :: OrdF k => k tp -> k y -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
+        middle lo hi t'@(Bin _ kx x l r) =
+          case compareF lo kx of
+            LTF | kx `ltF` hi -> Bin.PairS (lookup lo l) t'
+                | otherwise -> middle lo hi l
+            EQF -> Bin.PairS (Just x) (lesser hi r)
+            GTF -> middle lo hi r
+        middle _ _ Tip = Bin.PairS Nothing Tip
+
+        lesser :: OrdF k => k y -> MapF k a -> MapF k a
+        lesser hi (Bin _ k _ l _) | k `geqF` hi = lesser hi l
+        lesser _ t' = t'

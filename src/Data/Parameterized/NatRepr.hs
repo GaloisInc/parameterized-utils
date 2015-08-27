@@ -356,9 +356,6 @@ addPrefixIsLeq m n =
   case plusComm n m of
     Refl -> addIsLeq n m
 
-dblLeqIsLeq :: forall n . LeqProof 1 n -> LeqProof 1 (n+n)
-dblLeqIsLeq x = leqAdd x Proxy
-
 dblPosIsPos :: forall n . LeqProof 1 n -> LeqProof 1 (n+n)
 dblPosIsPos x = leqAdd x Proxy
 
