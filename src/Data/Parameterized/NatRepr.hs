@@ -258,12 +258,12 @@ maxNat x y
 -- Arithmetic
 
 -- | Produce evidence that + is commutative.
-plusComm :: f m -> g n -> m+n :~: n+m
-plusComm _ _ = unsafeCoerce (Refl :: 0 :~: 0)
+plusComm :: forall f m g n . f m -> g n -> m+n :~: n+m
+plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
 
 -- | Cancel an add followed b a subtract
-plusMinusCancel :: f m -> g n -> (m + n) - n :~: m
-plusMinusCancel _ _ = unsafeCoerce (Refl :: 0 :~: 0)
+plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
+plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
 
 ------------------------------------------------------------------------
 -- LeqProof
@@ -281,47 +281,56 @@ data NatCases m n where
   -- First number is greater than second.
   NatCaseGT :: LeqProof (n+1) m -> NatCases m n
 
-testStrictLeq :: (m <= n)
+testStrictLeq :: forall m n
+               . (m <= n)
               => NatRepr m
               -> NatRepr n
               -> Either (LeqProof (m+1) n) (m :~: n)
 testStrictLeq (NatRepr m) (NatRepr n)
   | m < n = Left (unsafeCoerce (LeqProof :: LeqProof 0 0))
-  | otherwise = Right (unsafeCoerce (Refl :: 0 :~: 0))
+  | otherwise = Right (unsafeCoerce (Refl :: m :~: m))
+{-# NOINLINE testStrictLeq #-}
 
 -- FIXME: use a datatype for this?
-testNatCases ::  NatRepr m
-              -> NatRepr n
-              -> NatCases m n
+testNatCases ::  forall m n
+              . NatRepr m
+             -> NatRepr n
+             -> NatCases m n
 testNatCases m n =
   case compare (natValue m) (natValue n) of
     LT -> NatCaseLT (unsafeCoerce (LeqProof :: LeqProof 0 0))
-    EQ -> unsafeCoerce $ (NatCaseEQ :: NatCases 0 0)
+    EQ -> unsafeCoerce $ (NatCaseEQ :: NatCases m m)
     GT -> NatCaseGT (unsafeCoerce (LeqProof :: LeqProof 0 0))
+{-# NOINLINE testNatCases #-}
 
 -- | @x `testLeq` y@ checks whether @x@ is less than or equal to @y@.
-testLeq :: NatRepr m -> NatRepr n -> Maybe (LeqProof m n)
+testLeq :: forall m n . NatRepr m -> NatRepr n -> Maybe (LeqProof m n)
 testLeq (NatRepr m) (NatRepr n)
    | m <= n    = Just (unsafeCoerce (LeqProof :: LeqProof 0 0))
    | otherwise = Nothing
+{-# NOINLINE testLeq #-}
 
 -- | Apply reflexivity to LeqProof
-leqRefl :: f n -> LeqProof n n
-leqRefl _ = unsafeCoerce (LeqProof :: LeqProof 0 0)
+leqRefl :: forall f n . f n -> LeqProof n n
+leqRefl _ = LeqProof
+
 
 -- | Apply transitivity to LeqProof
 leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
-leqTrans x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+leqTrans LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 0 0)
+{-# NOINLINE leqTrans #-}
 
 -- | Add both sides of two inequalities
 leqAdd2 :: LeqProof x_l x_h -> LeqProof y_l y_h -> LeqProof (x_l + y_l) (x_h + y_h)
 leqAdd2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+{-# NOINLINE leqAdd2 #-}
 
 -- | Subtract sides of two inequalities.
 leqSub2 :: LeqProof x_l x_h
         -> LeqProof y_l y_h
         -> LeqProof (x_l-y_h) (x_h-y_l)
-leqSub2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+leqSub2 LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 0 0)
+{-# NOINLINE leqSub2 #-}
 
 ------------------------------------------------------------------------
 -- LeqProof combinators
