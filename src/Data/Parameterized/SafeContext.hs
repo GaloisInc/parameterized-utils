@@ -79,6 +79,7 @@ module Data.Parameterized.SafeContext
   , zipWith
   , zipWithM
   , (%>)
+  , traverseWithIndex
   ) where
 
 import qualified Control.Category as Cat
@@ -470,6 +471,12 @@ zipWith f = \x y -> runIdentity $ zipWithM (\u v -> pure (f u v)) x y
 
 (%>) :: Assignment f x -> f tp -> Assignment f (x '::> tp)
 a %> v = extend a v
+
+traverseWithIndex :: Applicative m
+                  => (forall tp . Index ctx tp -> f tp -> m (g tp))
+                  -> Assignment f ctx
+                  -> m (Assignment g ctx)
+traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
 
 
 --------------------------------------------------------------------------------------
