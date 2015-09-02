@@ -13,14 +13,14 @@
 module Data.Parameterized.Context
 (
 #ifdef UNSAFE_OPS
-module Data.Parameterized.UnsafeContext
+module Data.Parameterized.UnsafeContext2
 #else
 module Data.Parameterized.SafeContext
 #endif
 ) where
 
 #ifdef UNSAFE_OPS
-import Data.Parameterized.UnsafeContext
+import Data.Parameterized.UnsafeContext2
 #else
 import Data.Parameterized.SafeContext
 #endif

@@ -48,6 +48,7 @@ library
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
     Data.Parameterized.UnsafeContext
+    Data.Parameterized.UnsafeContext2
     Data.Parameterized.Utils.BinTree
   ghc-options: -O2 -Wall -threaded
   ghc-prof-options: -O2 -fprof-auto-top
