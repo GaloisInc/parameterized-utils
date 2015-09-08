@@ -44,6 +44,7 @@ library
     Data.Parameterized.NonceGenerator
     Data.Parameterized.SafeContext
     Data.Parameterized.Some
+    Data.Parameterized.SymbolRepr
     Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
