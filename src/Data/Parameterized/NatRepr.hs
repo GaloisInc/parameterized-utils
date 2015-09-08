@@ -159,6 +159,14 @@ instance PolyEq (NatRepr m) (NatRepr n) where
 instance Show (NatRepr n) where
   show (NatRepr n) = show n
 
+instance ShowF NatRepr where
+  showF = show
+instance HashableF NatRepr where
+  hashWithSaltF = hashWithSalt
+
+
+
+
 -- | This generates a NatRepr from a type-level context.
 knownNat :: KnownNat n => NatRepr n
 knownNat = go Proxy
