@@ -43,8 +43,11 @@ module Data.Parameterized.NatRepr
   , addNat
   , subNat
   , halfNat
+  , withDivModNat
+  , natMultiply
   , someNat
   , maxNat
+  , natRec
   , natForEach
   , NatCases(..)
   , testNatCases
@@ -81,6 +84,7 @@ module Data.Parameterized.NatRepr
     -- * Arithmetic proof
   , plusComm
   , plusMinusCancel
+  , withAddMulDistribRight
     -- * Re-exports typelists basics
   , NatK
   , type (+)
@@ -203,6 +207,23 @@ addNat (NatRepr m) (NatRepr n) = NatRepr (m+n)
 subNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m-n)
 subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
+withDivModNat :: forall n m a.
+                 NatRepr n
+              -> NatRepr m
+              -> (forall div mod. (n ~ ((div * m) + mod)) =>
+                  NatRepr div -> NatRepr mod -> a)
+              -> a
+withDivModNat n m f =
+  case ( Some (NatRepr divPart), Some (NatRepr modPart)) of
+     ( Some (divn :: NatRepr div), Some (modn :: NatRepr mod) )
+       -> case unsafeCoerce (Refl :: 0 :~: 0) of
+            (Refl :: (n :~: ((div * m) + mod))) -> f divn modn
+  where
+    (divPart, modPart) = divMod (natValue n) (natValue m)
+
+natMultiply :: NatRepr n -> NatRepr m -> NatRepr (n * m)
+natMultiply (NatRepr n) (NatRepr m) = NatRepr (n * m)
+
 ------------------------------------------------------------------------
 -- Operations for using NatRepr as a bitwidth.
 
@@ -272,6 +293,12 @@ plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
 -- | Cancel an add followed b a subtract
 plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
 plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
+
+withAddMulDistribRight :: forall n m p f g h a. f n -> g m -> h p
+                    -> ( (((n * p) + (m * p)) ~ ((n + m) * p)) => a) -> a
+withAddMulDistribRight _n _m _p f =
+  case unsafeCoerce (Refl :: 0 :~: 0) of
+    (Refl :: (((n * p) + (m * p)) :~: ((n + m) * p)) ) -> f
 
 ------------------------------------------------------------------------
 -- LeqProof
@@ -410,3 +437,15 @@ natForEach :: forall l h a
            -> (forall n. (l <= n, n <= h) => NatRepr n -> a)
            -> [a]
 natForEach l h f = natForEach' l h (\LeqProof LeqProof -> f)
+
+-- FIXME: not tail recursive, but that is going to be OK for small use cases.
+natRec :: forall m f.
+          NatRepr m -> f 0
+          -> (forall n. NatRepr n -> f n -> f (n + 1))
+          -> f m
+natRec n f0 ih = go n
+  where
+    go :: forall n'. NatRepr n' -> f n'
+    go n' = case isZeroNat n' of
+              ZeroNat    -> f0
+              NonZeroNat -> let n'' = predNat n' in ih n'' (go n'')
