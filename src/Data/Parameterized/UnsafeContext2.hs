@@ -201,7 +201,7 @@ base = Index 0
 skip :: Index ctx x -> Index (ctx '::> y) x
 skip (Index idx) = (Index idx)
 
- -- | Return the index of a element one past the size.
+-- | Return the index of a element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
 nextIndex (Size sz) = Index sz
 
@@ -298,7 +298,7 @@ update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
 update idx e asgn = adjust (\_ -> e) idx asgn
 
 adjust :: forall f ctx tp. (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
-adjust f (Index idx) (Assignment a) = Assignment $ Seq.adjust (toAny . f . fromAny) idx a 
+adjust f (Index idx) (Assignment a) = Assignment $ Seq.adjust (toAny . f . fromAny) idx a
 
 -- | Return assignment with all but the last block.
 init :: Assignment f (ctx '::> tp) -> Assignment f ctx
