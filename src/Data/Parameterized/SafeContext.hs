@@ -384,7 +384,8 @@ testEq (AssignExtend ctx1 x1) (AssignExtend ctx2 x2) =
           case testEquality x1 x2 of
              Nothing -> Nothing
              Just Refl -> Just Refl
-testEq _ _ = error "Data.Parameterized.SafeContext.testEquality: impossible!"
+testEq AssignEmpty (AssignExtend _ctx2 _x2) = Nothing
+testEq (AssignExtend _ctx1 _x1) AssignEmpty = Nothing
 
 
 instance TestEquality f => TestEquality (Assignment f) where
