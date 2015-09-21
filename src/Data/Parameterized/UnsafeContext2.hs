@@ -175,8 +175,10 @@ newtype Index (ctx :: Ctx k) (tp :: k) = Index { indexVal :: Int }
 instance Eq (Index ctx tp) where
   idx1 == idx2 = isJust (testEquality idx1 idx2)
 
-instance Hashable (Index ct tp) where
-  hashWithSalt s (Index i) = s `hashWithSalt` i
+instance Hashable (Index ctx tp) where
+  hashWithSalt = hashWithSaltF
+instance HashableF (Index ctx) where
+  hashWithSaltF s i = hashWithSalt s (indexVal i)
 
 instance TestEquality (Index ctx) where
   {-# NOINLINE testEquality #-}

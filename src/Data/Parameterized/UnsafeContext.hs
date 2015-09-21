@@ -788,6 +788,11 @@ instance OrdF f => OrdF (Assignment f) where
 instance OrdF f => Ord (Assignment f ctx) where
   compare x y = toOrdering (compareF x y)
 
+instance Hashable (Index ctx tp) where
+  hashWithSalt = hashWithSaltF
+instance HashableF (Index ctx) where
+  hashWithSaltF s i = hashWithSalt s (indexVal i)
+
 instance HashableF f => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
 
