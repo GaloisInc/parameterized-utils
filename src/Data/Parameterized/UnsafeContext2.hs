@@ -69,28 +69,27 @@ module Data.Parameterized.UnsafeContext2
   ) where
 
 import qualified Control.Category as Cat
-import Control.DeepSeq
+import           Control.DeepSeq
 import qualified Control.Lens as Lens
-import Control.Monad.Identity (Identity(..))
-import Data.Hashable
-import Data.List (intercalate)
-import Data.Type.Equality
-import Data.Sequence (Seq)
+import           Control.Monad.Identity (Identity(..))
+import           Data.Hashable
+import           Data.List (intercalate)
+import           Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Prelude hiding (init, map, null, replicate, succ, zipWith, (!!))
-
-import Unsafe.Coerce
-import GHC.Exts (Any)
+import           Data.Type.Equality
+import           GHC.Exts (Any)
+import           Prelude hiding (init, map, null, replicate, succ, zipWith, (!!))
+import           Unsafe.Coerce
 
 #if !MIN_VERSION_base(4,8,0)
-import Data.Functor
-import Control.Applicative (Applicative(..))
+import           Control.Applicative (Applicative(..))
+import           Data.Functor
 #endif
 
-import Data.Parameterized.Classes
-import Data.Parameterized.Ctx
-import Data.Parameterized.Some
-import Data.Parameterized.TraversableFC
+import           Data.Parameterized.Classes
+import           Data.Parameterized.Ctx
+import           Data.Parameterized.Some
+import           Data.Parameterized.TraversableFC
 
 {-# NOINLINE toAny #-}
 toAny :: forall (f::k -> *) (tp::k) . f tp -> Any
@@ -171,11 +170,13 @@ instance KnownDiff l r => KnownDiff l (r '::> tp) where
 
 -- | An index is a reference to a position with a particular type in a
 -- context.
-newtype Index (ctx :: Ctx k) (tp :: k)
-  = Index { indexVal :: Int }
+newtype Index (ctx :: Ctx k) (tp :: k) = Index { indexVal :: Int }
 
 instance Eq (Index ctx tp) where
   idx1 == idx2 = isJust (testEquality idx1 idx2)
+
+instance Hashable (Index ct tp) where
+  hashWithSalt s (Index i) = s `hashWithSalt` i
 
 instance TestEquality (Index ctx) where
   {-# NOINLINE testEquality #-}
