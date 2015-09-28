@@ -45,8 +45,6 @@ import Data.Hashable
 import Data.Proxy
 
 import Data.Parameterized.Classes
-import Data.Parameterized.Some
-
 
 -- INVARIANT: The contained runtime string matches the value
 -- of the type level symbol.  The SymbolRepr constructor
