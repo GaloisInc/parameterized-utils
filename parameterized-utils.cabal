@@ -78,4 +78,6 @@ test-suite parameterizedTests
     parameterized-utils,
     tasty,
     tasty-ant-xml,
-    tasty-hunit
+    tasty-hunit,
+    tasty-quickcheck >= 0.8.1,
+    QuickCheck >= 2.7
