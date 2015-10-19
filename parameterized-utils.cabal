@@ -29,7 +29,8 @@ library
     hashtables,
     lens,
     mtl,
-    template-haskell
+    template-haskell,
+    text
 
   hs-source-dirs: src
 
