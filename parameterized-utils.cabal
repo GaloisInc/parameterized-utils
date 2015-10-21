@@ -29,7 +29,8 @@ library
     hashtables,
     lens,
     mtl,
-    template-haskell
+    template-haskell,
+    text
 
   hs-source-dirs: src
 
@@ -56,3 +57,28 @@ library
 
   if flag(unsafe-operations)
     cpp-options: -DUNSAFE_OPS
+
+
+test-suite parameterizedTests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+
+  ghc-options: -Wall
+
+  main-is:UnitTest.hs
+  other-modules:
+    Test.Context
+
+  build-depends:
+    base,
+    hashable,
+    hashtables,
+    ghc-prim,
+    lens,
+    mtl,
+    parameterized-utils,
+    tasty,
+    tasty-ant-xml,
+    tasty-hunit,
+    tasty-quickcheck >= 0.8.1,
+    QuickCheck >= 2.7
