@@ -12,6 +12,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Ctx
   ( type Ctx(..)
@@ -30,3 +31,7 @@ type (c ::Ctx k) ::> (a::k)  = c '::> a
 data Ctx a
   = EmptyCtx
   | Ctx a ::> a
+
+type family (<+>) (x :: Ctx k) (y :: Ctx k) :: Ctx k where
+  x <+> EmptyCtx = x
+  x <+> (y ::> e) = (x <+> y) ::> e
