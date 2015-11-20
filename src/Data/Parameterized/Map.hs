@@ -25,6 +25,7 @@ module Data.Parameterized.Map
   ( MapF
   , Data.Parameterized.Map.empty
   , null
+  , singleton
   , lookup
   , insert
   , delete
@@ -35,6 +36,8 @@ module Data.Parameterized.Map
   , filterLt
   , fromList
   , foldrWithKey
+  , toList
+  , size
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
@@ -316,6 +319,8 @@ updateAtKey k onNotFound onFound t = ins <$> atKey' k onNotFound onFound t
 fromList :: OrdF k => [Pair k a] -> MapF k a
 fromList = foldl' (\m (Pair k a) -> insert k a m) Data.Parameterized.Map.empty
 
+toList :: OrdF k => MapF k a -> [Pair k a]
+toList = foldrWithKey (\k x m -> Pair k x : m) []
 
 filterGtMaybe :: OrdF k => MaybeS (k x) -> MapF k a -> MapF k a
 filterGtMaybe NothingS m = m

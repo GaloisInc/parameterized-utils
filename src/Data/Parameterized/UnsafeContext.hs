@@ -237,7 +237,6 @@ type instance UnPairCtx (x ::> 'PType y z) = UnPairCtx x ::> y ::> z
 
 data Height = Zero | Succ Height
 
-
 type family Pred (k :: Height) :: Height
 type instance Pred ('Succ h) = h
 

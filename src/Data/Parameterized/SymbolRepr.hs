@@ -43,15 +43,16 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Hashable
 import Data.Proxy
+import qualified Data.Text as Text
 
 import Data.Parameterized.Classes
 
--- INVARIANT: The contained runtime string matches the value
+-- INVARIANT: The contained runtime text value matches the value
 -- of the type level symbol.  The SymbolRepr constructor
 -- is not exported so we can maintain this invariant in this
 -- module.
 newtype SymbolRepr (nm::GHC.Symbol)
-  = SymbolRepr { symbolRepr :: String }
+  = SymbolRepr { symbolRepr :: Text.Text }
 
 -- | Generate a value representative for the type level
 --   symbol.  This is the only way to generate values
@@ -59,7 +60,15 @@ newtype SymbolRepr (nm::GHC.Symbol)
 knownSymbol :: GHC.KnownSymbol s => SymbolRepr s
 knownSymbol = go Proxy
   where go :: GHC.KnownSymbol s => Proxy s -> SymbolRepr s
-        go p = SymbolRepr (GHC.symbolVal p)
+        go p = SymbolRepr $! packSymbol (GHC.symbolVal p)
+
+        -- NOTE here we explicitly test that unpacking the packed text value
+        -- gives the desired string.  This is to avoid pathological corner cases
+        -- involving string values that have no text representation.
+        packSymbol str
+           | Text.unpack txt == str = txt
+           | otherwise = error $ "Unrepresentable symbol! "++ str
+         where txt = Text.pack str
 
 instance TestEquality SymbolRepr where
    testEquality (SymbolRepr x :: SymbolRepr x) (SymbolRepr y)
@@ -87,4 +96,4 @@ instance Hashable (SymbolRepr nm) where
 instance ShowF SymbolRepr where
   showF = show
 instance Show (SymbolRepr nm) where
-  show (SymbolRepr nm) = nm
+  show (SymbolRepr nm) = Text.unpack nm
