@@ -34,6 +34,7 @@ module Data.Parameterized.Map
   , filterGt
   , filterLt
   , fromList
+  , foldrWithKey
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
