@@ -40,7 +40,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE Unsafe #-}
-module Data.Parameterized.NonceGenerator
+module Data.Parameterized.Nonce.Unsafe
   ( NonceGenerator
   , newNonceGenerator
   , freshNonce
