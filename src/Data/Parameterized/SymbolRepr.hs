@@ -1,10 +1,8 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.SymbolRepr
--- Description      : Data-type for representing a type-level Symbol.
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- This defines a type family @SymbolRepr@ for representing a type-level
 -- string (AKA symbol) at runtime.
@@ -30,6 +28,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.SymbolRepr
   ( type GHC.Symbol
   , GHC.KnownSymbol

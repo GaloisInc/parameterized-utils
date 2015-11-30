@@ -1,11 +1,8 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.FreeParamF
--- Description      : Declares a wrapper for converting an unparameterized
---                    type to a parameterized type.
 -- Copyright        : (c) Galois, Inc 2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- A wrapper for converting an unparameterized type to a parameterized type.
 --
@@ -13,6 +10,7 @@
 ------------------------------------------------------------------------
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE Safe #-}
 module Data.Parameterized.FreeParamF
   ( FreeParamF(..)
   ) where

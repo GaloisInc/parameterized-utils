@@ -3,8 +3,7 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.NatRepr
--- Description      : Data-type for representing a type-level Nat.
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 -- Stability        : provisional
 --
@@ -29,6 +28,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.NatRepr
   ( NatRepr
   , natValue

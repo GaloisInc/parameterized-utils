@@ -1,16 +1,13 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Classes
--- Description      : Declares classes for working with types containing
---                    a polymorphic parameter.
 -- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- This module declares classes for working with types with the kind
 -- @k -> *@ for any kind @k@.  These are generalizations of the
 -- @Data.Functor.Classes@ types as they work with any kind @k@, and are
--- not restricted to "*".
+-- not restricted to '*'.
 ------------------------------------------------------------------------
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
@@ -20,6 +17,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.Classes
   ( -- * Equality exports
     Equality.TestEquality(..)

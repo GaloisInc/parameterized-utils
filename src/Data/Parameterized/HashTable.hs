@@ -1,21 +1,18 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.HashTable
--- Description      : ST-based hashtable for parameterized keys and values.
 -- Copyright        : (c) Galois, Inc 2014
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- This module provides a ST-based hashtable for parameterized keys and values.
 --
 -- NOTE: This API makes use of unsafeCoerce to implement the parameterized
--- hashtable abstraction.  This should be typesafe provided the Nonce keys we
--- use have an unforgable connection to their claimed types.  See module
--- "Data.Parameterized.NonceGenerator" for comments about the safety
--- of that abstraction.
+-- hashtable abstraction.  This should be typesafe provided the
+-- 'TestEquality' instance on the key type is implemented soundly.
 ------------------------------------------------------------------------
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.HashTable
   ( HashTable
   , new
@@ -23,7 +20,7 @@ module Data.Parameterized.HashTable
   , insert
   , delete
   , clear
-  , HashableF(..)
+  , Data.Parameterized.Classes.HashableF(..)
   , Control.Monad.ST.RealWorld
   ) where
 
@@ -69,13 +66,6 @@ delete :: (HashableF key, TestEquality key)
        -> ST s ()
 delete (HashTable h) k = H.delete h (Some k)
 
-clear :: (HashableF key, TestEquality key) => HashTable s (key :: k -> *) (val :: k -> *) -> ST s ()
+clear :: (HashableF key, TestEquality key)
+      => HashTable s (key :: k -> *) (val :: k -> *) -> ST s ()
 clear (HashTable h) = H.mapM_ (\(k,_) -> H.delete h k) h
-
-{-
--- | Delete an element from the hash table.
-delete :: HashTable s val
-       -> Nonce tp
-       -> ST s ()
-delete (HashTable h) k = H.delete h (Some k)
--}

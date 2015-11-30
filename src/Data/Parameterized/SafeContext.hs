@@ -1,10 +1,8 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.SafeContext
--- Description      : Finite dependent products
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- This module defines type contexts as a data-kind that consists of
 -- a list of types.  Indexes are defined with respect to these contexts.

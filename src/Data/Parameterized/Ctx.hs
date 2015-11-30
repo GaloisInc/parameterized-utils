@@ -1,17 +1,16 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Ctx
--- Description      : Finite dependent products
 -- Copyright        : (c) Galois, Inc 2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
--- This module defines type contexts as a data-kind that consists of
--- a list of types.  It is used to implement SafeContext and UnsafeContext.
+-- This module defines type-level lists used for representing the type of
+-- variables in a context.
 --------------------------------------------------------------------------
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE Safe #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Ctx

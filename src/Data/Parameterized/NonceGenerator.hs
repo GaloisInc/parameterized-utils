@@ -22,7 +22,7 @@
 -- A somewhat safer API would be to brand the generated Nonces with the
 -- state type variable of the NonceGenerator whence they came, and to only
 -- provide NonceGenerators via a Rank-2 continuation-passing API, similar to
--- runST. This would (via a meta-argument involving parametricity) 
+-- runST. This would (via a meta-argument involving parametricity)
 -- help to prevent nonces of different origin from being compared.
 -- However, this would force us to push the ST type brand into a significant
 -- number of other structures and APIs.
@@ -39,6 +39,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE Unsafe #-}
 module Data.Parameterized.NonceGenerator
   ( NonceGenerator
   , newNonceGenerator

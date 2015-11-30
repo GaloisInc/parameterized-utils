@@ -1,8 +1,7 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Map
--- Description      : Indexed finite maps
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 -- Stability        : provisional
 --
@@ -21,6 +20,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.Map
   ( MapF
   , Data.Parameterized.Map.empty
@@ -64,7 +64,7 @@ import Data.Parameterized.Utils.BinTree
   , updatedValue
   , TreeApp(..)
   , bin
-  , IsBinTreeM(..)
+  , IsBinTree(..)
   , balanceL
   , balanceR
   , glue
@@ -121,13 +121,12 @@ null Bin{} = False
 singleton :: k tp -> a tp -> MapF k a
 singleton k x = Bin 1 k x Tip Tip
 
-instance Bin.IsBinTreeM (MapF k a) Identity (Pair k a) where
+instance Bin.IsBinTree (MapF k a) (Pair k a) where
   asBin (Bin _ k v l r) = BinTree (Pair k v) l r
   asBin Tip = TipTree
 
   tip = Tip
-  bin' (Pair k v) l r =
-    Identity $! Bin (size l + size r + 1) k v l r
+  bin (Pair k v) l r = Bin (size l + size r + 1) k v l r
 
   size Tip              = 0
   size (Bin sz _ _ _ _) = sz

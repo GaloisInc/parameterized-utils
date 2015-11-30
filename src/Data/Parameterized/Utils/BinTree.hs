@@ -9,21 +9,19 @@
 -- This module defines utilities for working with balanced binary trees.
 ------------------------------------------------------------------------
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE Safe #-}
 module Data.Parameterized.Utils.BinTree
   ( MaybeS(..)
   , fromMaybeS
   , Updated(..)
   , updatedValue
   , TreeApp(..)
-  , IsBinTree
-  , bin
-  , IsBinTreeM(..)
+  , IsBinTree(..)
   , balanceL
   , balanceR
   , glue
@@ -33,17 +31,16 @@ module Data.Parameterized.Utils.BinTree
   , insert
   , delete
   , union
-    -- * Internal
   , link
   , PairS(..)
   ) where
 
 import Control.Applicative
-import Control.Monad.Identity
 
 ------------------------------------------------------------------------
 -- MaybeS
 
+-- | A strict version of 'Maybe'
 data MaybeS v
    = JustS !v
    | NothingS
@@ -88,24 +85,12 @@ data TreeApp e t
    = BinTree !e !t !t
    | TipTree
 
-class (Applicative m, Monad m) => IsBinTreeM t m e | t -> e, t -> m where
+class IsBinTree t e | t -> e where
   asBin :: t -> TreeApp e t
   tip :: t
 
-  bin' :: e -> t -> t -> Identity t
+  bin :: e -> t -> t -> t
   size :: t -> Int
-
-binM :: (m ~ Identity, IsBinTreeM c m e) => e -> m c -> m c -> m c
-binM c mx my = do
-  x <- mx
-  y <- my
-  bin' c x y
-
-type IsBinTree c e = IsBinTreeM c Identity e
-
-bin :: IsBinTree c e => e -> c -> c -> c
-bin = \x l r -> runIdentity (bin' x l r)
-{-# INLINE bin #-}
 
 delta,ratio :: Int
 delta = 3
@@ -113,46 +98,33 @@ ratio = 2
 
 -- balanceL is called when left subtree might have been inserted to or when
 -- right subtree might have been deleted from.
-balanceLM :: (m ~ Identity, IsBinTreeM c m e) => e -> c -> c -> m c
-balanceLM p l r = do
+balanceL :: (IsBinTree c e) => e -> c -> c -> c
+balanceL p l r = do
   case asBin l of
     BinTree l_pair ll lr | size l > max 1 (delta*size r) ->
       case asBin lr of
         BinTree lr_pair lrl lrr | size lr >= max 2 (ratio*size ll) ->
-          binM lr_pair (binM l_pair (pure ll) (pure lrl)) (binM p (pure lrr) (pure r))
-        _ -> binM l_pair (pure ll) (binM p (pure lr) (pure r))
+          bin lr_pair (bin l_pair ll lrl) (bin p lrr r)
+        _ -> bin l_pair ll (bin p lr r)
 
-    _ -> binM p (pure l) (pure r)
-{-# INLINE balanceLM #-}
+    _ -> bin p l r
+{-# INLINE balanceL #-}
 
 -- balanceR is called when right subtree might have been inserted to or when
 -- left subtree might have been deleted from.
-balanceRM :: (m ~ Identity, IsBinTreeM c m e) => e -> c -> c -> m c
-balanceRM p l r = do
+balanceR :: (IsBinTree c e) => e -> c -> c -> c
+balanceR p l r = do
   case asBin r of
     BinTree r_pair rl rr | size r > max 1 (delta*size l) ->
       case asBin rl of
         BinTree rl_pair rll rlr | size rl >= max 2 (ratio*size rr) ->
-          (binM rl_pair $! bin' p l rll) $! bin' r_pair rlr rr
-        _ -> do
-          l_p_rl <- bin' p l rl
-          bin' r_pair l_p_rl rr
+          (bin rl_pair $! bin p l rll) $! bin r_pair rlr rr
+        _ -> bin r_pair (bin p l rl) rr
 
-    _ -> bin' p l r
-{-# INLINE balanceRM #-}
-
--- balanceL is called when left subtree might have been inserted to or when
--- right subtree might have been deleted from.
-balanceL :: IsBinTree c e => e -> c -> c -> c
-balanceL p l r = runIdentity (balanceLM p l r)
-{-# INLINE balanceL #-}
-
-
--- balanceR is called when right subtree might have been inserted to or when
--- left subtree might have been deleted from.
-balanceR :: IsBinTree c e => e -> c -> c -> c
-balanceR p l r = runIdentity (balanceRM p l r)
+    _ -> bin p l r
 {-# INLINE balanceR #-}
+
+
 
 -- | Insert a new maximal element.
 insertMax :: IsBinTree c e => e -> c -> c
@@ -180,6 +152,7 @@ link p l r =
      | otherwise             -> bin p l r
 {-# INLINE link #-}
 
+-- | A Strict pair
 data PairS f s = PairS !f !s
 
 deleteFindMin :: IsBinTree c e => e -> c -> c -> PairS e c
@@ -249,13 +222,6 @@ insert x t =
             Unchanged r' -> Unchanged (bin       y l r')
         EQ -> Unchanged (bin x l r)
 {-# INLINABLE insert #-}
-
-{-
-data Context t e
-   = AddLeftTree !(Context t e) !t !e
-   | AddRightTree !(Context t e) !e !t
-   | EmptyContext
--}
 
 delete :: IsBinTree c e
        => (e -> Ordering)

@@ -1,10 +1,8 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Context
--- Description      : Finite dependent products
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-15
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- This module reexports either "Data.Parameterized.SafeContext"
 -- or "Data.Parameterized.UnsafeContext" depending on the
@@ -12,7 +10,7 @@
 --
 -- It also defines some utility typeclasses for transforming
 -- between curried and uncurried versions of functions over contexts.
-
+------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -20,7 +18,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-
+{-# LANGUAGE Safe #-}
 module Data.Parameterized.Context
 (
 #ifdef UNSAFE_OPS

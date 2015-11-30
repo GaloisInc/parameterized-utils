@@ -1,12 +1,10 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Some
--- Description      : Provides a simple GADT for hiding a type parameter.
 -- Copyright        : (c) Galois, Inc 2014
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
--- This module provides Some, a GADT that hides a type parameter.
+-- This module provides 'Some', a GADT that hides a type parameter.
 ------------------------------------------------------------------------
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}

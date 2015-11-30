@@ -1,16 +1,15 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.TraversableFC
--- Description      : Declares @FunctorF@, @FoldableFC@, and @TraversableFC@ classes.
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
 --
 -- This module declares classes for working with structures that accept
 -- a parametric type parameter followed by some fixed kind.
 ------------------------------------------------------------------------
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.TraversableFC
   ( FunctorFC(..)
   , FoldableFC(..)
