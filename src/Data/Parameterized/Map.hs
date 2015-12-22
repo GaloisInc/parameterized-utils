@@ -38,6 +38,7 @@ module Data.Parameterized.Map
   , foldrWithKey
   , toList
   , size
+  , traverseWithKey
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
@@ -160,6 +161,16 @@ map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
 traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
 traverse _ Tip = pure Tip
 traverse f (Bin sx kx x l r) = Bin sx kx <$> f x <*> traverse f l <*> traverse f r
+
+-- | Traverse elements in a map
+traverseWithKey
+  :: Applicative m
+  => (forall tp . ktp tp -> f tp -> m (g tp))
+  -> MapF ktp f
+  -> m (MapF ktp g)
+traverseWithKey _ Tip = pure Tip
+traverseWithKey f (Bin sx kx x l r) =
+   Bin sx kx <$> f kx x <*> traverseWithKey f l <*> traverseWithKey f r
 
 -- | Lookup value in map.
 lookup :: OrdF k => k tp -> MapF k a -> Maybe (a tp)
