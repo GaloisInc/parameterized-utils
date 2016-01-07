@@ -40,7 +40,7 @@ class FunctorF m where
 
 -- | This is a generalization of the @Foldable@ class to
 -- structures over parameterized terms.
-class FunctorF t => FoldableF (t :: (k -> *) -> *) where
+class FoldableF (t :: (k -> *) -> *) where
   {-# MINIMAL foldMapF | foldrF #-}
 
   -- | Map each element of the structure to a monoid,

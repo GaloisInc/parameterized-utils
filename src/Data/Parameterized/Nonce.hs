@@ -32,6 +32,7 @@ import Control.Monad.ST
 import Data.Hashable
 import Data.IORef
 import Data.STRef
+import Data.Typeable
 import Data.Word
 import Unsafe.Coerce
 

@@ -93,6 +93,8 @@ fromOrdering GT = GTF
 
 -- | A parameterized type that can be compared on distinct instances.
 class TestEquality ktp => OrdF (ktp :: k -> *) where
+  {-# MINIMAL compareF #-}
+
   -- | compareF compares two keys with different type parameters.
   -- Instances must ensure that keys are only equal if the type
   -- parameters are equal.
@@ -128,6 +130,8 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
 
 -- | A parameterized type that can be shown on all instances.
 class ShowF f where
+  {-# MINIMAL showF | showsF #-}
+
   showF :: f tp -> String
   showF f = showsF f ""
 

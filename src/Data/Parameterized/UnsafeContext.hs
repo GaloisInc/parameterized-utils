@@ -19,6 +19,8 @@ module Data.Parameterized.UnsafeContext
   , zeroSize
   , incSize
   , extSize
+  , SizeView(..)
+  , viewSize
   , KnownContext(..)
     -- * Diff
   , Diff
@@ -30,11 +32,12 @@ module Data.Parameterized.UnsafeContext
   , indexVal
   , base
   , skip
-
+  , lastIndex
   , nextIndex
   , extendIndex
   , extendIndex'
   , forIndex
+  , forIndexM
   , intIndex
     -- * Assignments
   , Assignment
@@ -66,8 +69,10 @@ import Control.Exception
 import qualified Control.Lens as Lens
 import Control.Monad.Identity (Identity(..))
 import Data.Bits
+import Data.Coerce
 import Data.Hashable
 import Data.List (intercalate)
+import Data.Monoid (All(..))
 import Data.Proxy
 import Unsafe.Coerce
 
@@ -92,6 +97,16 @@ zeroSize = Size 0
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize (Size n) = Size (n+1)
 
+-- | Allows interpreting a size.
+data SizeView (ctx :: Ctx k) where
+  ZeroSize :: SizeView 'EmptyCtx
+  IncSize :: !(Size ctx) -> SizeView (ctx '::> tp)
+
+-- | Project a size
+viewSize :: Size ctx -> SizeView ctx
+viewSize (Size 0) = unsafeCoerce ZeroSize
+viewSize (Size n) = assert (n > 0) (unsafeCoerce (IncSize (Size (n-1))))
+
 instance Show (Size ctx) where
   show (Size i) = show i
 
@@ -104,7 +119,6 @@ instance KnownContext 'EmptyCtx where
 
 instance KnownContext ctx => KnownContext (ctx '::> tp) where
   knownSize = incSize knownSize
-
 
 ------------------------------------------------------------------------
 -- Diff
@@ -179,6 +193,10 @@ skip (Index i) = Index i
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
 nextIndex n = Index (sizeInt n)
 
+-- | Return the index of a element one past the size.
+lastIndex :: Size (ctx ::> tp) -> Index (ctx '::> tp) tp
+lastIndex n = Index (sizeInt n)
+
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
 extendIndex = extendIndex' knownDiff
@@ -188,17 +206,28 @@ extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' _ = unsafeCoerce
 
 -- | Given a size @n@, an initial value @v0@, and a function @f@, @forIndex n v0 f@,
--- calls @f@ on each index less than @n@ starting from @0@ and @v0@, with the value @v@ obtained
--- from the last call.
+-- calls @f@ on each index less than @n@ starting from @0@ and @v0@, with the value @v@
+-- obtained from the last call.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
          -> r
          -> r
-forIndex n f = go 0
-  where go :: Int -> r -> r
-        go i v | i < sizeInt n = go (i+1) (f v (Index i))
-               | otherwise = v
+forIndex n f r =
+  case viewSize n of
+    ZeroSize -> r
+    IncSize p -> f (forIndex p (coerce f) r) (nextIndex p)
+
+-- |'forIndexM sz f' calls 'f' on indices '[0..sz-1]'.
+forIndexM :: forall ctx r m
+           . Applicative m
+          => Size ctx
+          -> (forall tp . Index ctx tp -> m ())
+          -> m ()
+forIndexM (Size sz) f = assert (sz >= 0) $ go 0
+  where go i
+          | i == sz = pure ()
+          | otherwise = f (Index i) *> go (i+1)
 
 -- | Return index at given integer or nothing if integer is out of bounds.
 intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
@@ -770,6 +799,8 @@ a ! Index i = assert (0 <= i && i < sizeInt (size a)) $
 (!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
 a !! i = a ! extendIndex i
 
+newtype PolyConst (a :: *) (b :: k) = PolyConst { getPolyConst :: a }
+
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
 
@@ -803,7 +834,7 @@ instance ShowF f => ShowF (Assignment f) where
   showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
 
 instance ShowF f => Show (Assignment f ctx) where
-  show a = showF a
+  show = showF
 
 -- | Modify the value of an assignment at a particular index.
 adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx

@@ -40,7 +40,7 @@ class FunctorFC m where
 
 -- | This is a generalization of the @Foldable@ class to
 -- structures over parameterized terms.
-class FunctorFC t => FoldableFC (t :: (k -> *) -> l -> *) where
+class FoldableFC (t :: (k -> *) -> l -> *) where
   {-# MINIMAL foldMapFC | foldrFC #-}
 
   -- | Map each element of the structure to a monoid,
@@ -71,6 +71,7 @@ class FunctorFC t => FoldableFC (t :: (k -> *) -> l -> *) where
   -- | Convert structure to list.
   toListFC :: (forall tp . f tp -> a) -> t f c -> [a]
   toListFC f t = build (\c n -> foldrFC (\e v -> c (f e) v) n t)
+
 
 ------------------------------------------------------------------------
 -- TraversableF

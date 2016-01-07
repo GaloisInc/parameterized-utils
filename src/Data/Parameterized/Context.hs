@@ -26,7 +26,7 @@ module Data.Parameterized.UnsafeContext
 #else
 module Data.Parameterized.SafeContext
 #endif
-
+, singleton
   -- * Currying and uncurrying for assignments
 , CurryAssignment
 , CurryAssignmentClass(..)
@@ -38,6 +38,9 @@ import Data.Parameterized.UnsafeContext
 import Data.Parameterized.SafeContext
 #endif
 
+-- | Create a single element context.
+singleton :: f tp -> Assignment f (EmptyCtx ::> tp)
+singleton = (empty %>)
 
 -- | This type family is used to define currying\/uncurrying operations
 -- on assignments.  It is best understood by seeing its evaluation on
