@@ -26,9 +26,9 @@ module Data.Parameterized.TH.GADT
   , lookupDataType'
   , asTypeCon
   , TypePat(..)
+  , assocTypePats
   ) where
 
-import Control.Lens hiding (pre)
 import Control.Monad
 import Data.Hashable (hashWithSalt)
 import Data.List
@@ -119,10 +119,10 @@ conExpr c = ConE (conName c)
 -- TypePat
 
 data TypePat
-   = TypeApp TypePat TypePat
-   | AnyType
-   | DataArg Int
-   | ConType TypeQ
+   = TypeApp TypePat TypePat -- ^ The application of a type.
+   | AnyType       -- ^ Match any type.
+   | DataArg Int   -- ^ Match the ith argument of the data type we are traversing.
+   | ConType TypeQ -- ^ Match a ground type.
 
 matchTypePat :: DataD -> TypePat -> Type -> Q Bool
 matchTypePat d (TypeApp p q) (AppT x y) = do
@@ -140,6 +140,7 @@ matchTypePat _ (ConType tpq) tp = do
   return (tp' == tp)
 matchTypePat _ _ _ = return False
 
+-- | Find value associated with first pattern that matches given pat if any.
 assocTypePats :: DataD -> [(TypePat,v)] -> Type -> Q (Maybe v)
 assocTypePats _ [] _ = return Nothing
 assocTypePats d ((p,v):pats) tp = do
@@ -300,27 +301,25 @@ mkOrdF d pats c = do
          , pure $ Match (TupP [WildP, conPat_ c]) (NormalB gtf) []
          ]
 
-type TraversePats = [(Type -> Q Bool, ExpQ)]
-
--- | @recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
-recurseArg :: TraversePats
+-- | Find the first recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
+recurseArg :: (Type -> Q (Maybe ExpQ))
            -> ExpQ -- ^ Function to apply
            -> ExpQ
            -> Type
            -> Q (Maybe Exp)
-recurseArg ((p,g):r) f v tp = do
-  b <- p tp
-  if b then
-    Just <$> [| $(g) $(f) $(v) |]
-  else
-    recurseArg r f v tp
-recurseArg [] f v (AppT (ConT _) (AppT (VarT _) _)) = Just <$> [| traverse $(f) $(v) |]
-recurseArg [] f v (AppT (VarT _) _)                 = Just <$> [| $(f) $(v) |]
-recurseArg [] _ _ _ = return Nothing
+recurseArg m f v tp = do
+  mr <- m tp
+  case mr of
+    Just g ->  Just <$> [| $(g) $(f) $(v) |]
+    Nothing ->
+      case tp of
+        AppT (ConT _) (AppT (VarT _) _) -> Just <$> [| traverse $(f) $(v) |]
+        AppT (VarT _) _ -> Just <$> [| $(f) $(v) |]
+        _ -> return Nothing
 
 -- | @traverseAppMatch f c@ builds a case statement that matches a term with
 -- the constructor @c@ and applies @f@ to each argument.
-traverseAppMatch :: TraversePats -- ^ Variables bound in data
+traverseAppMatch :: (Type -> Q (Maybe ExpQ)) -- Pattern match function
                  -> ExpQ -- ^ Function to apply to each argument recursively.
                  -> Con -- ^ Constructor to match.
                  -> MatchQ -- ^ Match expression that
@@ -336,7 +335,7 @@ traverseAppMatch pats fv c0 = do
         v <- newName "r"
         lamE [varP v] (mkRes (appE e (varE v)) r)
 
-  -- Apply the reamining argument to the expression in list.
+  -- Apply the remaining argument to the expression in list.
   let applyRest :: ExpQ -> [Exp] -> ExpQ
       applyRest e [] = e
       applyRest e (a:r) = applyRest [| $(e) <*> $(pure a) |] r
@@ -357,9 +356,8 @@ structuralTraversal tpq pats0 = do
   d <- lookupDataType' =<< asTypeCon "structuralTraversal" =<< tpq
   f <- newName "f"
   a <- newName "a"
-  let pats = fmap (over _1 (matchTypePat d)) pats0
   lamE [varP f, varP a] $
-    caseE (varE a) (traverseAppMatch pats (varE f) <$> dataCtors d)
+    caseE (varE a) (traverseAppMatch (assocTypePats d pats0) (varE f) <$> dataCtors d)
 
 asTypeCon :: Monad m => String -> Type -> m Name
 asTypeCon _ (ConT nm) = return nm
