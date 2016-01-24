@@ -72,7 +72,6 @@ import Data.Bits
 import Data.Coerce
 import Data.Hashable
 import Data.List (intercalate)
-import Data.Monoid (All(..))
 import Data.Proxy
 import Unsafe.Coerce
 
@@ -219,7 +218,7 @@ forIndex n f r =
     IncSize p -> f (forIndex p (coerce f) r) (nextIndex p)
 
 -- |'forIndexM sz f' calls 'f' on indices '[0..sz-1]'.
-forIndexM :: forall ctx r m
+forIndexM :: forall ctx m
            . Applicative m
           => Size ctx
           -> (forall tp . Index ctx tp -> m ())
@@ -798,8 +797,6 @@ a ! Index i = assert (0 <= i && i < sizeInt (size a)) $
 -- | Return value of assignment.
 (!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
 a !! i = a ! extendIndex i
-
-newtype PolyConst (a :: *) (b :: k) = PolyConst { getPolyConst :: a }
 
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
