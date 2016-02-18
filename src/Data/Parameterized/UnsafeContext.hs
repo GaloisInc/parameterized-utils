@@ -37,6 +37,7 @@ module Data.Parameterized.UnsafeContext
   , extendIndex
   , extendIndex'
   , forIndex
+  , forIndexRange
   , forIndexM
   , intIndex
     -- * Assignments
@@ -204,9 +205,8 @@ extendIndex = extendIndex' knownDiff
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' _ = unsafeCoerce
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, @forIndex n v0 f@,
--- calls @f@ on each index less than @n@ starting from @0@ and @v0@, with the value @v@
--- obtained from the last call.
+-- | Given a size 'n', an initial value 'v0', and a function 'f', 'forIndex n v0 f'
+-- is equivalent to 'v0' when 'n' is zero, and 'f (forIndex (n-1) v0) (n-1)' otherwise.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
@@ -217,16 +217,26 @@ forIndex n f r =
     ZeroSize -> r
     IncSize p -> f (forIndex p (coerce f) r) (nextIndex p)
 
+-- | Given an index 'i', size 'n', a function 'f', value 'v', and a function 'f',
+-- 'forIndex i n f v' is equivalent to 'v' when 'i >= sizeInt n', and
+-- 'f i (forIndexRange (i+1) n v0)' otherwise.
+forIndexRange :: forall ctx r
+               . Int
+              -> Size ctx
+              -> (forall tp . Index ctx tp -> r -> r)
+              -> r
+              -> r
+forIndexRange i (Size n) f r
+  | i >= n = r
+  | otherwise = f (Index i) (forIndexRange (i+1) (Size n) f r)
+
 -- |'forIndexM sz f' calls 'f' on indices '[0..sz-1]'.
 forIndexM :: forall ctx m
            . Applicative m
           => Size ctx
           -> (forall tp . Index ctx tp -> m ())
           -> m ()
-forIndexM (Size sz) f = assert (sz >= 0) $ go 0
-  where go i
-          | i == sz = pure ()
-          | otherwise = f (Index i) *> go (i+1)
+forIndexM sz f = forIndexRange 0 sz (\i r -> f i *> r) (pure ())
 
 -- | Return index at given integer or nothing if integer is out of bounds.
 intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
