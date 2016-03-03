@@ -16,8 +16,11 @@
 module Data.Parameterized.HashTable
   ( HashTable
   , new
+  , newSized
+  , clone
   , lookup
   , insert
+  , member
   , delete
   , clear
   , Data.Parameterized.Classes.HashableF(..)
@@ -43,6 +46,22 @@ newtype HashTable s (key :: k -> *) (val :: k -> *)
 new :: ST s (HashTable s key val)
 new = HashTable <$> H.new
 
+-- | Create a new empty table to hold 'n' elements.
+newSized :: Int -> ST s (HashTable s k v)
+newSized n = HashTable <$> H.newSized n
+
+-- | Create a hash table that is a copy of the current one.
+clone :: (HashableF key, TestEquality key)
+      => HashTable s key val
+      -> ST s (HashTable s key val)
+clone (HashTable tbl) = do
+  -- Create a new table
+  r <- H.new
+  -- Insert existing elements in
+  H.mapM_ (uncurry (H.insert r)) tbl
+  -- Return table
+  return $! HashTable r
+
 -- | Lookup value of key in table.
 lookup :: (HashableF key, TestEquality key)
        => HashTable s key val
@@ -58,6 +77,13 @@ insert :: (HashableF key, TestEquality key)
        -> val tp
        -> ST s ()
 insert (HashTable h) k v = H.insert h (Some k) (unsafeCoerce v)
+
+-- | Return true if the key is in the hash table.
+member :: (HashableF key, TestEquality key)
+       => HashTable s (key :: k -> *) (val :: k -> *)
+       -> key (tp :: k)
+       -> ST s Bool
+member (HashTable h) k = isJust <$> H.lookup h (Some k)
 
 -- | Delete an element from the hash table.
 delete :: (HashableF key, TestEquality key)
