@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Context
--- Copyright        : (c) Galois, Inc 2014-15
+-- Copyright        : (c) Galois, Inc 2014-16
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 --
 -- This module reexports either "Data.Parameterized.SafeContext"

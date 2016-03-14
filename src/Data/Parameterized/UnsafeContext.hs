@@ -21,12 +21,16 @@ module Data.Parameterized.UnsafeContext
   , extSize
   , SizeView(..)
   , viewSize
+  , MinSize(..)
+  , minSize
   , KnownContext(..)
     -- * Diff
   , Diff
   , noDiff
   , extendRight
   , KnownDiff(..)
+  , DiffView(..)
+  , viewDiff
     -- * Indexing
   , Index
   , indexVal
@@ -46,17 +50,19 @@ module Data.Parameterized.UnsafeContext
   , replicate
   , generate
   , generateM
+  , generateSome
+  , generateSomeM
   , empty
   , null
   , extend
   , update
   , adjust
   , init
+  , last
   , AssignView(..)
   , view
   , (!)
   , (!!)
-  , toList
   , zipWith
   , zipWithM
   , (%>)
@@ -76,7 +82,7 @@ import Data.List (intercalate)
 import Data.Proxy
 import Unsafe.Coerce
 
-import Prelude hiding (init, map, null, replicate, succ, zipWith, (!!))
+import Prelude hiding (init, last, map, null, replicate, succ, zipWith, (!!))
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
@@ -120,6 +126,19 @@ instance KnownContext 'EmptyCtx where
 instance KnownContext ctx => KnownContext (ctx '::> tp) where
   knownSize = incSize knownSize
 
+instance TestEquality Size where
+  testEquality (Size i) (Size j)
+    | i == j = Just (unsafeCoerce Refl)
+    | otherwise = Nothing
+
+-- | Information about the minimum of two sizes.
+data MinSize a b = forall c . MinSize !(Size c) !(Diff c a) !(Diff c b)
+
+-- | Return the minimum of two sizes.
+minSize :: Size a -> Size b -> MinSize a b
+minSize (Size i) (Size j) = MinSize (Size k) (Diff (i-k)) (Diff (j-k))
+  where k = min i j
+
 ------------------------------------------------------------------------
 -- Diff
 
@@ -143,6 +162,15 @@ instance Cat.Category Diff where
 -- | Extend the size by a given difference.
 extSize :: Size l -> Diff l r -> Size r
 extSize (Size i) (Diff j) = Size (i+j)
+
+data DiffView a b where
+  NoDiff :: DiffView a a
+  ExtendRightDiff :: Diff a b -> DiffView a (b ::> r)
+
+viewDiff :: Diff a b -> DiffView a b
+viewDiff (Diff i)
+  | i == 0 = unsafeCoerce NoDiff
+  | otherwise  = assert (i > 0) $ unsafeCoerce $ ExtendRightDiff (Diff (i-1))
 
 ------------------------------------------------------------------------
 -- KnownDiff
@@ -759,6 +787,27 @@ instance NFData (Assignment f ctx) where
 size :: Assignment f ctx -> Size ctx
 size (Assignment t) = Size (tsize t)
 
+-- | Generate an assignment with some context type that is not known.
+generateSome :: forall f
+              . Int
+             -> (Int -> Some f)
+             -> Some (Assignment f)
+generateSome n f = go n
+  where go :: Int -> Some (Assignment f)
+        go 0 = Some empty
+        go i = (\(Some a) (Some e) -> Some (a %> e)) (go (i-1)) (f i)
+
+-- | Generate an assignment with some context type that is not known.
+generateSomeM :: forall m f
+              .  Applicative m
+              => Int
+              -> (Int -> m (Some f))
+              -> m (Some (Assignment f))
+generateSomeM n f = go n
+  where go :: Int -> m (Some (Assignment f))
+        go 0 = pure (Some empty)
+        go i = (\(Some a) (Some e) -> Some (a %> e)) <$> go (i-1) <*> f i
+
 -- | @replicate n@ make a context with different copies of the same
 -- polymorphic value.
 replicate :: Size ctx -> (forall tp . f tp) -> Assignment f ctx
@@ -838,7 +887,7 @@ instance HashableF f => Hashable (Assignment f ctx) where
   hashWithSalt s (Assignment a) = hashWithSaltF s a
 
 instance ShowF f => ShowF (Assignment f) where
-  showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
+  showF a = "[" ++ intercalate ", " (toListFC showF a) ++ "]"
 
 instance ShowF f => Show (Assignment f ctx) where
   show = showF
@@ -884,10 +933,11 @@ init (Assignment x) =
     DropExt t _ -> Assignment t
     _ -> error "init given bad context"
 
--- | Convert assignment to list.
-toList :: (forall tp . f tp -> a) -> Assignment f c -> [a]
-toList = toListFC
-{-# DEPRECATED toList "Use toListFC" #-}
+-- | Return the last element in the assignment.
+last :: Assignment f (ctx '::> tp) -> f tp
+last x =
+  case view x of
+    AssignExtend _ e -> e
 
 zipWith :: (forall x . f x -> g x -> h x)
         -> Assignment f a
