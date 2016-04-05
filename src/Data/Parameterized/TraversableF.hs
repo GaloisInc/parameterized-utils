@@ -17,6 +17,8 @@ module Data.Parameterized.TraversableF
   , traverseF_
   , fmapFDefault
   , foldMapFDefault
+  , allF
+  , anyF
   ) where
 
 import Control.Applicative
@@ -72,6 +74,14 @@ class FoldableF (t :: (k -> *) -> *) where
   toListF :: (forall tp . f tp -> a) -> t f -> [a]
   toListF f t = build (\c n -> foldrF (\e v -> c (f e) v) n t)
 
+-- | Return 'True' if all values satisfy predicate.
+allF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
+allF p = getAll #. foldMapF (All #. p)
+
+-- | Return 'True' if any values satisfy predicate.
+anyF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
+anyF p = getAny #. foldMapF (Any #. p)
+
 ------------------------------------------------------------------------
 -- TraversableF
 
@@ -84,13 +94,13 @@ class FoldableF t => TraversableF t where
 -- | This function may be used as a value for `fmapF` in a `FunctorF`
 -- instance.
 fmapFDefault :: TraversableF t => (forall s . e s -> f s) -> t e -> t f
-fmapFDefault f = runIdentity . traverseF (Identity . f)
+fmapFDefault f = runIdentity #. traverseF (Identity #. f)
 {-# INLINE fmapFDefault #-}
 
 -- | This function may be used as a value for `Data.Foldable.foldMap`
 -- in a `Foldable` instance.
 foldMapFDefault :: (TraversableF t, Monoid m) => (forall s . e s -> m) -> t e -> m
-foldMapFDefault f = getConst . traverseF (Const . f)
+foldMapFDefault f = getConst #. traverseF (Const #. f)
 
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.

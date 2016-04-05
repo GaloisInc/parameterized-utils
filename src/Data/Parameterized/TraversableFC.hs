@@ -18,6 +18,8 @@ module Data.Parameterized.TraversableFC
   , forMFC_
   , fmapFCDefault
   , foldMapFCDefault
+  , allFC
+  , anyFC
   ) where
 
 import Control.Applicative
@@ -72,6 +74,13 @@ class FoldableFC (t :: (k -> *) -> l -> *) where
   toListFC :: (forall tp . f tp -> a) -> t f c -> [a]
   toListFC f t = build (\c n -> foldrFC (\e v -> c (f e) v) n t)
 
+-- | Return 'True' if all values satisfy predicate.
+allFC :: FoldableFC t => (forall tp . f tp -> Bool) -> t f c -> Bool
+allFC p = getAll #. foldMapFC (All #. p)
+
+-- | Return 'True' if any values satisfy predicate.
+anyFC :: FoldableFC t => (forall tp . f tp -> Bool) -> t f c -> Bool
+anyFC p = getAny #. foldMapFC (Any #. p)
 
 ------------------------------------------------------------------------
 -- TraversableF
