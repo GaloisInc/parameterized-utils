@@ -795,7 +795,7 @@ generateSome :: forall f
 generateSome n f = go n
   where go :: Int -> Some (Assignment f)
         go 0 = Some empty
-        go i = (\(Some a) (Some e) -> Some (a %> e)) (go (i-1)) (f i)
+        go i = (\(Some a) (Some e) -> Some (a %> e)) (go (i-1)) (f (i-1))
 
 -- | Generate an assignment with some context type that is not known.
 generateSomeM :: forall m f
@@ -806,7 +806,7 @@ generateSomeM :: forall m f
 generateSomeM n f = go n
   where go :: Int -> m (Some (Assignment f))
         go 0 = pure (Some empty)
-        go i = (\(Some a) (Some e) -> Some (a %> e)) <$> go (i-1) <*> f i
+        go i = (\(Some a) (Some e) -> Some (a %> e)) <$> go (i-1) <*> f (i-1)
 
 -- | @replicate n@ make a context with different copies of the same
 -- polymorphic value.
