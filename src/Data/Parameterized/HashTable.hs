@@ -29,7 +29,7 @@ module Data.Parameterized.HashTable
 
 import Control.Applicative
 import Control.Monad.ST
-import qualified Data.HashTable.ST.Basic as H
+import qualified Data.HashTable.ST.Cuckoo as H
 import GHC.Prim (Any)
 import Unsafe.Coerce
 
