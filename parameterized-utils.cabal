@@ -30,7 +30,8 @@ library
     lens,
     mtl,
     template-haskell,
-    text
+    text,
+    vector
 
   hs-source-dirs: src
 

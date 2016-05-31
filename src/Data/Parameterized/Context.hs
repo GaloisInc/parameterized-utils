@@ -15,22 +15,27 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.Context
-(
+ (
 #ifdef UNSAFE_OPS
-module Data.Parameterized.UnsafeContext
+   module Data.Parameterized.UnsafeContext
 #else
-module Data.Parameterized.SafeContext
+   module Data.Parameterized.SafeContext
 #endif
-, singleton
-  -- * Currying and uncurrying for assignments
-, CurryAssignment
-, CurryAssignmentClass(..)
-) where
+ , singleton
+ , toVector
+   -- * Currying and uncurrying for assignments
+ , CurryAssignment
+ , CurryAssignmentClass(..)
+ ) where
+
+import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as MV
 
 #ifdef UNSAFE_OPS
 import Data.Parameterized.UnsafeContext
@@ -41,6 +46,18 @@ import Data.Parameterized.SafeContext
 -- | Create a single element context.
 singleton :: f tp -> Assignment f (EmptyCtx ::> tp)
 singleton = (empty %>)
+
+-- | Convert the assignment to a vector.
+toVector :: Assignment f tps -> (forall tp . f tp -> e) -> V.Vector e
+toVector a f = V.create $ do
+  vm <- MV.new (sizeInt (size a))
+  forIndexM (size a) $ \i -> do
+    MV.write vm (indexVal i) (f (a ! i))
+  return vm
+{-# INLINABLE toVector #-}
+
+--------------------------------------------------------------------------------
+-- CurryAssignment
 
 -- | This type family is used to define currying\/uncurrying operations
 -- on assignments.  It is best understood by seeing its evaluation on
@@ -64,7 +81,6 @@ class CurryAssignmentClass (ctx :: Ctx k) where
 
   -- | Transform a curried function into one that accepts an assignment value.
   uncurryAssignment :: CurryAssignment ctx f x -> (Assignment f ctx -> x)
-
 
 instance CurryAssignmentClass EmptyCtx where
   curryAssignment k = k empty

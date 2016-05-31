@@ -21,8 +21,6 @@ module Data.Parameterized.UnsafeContext
   , extSize
   , SizeView(..)
   , viewSize
-  , MinSize(..)
-  , minSize
   , KnownContext(..)
     -- * Diff
   , Diff
@@ -69,25 +67,25 @@ module Data.Parameterized.UnsafeContext
   , traverseWithIndex
   ) where
 
-import Control.Applicative hiding (empty)
+import           Control.Applicative hiding (empty)
 import qualified Control.Category as Cat
-import Control.DeepSeq
-import Control.Exception
+import           Control.DeepSeq
+import           Control.Exception
 import qualified Control.Lens as Lens
-import Control.Monad.Identity (Identity(..))
-import Data.Bits
-import Data.Coerce
-import Data.Hashable
-import Data.List (intercalate)
-import Data.Proxy
-import Unsafe.Coerce
+import           Control.Monad.Identity (Identity(..))
+import           Data.Bits
+import           Data.Coerce
+import           Data.Hashable
+import           Data.List (intercalate)
+import           Data.Proxy
+import           Unsafe.Coerce
 
-import Prelude hiding (init, last, map, null, replicate, succ, zipWith, (!!))
+import           Prelude hiding (init, last, map, null, replicate, succ, zipWith, (!!))
 
-import Data.Parameterized.Classes
-import Data.Parameterized.Ctx
-import Data.Parameterized.Some
-import Data.Parameterized.TraversableFC
+import           Data.Parameterized.Classes
+import           Data.Parameterized.Ctx
+import           Data.Parameterized.Some
+import           Data.Parameterized.TraversableFC
 
 ------------------------------------------------------------------------
 -- Size
@@ -125,19 +123,6 @@ instance KnownContext 'EmptyCtx where
 
 instance KnownContext ctx => KnownContext (ctx '::> tp) where
   knownSize = incSize knownSize
-
-instance TestEquality Size where
-  testEquality (Size i) (Size j)
-    | i == j = Just (unsafeCoerce Refl)
-    | otherwise = Nothing
-
--- | Information about the minimum of two sizes.
-data MinSize a b = forall c . MinSize !(Size c) !(Diff c a) !(Diff c b)
-
--- | Return the minimum of two sizes.
-minSize :: Size a -> Size b -> MinSize a b
-minSize (Size i) (Size j) = MinSize (Size k) (Diff (i-k)) (Diff (j-k))
-  where k = min i j
 
 ------------------------------------------------------------------------
 -- Diff
@@ -218,12 +203,12 @@ skip :: Index ctx x -> Index (ctx '::> y) x
 skip (Index i) = Index i
 
 -- | Return the index of a element one past the size.
-nextIndex :: Size ctx -> Index (ctx '::> tp) tp
+nextIndex :: Size ctx -> Index (ctx ::> tp) tp
 nextIndex n = Index (sizeInt n)
 
--- | Return the index of a element one past the size.
-lastIndex :: Size (ctx ::> tp) -> Index (ctx '::> tp) tp
-lastIndex n = Index (sizeInt n)
+-- | Return the last index of a element.
+lastIndex :: Size (ctx ::> tp) -> Index (ctx ::> tp) tp
+lastIndex n = Index (sizeInt n - 1)
 
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
