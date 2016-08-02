@@ -26,6 +26,7 @@ module Data.Parameterized.TH.GADT
   , lookupDataType'
   , asTypeCon
   , TypePat(..)
+  , dataParamTypes
   , assocTypePats
   ) where
 
@@ -69,6 +70,12 @@ asDataD (DataD ctx n v ctors _d) = Just $ DD ctx n v ctors
 #endif
 asDataD _ = Nothing
 
+infixPat :: Name -> String -> Q (Pat, [Name])
+infixPat nm pre = do
+  xnm <- newName pre
+  ynm <- newName pre
+  return (InfixP (VarP xnm) nm (VarP ynm), [xnm, ynm])
+
 -- | Given a constructor and string, this generates a pattern for matching
 -- the expression, and the names of variables bound by pattern in order
 -- they appear in constructor.
@@ -81,26 +88,17 @@ conPat (NormalC nm a) pre = do
 conPat (RecC nm a) pre = do
   nms <- replicateM (length a) (newName pre)
   return (ConP nm (VarP <$> nms), nms)
-conPat (InfixC _ nm _) pre = do
-  xnm <- newName pre
-  ynm <- newName pre
-  return (InfixP (VarP xnm) nm (VarP ynm), [xnm, ynm])
+conPat (InfixC _ nm _) pre = infixPat nm pre
 conPat (ForallC _ _ c) pre = conPat c pre
 #if MIN_VERSION_template_haskell(2,11,0)
-conPat GadtC{}    _ = error "conPat does not support GADTs."
-conPat RecGadtC{} _ = error "conPat does not support GADTs."
-#endif
-
--- | Given a constructor, this generates a pattern for matching
--- the constructor with no bound varibles.
-conPat_ :: Con -> Pat
-conPat_ (NormalC nm a) = ConP nm (replicate (length a) WildP)
-conPat_ (RecC nm a)    = ConP nm (replicate (length a) WildP)
-conPat_ (InfixC _ nm _) = InfixP WildP nm WildP
-conPat_ (ForallC _ _ c) = conPat_ c
-#if MIN_VERSION_template_haskell(2,11,0)
-conPat_ GadtC{}    = error "conPat_ does not support GADTs."
-conPat_ RecGadtC{} = error "conPat_ does not support GADTs."
+conPat (GadtC nms a _) pre =
+  case nms of
+    [nm] -> do
+      argNms <- replicateM (length a) (newName pre)
+      return (ConP nm (VarP <$> argNms), argNms)
+    _ ->
+      fail $ "conPat does not support GADTs with multiple ctors per declaration"
+conPat RecGadtC{} _ = error "conPat does not support record GADTs."
 #endif
 
 -- | Get types of arguments for constructor.
@@ -111,21 +109,24 @@ conArgTypes (RecC _ a)                 = (\(_,_,tp) -> tp) <$> a
 conArgTypes (InfixC (_,xtp) _ (_,ytp)) = [xtp, ytp]
 conArgTypes (ForallC _ _ c) = conArgTypes c
 #if MIN_VERSION_template_haskell(2,11,0)
-conArgTypes GadtC{}    = error "conArgTypes does not support GADTs."
+conArgTypes (GadtC _ a _)              = snd <$> a
 conArgTypes RecGadtC{} = error "conArgTypes does not support GADTs."
 #endif
 
 -- | Return an expression corresponding to the constructor.
 -- Note that this will have the type of a function expecting
--- the argumetns given.
+-- the argumnts given.
 conName :: Con -> Name
 conName (NormalC nm _) = nm
 conName (RecC nm _)   = nm
 conName (InfixC _ nm _) = nm
 conName (ForallC _ _ c) = conName c
 #if MIN_VERSION_template_haskell(2,11,0)
-conName GadtC{} = error "conName does not support GADTs."
-conName RecGadtC{} = error "conName does not support GADTs."
+conName (GadtC nms _ _) =
+  case nms of
+    [nm] -> nm
+    _ -> error "conName does not support multi ctor GADTs."
+conName RecGadtC{} = error "conName does not support record GADTs."
 #endif
 
 -- | Return an expression corresponding to the constructor.
@@ -143,30 +144,33 @@ data TypePat
    | DataArg Int   -- ^ Match the ith argument of the data type we are traversing.
    | ConType TypeQ -- ^ Match a ground type.
 
-matchTypePat :: DataD -> TypePat -> Type -> Q Bool
+matchTypePat :: [Type] -> TypePat -> Type -> Q Bool
 matchTypePat d (TypeApp p q) (AppT x y) = do
   r <- matchTypePat d p x
   case r of
     True -> matchTypePat d q y
     False -> return False
 matchTypePat _ AnyType _ = return True
-matchTypePat d (DataArg i) tp
-  | i < 0 || i > length (dataTyVarBndrs d) = error $ "Illegal type pattern index " ++ show i
-  | otherwise =
-    return $ VarT (tyVarName (dataTyVarBndrs d !! i)) == tp
+matchTypePat tps (DataArg i) tp
+  | i < 0 || i > length tps = error $ "Illegal type pattern index " ++ show i
+  | otherwise = do
+    return $ tps !! i == tp
 matchTypePat _ (ConType tpq) tp = do
   tp' <- tpq
   return (tp' == tp)
 matchTypePat _ _ _ = return False
 
+dataParamTypes :: DataD -> [Type]
+dataParamTypes d = VarT . tyVarName <$> dataTyVarBndrs d
+
 -- | Find value associated with first pattern that matches given pat if any.
-assocTypePats :: DataD -> [(TypePat,v)] -> Type -> Q (Maybe v)
+assocTypePats :: [Type] -> [(TypePat,v)] -> Type -> Q (Maybe v)
 assocTypePats _ [] _ = return Nothing
-assocTypePats d ((p,v):pats) tp = do
-  r <- matchTypePat d p tp
+assocTypePats dTypes ((p,v):pats) tp = do
+  r <- matchTypePat dTypes p tp
   case r of
     True -> return (Just v)
-    False -> assocTypePats d pats tp
+    False -> assocTypePats dTypes pats tp
 
 ------------------------------------------------------------------------
 -- Contructor cases
@@ -204,47 +208,87 @@ joinTestEquality f x y r =
       Just Refl -> $(r)
    |]
 
+matchEqArguments :: [Type]
+                    -- ^ Types bound by data arguments.
+                  -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
+                 -> Name
+                     -- ^ Name of constructor.
+                 -> Set Name
+                 -> [Type]
+                 -> [Name]
+                 -> [Name]
+                 -> ExpQ
+matchEqArguments dTypes pats cnm bnd (tp:tpl) (x:xl) (y:yl) = do
+  doesMatch <- assocTypePats dTypes pats tp
+  case doesMatch of
+    Just q -> do
+      let bnd' =
+            case tp of
+              AppT _ (VarT nm) -> Set.insert nm bnd
+              _ -> bnd
+      joinTestEquality q x y (matchEqArguments dTypes pats cnm bnd' tpl xl yl)
+    Nothing | typeVars tp `Set.isSubsetOf` bnd -> do
+      joinEqMaybe x y        (matchEqArguments dTypes pats cnm bnd  tpl xl yl)
+    Nothing -> do
+      fail $ "Unsupported argument type " ++ show tp
+          ++ " in " ++ show (ppr cnm) ++ "."
+matchEqArguments _ _ _ _ [] [] [] = [| Just Refl |]
+matchEqArguments _ _ _ _ [] _  _  = error "Unexpected end of types."
+matchEqArguments _ _ _ _ _  [] _  = error "Unexpected end of names."
+matchEqArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
+
+mkSimpleEqF :: [Type] -- ^ Data declaration types
+            -> Set Name
+             -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
+             -> Name
+             -> [Type]
+             -> MatchQ
+mkSimpleEqF dTypes bnd pats nm a = do
+  -- Get argument types for constructor.
+  xv <- replicateM (length a) $ newName "x"
+  yv <- replicateM (length a) $ newName "y"
+  let xp = ConP nm (VarP <$> xv)
+  let yp = ConP nm (VarP <$> yv)
+  let rv = matchEqArguments dTypes pats nm bnd a xv yv
+  match (pure (TupP [xp, yp])) (normalB rv) []
+
 -- | Match equational form.
 mkEqF :: DataD -- ^ Data declaration.
       -> [(TypePat,ExpQ)]
       -> Con
-      -> MatchQ
-mkEqF d pats c = do
-  -- Get argument types for constructor.
-  (xp,xv) <- conPat c "x"
-  (yp,yv) <- conPat c "y"
-
-  let go :: Set Name -> [Type] -> [Name] -> [Name] -> ExpQ
-      go bnd (tp:tpl) (x:xl) (y:yl) = do
-        doesMatch <- assocTypePats d pats tp
-        case doesMatch of
-          Just q -> do
-            let bnd' =
-                  case tp of
-                    AppT _ (VarT nm) -> Set.insert nm bnd
-                    _ -> bnd
-            joinTestEquality q x y (go bnd' tpl xl yl)
-          Nothing | typeVars tp `Set.isSubsetOf` bnd -> do
-            joinEqMaybe x y (go bnd tpl xl yl)
-          Nothing -> do
-            fail $ "Unsupported argument type " ++ show (ppr tp)
-                ++ " in " ++ show (ppr (conName c)) ++ "."
-      go _ [] [] [] = [| Just Refl |]
-      go _ [] _ _ = error "Unexpected end of types."
-      go _ _ [] _ = error "Unexpected end of names."
-      go _ _ _ [] = error "Unexpected end of names."
-
-  let dataVars = Set.fromList (tyVarName <$> dataTyVarBndrs d)
-  let rv = go dataVars (conArgTypes c) xv yv
+      -> [MatchQ]
+mkEqF d pats (NormalC nm a) = (:[]) $ do
+  let dVars = tyVarName <$> dataTyVarBndrs d
+  let bnd | null dVars = Set.empty
+          | otherwise  = Set.fromList (init dVars)
+  mkSimpleEqF (VarT <$> dVars) bnd pats nm (snd <$> a)
+mkEqF d pats (RecC nm a) = (:[]) $ do
+  let dVars = tyVarName <$> dataTyVarBndrs d
+  let bnd | null dVars = Set.empty
+          | otherwise  = Set.fromList (init dVars)
+  mkSimpleEqF (VarT <$> dVars) bnd pats nm ((\(_,_,tp) -> tp) <$> a)
+mkEqF d pats (InfixC (_,xtp) nm (_,ytp)) = (:[]) $ do
+  let tps = [ xtp, ytp ]
+  (xp,xv) <- infixPat nm "x"
+  (yp,yv) <- infixPat nm "y"
+  let rv = matchEqArguments (dataParamTypes d) pats nm Set.empty tps xv yv
   match (pure (TupP [xp, yp])) (normalB rv) []
+mkEqF d pats (ForallC _ _ c) = mkEqF d pats c
+#if MIN_VERSION_template_haskell(2,11,0)
+mkEqF _ _ RecGadtC{} = do
+  fail "mkEqF does not support record GADTs."
+mkEqF _ pats (GadtC nms a tp) = f <$> nms
+  where f nm = do
+          mkSimpleEqF (gadtArgTypes tp) Set.empty pats nm (snd <$> a)
+#endif
 
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> Maybe (x :~: y)
 structuralTypeEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralTypeEquality tpq pats = do
   d <- lookupDataType' =<< asTypeCon "structuralTypeEquality" =<< tpq
-  let trueEqs = (mkEqF d pats <$> dataCtors d)
-      baseEq = match [p| (_, _)|] (normalB [| Nothing |]) []
+  let trueEqs = concatMap (mkEqF d pats) (dataCtors d)
+      baseEq  = match [p| (_, _)|] (normalB [| Nothing |]) []
   [| \x y -> $(caseE [| (x, y) |] (trueEqs ++ [baseEq])) |]
 
 -- | @structuralTypeEquality f@ returns a function with the type:
@@ -271,6 +315,9 @@ joinCompareF f x y r = do
       EQF -> $(r)
    |]
 
+-- | Compare two variables and use following comparison if they are different.
+--
+-- This returns an 'OrdF' instance.
 joinCompareToOrdF :: Name -> Name -> ExpQ -> ExpQ
 joinCompareToOrdF x y r =
   [| case compare $(varE x) $(varE y) of
@@ -279,46 +326,97 @@ joinCompareToOrdF x y r =
       EQ -> $(r)
    |]
 
--- | Match equational form.
-mkOrdF :: DataD -- ^ Data declaration.
-       -> [(TypePat,ExpQ)] -- ^ Second order argument types.
-       -> Con
-       -> Q [MatchQ]
-mkOrdF d pats c = do
-  -- Get argument types for constructor.
-  (xp,xv) <- conPat c "x"
-  (yp,yv) <- conPat c "y"
   -- Match expression with given type to variables
-  let go :: Set Name -> [Type] -> [Name] -> [Name] -> ExpQ
-      -- Use testEquality on vars with second order types.
-      go bnd (tp : tpl) (x:xl) (y:yl) = do
-        doesMatch <- assocTypePats d pats tp
-        case doesMatch of
-          Just f -> do
-            let bnd' = case tp of
-                         AppT _ (VarT nm) -> Set.insert nm bnd
-                         _ -> bnd
-            joinCompareF f x y (go bnd' tpl xl yl)
-          Nothing | typeVars tp `Set.isSubsetOf` bnd -> do
-            joinCompareToOrdF x y (go bnd tpl xl yl)
-          Nothing ->
-            fail $ "Unsupported argument type " ++ show (ppr tp)
-                ++ " in " ++ show (ppr (conName c)) ++ "."
-      go _ [] [] [] = [| EQF |]
-      go _ [] _ _ = error "Unexpected end of types."
-      go _ _ [] _ = error "Unexpected end of names."
-      go _ _ _ [] = error "Unexpected end of names."
+matchOrdArguments :: [Type]
+                     -- ^ Types bound by data arguments
+                  -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
+                  -> Name
+                     -- ^ Name of constructor.
+                  -> Set Name
+                    -- ^ Names bound in data declaration
+                  -> [Type]
+                     -- ^ Types for constructors
+                  -> [Name]
+                     -- ^ Variables bound in first pattern
+                  -> [Name]
+                     -- ^ Variables bound in second pattern
+                  -> ExpQ
+matchOrdArguments dTypes pats cnm bnd (tp : tpl) (x:xl) (y:yl) = do
+  doesMatch <- assocTypePats dTypes pats tp
+  case doesMatch of
+    Just f -> do
+      let bnd' = case tp of
+                   AppT _ (VarT nm) -> Set.insert nm bnd
+                   _ -> bnd
+      joinCompareF f x y (matchOrdArguments dTypes pats cnm bnd' tpl xl yl)
+    Nothing | typeVars tp `Set.isSubsetOf` bnd -> do
+      joinCompareToOrdF x y (matchOrdArguments dTypes pats cnm bnd tpl xl yl)
+    Nothing ->
+      fail $ "Unsupported argument type " ++ show (ppr tp)
+             ++ " in " ++ show (ppr cnm) ++ "."
+matchOrdArguments _ _ _ _ [] [] [] = [| EQF |]
+matchOrdArguments _ _ _ _ [] _  _  = error "Unexpected end of types."
+matchOrdArguments _ _ _ _ _  [] _  = error "Unexpected end of names."
+matchOrdArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 
-  -- Zip types together
-  let dataVars = Set.fromList (tyVarName <$> dataTyVarBndrs d)
-  rv <- go dataVars (conArgTypes c) xv yv
+mkSimpleOrdF :: [Type] -- ^ Data declaration types
+             -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
+             -> Name
+             -> [Type]
+             -> Q [MatchQ]
+mkSimpleOrdF dTypes pats nm a = do
+  xv <- replicateM (length a) $ newName "x"
+  yv <- replicateM (length a) $ newName "y"
+  let xp = ConP nm (VarP <$> xv)
+  let yp = ConP nm (VarP <$> yv)
+  rv <- matchOrdArguments dTypes pats nm Set.empty a xv yv
   ltf <- [| LTF |]
   gtf <- [| GTF |]
   -- Return match expression
+  let anyPat = ConP nm (replicate (length a) WildP)
   return [ pure $ Match (TupP [xp, yp]) (NormalB rv) []
-         , pure $ Match (TupP [conPat_ c, WildP]) (NormalB ltf) []
-         , pure $ Match (TupP [WildP, conPat_ c]) (NormalB gtf) []
+         , pure $ Match (TupP [anyPat, WildP]) (NormalB ltf) []
+         , pure $ Match (TupP [WildP, anyPat]) (NormalB gtf) []
          ]
+
+gadtArgTypes :: Type -> [Type]
+gadtArgTypes (AppT c x) = gadtArgTypes c ++ [x]
+gadtArgTypes ConT{} = []
+gadtArgTypes tp = error $ "Unexpected GADT return type: " ++ show tp
+
+-- | Match equational form.
+mkOrdF :: DataD -- ^ Data declaration.
+       -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
+       -> Con
+       -> Q [MatchQ]
+mkOrdF d pats (NormalC nm a) = do
+  mkSimpleOrdF (dataParamTypes d) pats nm (snd <$> a)
+mkOrdF d pats (RecC nm a) = do
+  mkSimpleOrdF (dataParamTypes d) pats nm ((\(_,_,tp) -> tp) <$> a)
+mkOrdF d pats (InfixC (_,xtp) nm (_,ytp)) = do
+  let tps = [ xtp, ytp ]
+  -- Get argument types for constructor.
+  (xp,xv) <- infixPat nm "x"
+  (yp,yv) <- infixPat nm "y"
+  --let dataVars = Set.fromList dataVarNames
+  rv <- matchOrdArguments (dataParamTypes d) pats nm Set.empty tps xv yv
+  ltf <- [| LTF |]
+  gtf <- [| GTF |]
+  let anyPat = InfixP WildP nm WildP
+  -- Return match expression
+  return [ pure $ Match (TupP [xp, yp]) (NormalB rv) []
+         , pure $ Match (TupP [anyPat, WildP]) (NormalB ltf) []
+         , pure $ Match (TupP [WildP, anyPat]) (NormalB gtf) []
+         ]
+mkOrdF d pats (ForallC _ _ c) =
+  mkOrdF d pats c
+#if MIN_VERSION_template_haskell(2,11,0)
+mkOrdF _ _ RecGadtC{} = do
+  fail "mkOrdF does not support record GADTs."
+mkOrdF _ pats (GadtC nms a tp) = fmap concat $ do
+  forM nms $ \nm -> do
+    mkSimpleOrdF (gadtArgTypes tp) pats nm (snd <$> a)
+#endif
 
 -- | Find the first recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
 recurseArg :: (Type -> Q (Maybe ExpQ))
@@ -376,7 +474,8 @@ structuralTraversal tpq pats0 = do
   f <- newName "f"
   a <- newName "a"
   lamE [varP f, varP a] $
-    caseE (varE a) (traverseAppMatch (assocTypePats d pats0) (varE f) <$> dataCtors d)
+    caseE (varE a)
+      (traverseAppMatch (assocTypePats (dataParamTypes d) pats0) (varE f) <$> dataCtors d)
 
 asTypeCon :: Monad m => String -> Type -> m Name
 asTypeCon _ (ConT nm) = return nm
@@ -410,13 +509,25 @@ structuralShowsPrec tpq = do
   lamE [varP p, varP a] $
     caseE (varE a) (matchShowCtor (varE p) <$> dataCtors d)
 
-matchShowCtor :: ExpQ -> Con -> MatchQ
-matchShowCtor p (NormalC nm tps) = do
-  (pat,vars) <- conPat (NormalC nm tps) "x"
+showCon :: ExpQ -> Name -> Int -> MatchQ
+showCon p nm n = do
+  vars <- replicateM n $ newName "x"
+  let pat = ConP nm (VarP <$> vars)
   let go s e = [| $(s) . showChar ' ' . showsPrec 10 $(varE e) |]
   let ctor = [| showString $(return (LitE (StringL (nameBase nm)))) |]
   let rhs | null vars = ctor
           | otherwise = [| showParen ($(p) >= 10) $(foldl go ctor vars) |]
   match (pure pat) (normalB rhs) []
+
+matchShowCtor :: ExpQ -> Con -> MatchQ
+matchShowCtor p (NormalC nm tps) = showCon p nm (length tps)
+matchShowCtor _ RecC{} = error "structuralShow does not support records."
+matchShowCtor _ InfixC{} = error "structuralShow does not support infix constructors."
 matchShowCtor p (ForallC _ _ c) = matchShowCtor p c
-matchShowCtor _ _ = error "structuralShow only support normal constructors."
+#if MIN_VERSION_template_haskell(2,11,0)
+matchShowCtor p (GadtC nms a _) =
+  case nms of
+    [nm] -> showCon p nm (length a)
+    _ -> error $ "matchShowCtor does not support GADTs with multiple ctors per declaration"
+matchShowCtor _ RecGadtC{} = error "structuralShow does not support GADT records."
+#endif
