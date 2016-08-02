@@ -247,12 +247,13 @@ maxSigned w = 2^(natValue w - 1) - 1
 toUnsigned :: NatRepr w -> Integer -> Integer
 toUnsigned w i = maxUnsigned w .&. i
 
--- | @toSigned w i@ interprets the least-significnt @w@ bits in @i@ as a
+-- | @toSigned w i@ interprets the least-significant @w@ bits in @i@ as a
 -- signed number in two's complement notation and returns that value.
 toSigned :: (1 <= w) => NatRepr w -> Integer -> Integer
-toSigned w i
-  | i > maxSigned w = i - 2^(natValue w)
-  | otherwise       = i
+toSigned w i0
+    | i > maxSigned w = i - 2^(natValue w)
+    | otherwise       = i
+  where i = i0 .&. maxUnsigned w
 
 -- | @unsignedClamp w i@ rounds @i@ to the nearest value between
 -- @0@ and @2^w-i@ (inclusive).

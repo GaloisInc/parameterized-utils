@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -318,7 +319,9 @@ instance TestEquality f => TestEquality (BalancedTree h f) where
     Refl <- testEquality x1 y1
     Refl <- testEquality x2 y2
     return Refl
+#if !MIN_VERSION_base(4,9,0)
   testEquality _ _ = Nothing
+#endif
 
 instance OrdF f => OrdF (BalancedTree h f) where
   compareF (BalLeaf x) (BalLeaf y) = do
@@ -326,9 +329,10 @@ instance OrdF f => OrdF (BalancedTree h f) where
       LTF -> LTF
       GTF -> GTF
       EQF -> EQF
+#if !MIN_VERSION_base(4,9,0)
   compareF BalLeaf{} _ = LTF
   compareF _ BalLeaf{} = GTF
-
+#endif
   compareF (BalPair x1 x2) (BalPair y1 y2) = do
     case compareF x1 y1 of
       LTF -> LTF
@@ -448,7 +452,9 @@ bal_zipWithM :: Applicative m
 bal_zipWithM f (BalLeaf x) (BalLeaf y) = BalLeaf <$> f x y
 bal_zipWithM f (BalPair x1 x2) (BalPair y1 y2) =
   BalPair <$> bal_zipWithM f x1 y1 <*> bal_zipWithM f x2 y2
+#if !MIN_VERSION_base(4,9,0)
 bal_zipWithM _ _ _ = error "ilegal args to bal_zipWithM"
+#endif
 {-# INLINABLE bal_zipWithM #-}
 
 ------------------------------------------------------------------------
@@ -916,7 +922,9 @@ init :: Assignment f (ctx '::> tp) -> Assignment f ctx
 init (Assignment x) =
   case bin_drop x of
     DropExt t _ -> Assignment t
+#if !MIN_VERSION_base(4,9,0)
     _ -> error "init given bad context"
+#endif
 
 -- | Return the last element in the assignment.
 last :: Assignment f (ctx '::> tp) -> f tp

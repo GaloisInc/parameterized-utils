@@ -12,16 +12,20 @@
 -- (via unsafeCoerce) that the types ascribed to the nonces are equal
 -- if their values are equal.
 ------------------------------------------------------------------------
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
+#if MIN_VERSION_base(4,9,0)
+{-# LANGUAGE TypeInType #-}
+#endif
 module Data.Parameterized.Nonce
   ( NonceGenerator
   , withIONonceGenerator
@@ -31,15 +35,14 @@ module Data.Parameterized.Nonce
   , indexValue
   , MonadNonce(..)
   , NonceT(..)
-  , NonceST(..)
-  , NonceIO(..)
+  , NonceST
+  , NonceIO
   , getNonceSTGen
   , runNonceST
   , runNonceIO
   ) where
 
 import Control.Monad.ST
-import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Hashable
@@ -51,11 +54,20 @@ import Unsafe.Coerce
 
 import Data.Parameterized.Classes
 
+#if MIN_VERSION_base(4,9,0)
+import Data.Kind
+#endif
+
 -- | A simple type that for getting fresh indices in the ST monad.
 -- The first type is used for the ST monad, the second is the type
 -- used for the counter.
-data NonceGenerator m s = NonceGenerator {
+data NonceGenerator (m :: * -> *) (s :: *) = NonceGenerator {
+#if MIN_VERSION_base(4,9,0)
+-- We have to make the k explicit in GHC 8.0 to avoid a warning.
+    freshNonce :: forall k (tp :: k) . m (Nonce s tp)
+#else
     freshNonce :: forall (tp :: k) . m (Nonce s tp)
+#endif
   }
 
 -- | Create a new counter.

@@ -37,9 +37,6 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Language.Haskell.TH
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
 
 import Data.Parameterized.Classes
 
@@ -54,7 +51,6 @@ data DataD = DD { _dataCtx :: Cxt
                 , _dataName :: Name
                 , dataTyVarBndrs :: [TyVarBndr]
                 , dataCtors :: [Con]
-                , _dataDeriving :: [Name]
                 } deriving (Show)
 
 asTyConI :: Info -> Maybe Dec
@@ -62,7 +58,15 @@ asTyConI (TyConI d) = Just d
 asTyConI _ = Nothing
 
 asDataD :: Dec -> Maybe DataD
-asDataD (DataD ctx n v ctors d) = Just $ DD ctx n v ctors d
+#if MIN_VERSION_template_haskell(2,11,0)
+asDataD (DataD ctx n v _ ctors _d) = Just $ DD { _dataCtx = ctx
+                                              , _dataName = n
+                                              , dataTyVarBndrs = v
+                                              , dataCtors = ctors
+                                              }
+#else
+asDataD (DataD ctx n v ctors _d) = Just $ DD ctx n v ctors
+#endif
 asDataD _ = Nothing
 
 -- | Given a constructor and string, this generates a pattern for matching
@@ -82,6 +86,10 @@ conPat (InfixC _ nm _) pre = do
   ynm <- newName pre
   return (InfixP (VarP xnm) nm (VarP ynm), [xnm, ynm])
 conPat (ForallC _ _ c) pre = conPat c pre
+#if MIN_VERSION_template_haskell(2,11,0)
+conPat GadtC{}    _ = error "conPat does not support GADTs."
+conPat RecGadtC{} _ = error "conPat does not support GADTs."
+#endif
 
 -- | Given a constructor, this generates a pattern for matching
 -- the constructor with no bound varibles.
@@ -90,6 +98,10 @@ conPat_ (NormalC nm a) = ConP nm (replicate (length a) WildP)
 conPat_ (RecC nm a)    = ConP nm (replicate (length a) WildP)
 conPat_ (InfixC _ nm _) = InfixP WildP nm WildP
 conPat_ (ForallC _ _ c) = conPat_ c
+#if MIN_VERSION_template_haskell(2,11,0)
+conPat_ GadtC{}    = error "conPat_ does not support GADTs."
+conPat_ RecGadtC{} = error "conPat_ does not support GADTs."
+#endif
 
 -- | Get types of arguments for constructor.
 conArgTypes :: Con
@@ -98,7 +110,10 @@ conArgTypes (NormalC _ a)              = snd <$> a
 conArgTypes (RecC _ a)                 = (\(_,_,tp) -> tp) <$> a
 conArgTypes (InfixC (_,xtp) _ (_,ytp)) = [xtp, ytp]
 conArgTypes (ForallC _ _ c) = conArgTypes c
-
+#if MIN_VERSION_template_haskell(2,11,0)
+conArgTypes GadtC{}    = error "conArgTypes does not support GADTs."
+conArgTypes RecGadtC{} = error "conArgTypes does not support GADTs."
+#endif
 
 -- | Return an expression corresponding to the constructor.
 -- Note that this will have the type of a function expecting
@@ -108,6 +123,10 @@ conName (NormalC nm _) = nm
 conName (RecC nm _)   = nm
 conName (InfixC _ nm _) = nm
 conName (ForallC _ _ c) = conName c
+#if MIN_VERSION_template_haskell(2,11,0)
+conName GadtC{} = error "conName does not support GADTs."
+conName RecGadtC{} = error "conName does not support GADTs."
+#endif
 
 -- | Return an expression corresponding to the constructor.
 -- Note that this will have the type of a function expecting
