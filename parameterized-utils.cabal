@@ -4,6 +4,7 @@ Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com
 Build-type:    Simple
 Cabal-version: >= 1.9.2
+license: BSD3
 Description:
   This packages contains collection classes and type representations
   used for working with values that have a single parameter.  It's

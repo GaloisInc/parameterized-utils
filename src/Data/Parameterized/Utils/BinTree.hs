@@ -1,13 +1,8 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.BinTree
--- Description      : Provides utilities for working with balanced binary trees.
--- Copyright        : (c) Galois, Inc 2014
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
---
--- This module defines utilities for working with balanced binary trees.
-------------------------------------------------------------------------
+{-|
+Description      : Utilities for balanced binary trees.
+Copyright        : (c) Galois, Inc 2014
+Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}

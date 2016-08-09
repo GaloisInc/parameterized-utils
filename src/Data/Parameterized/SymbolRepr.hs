@@ -1,23 +1,17 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.SymbolRepr
--- Copyright        : (c) Galois, Inc 2014-2015
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
---
--- This defines a type family @SymbolRepr@ for representing a type-level
--- string (AKA symbol) at runtime.
--- This can be used to branch on a type-level value.  For
--- each @nm@, @SymbolRepr nm@ contains a single value containing the string
--- value of @nm@.  This can be used to help use type-level variables on code
--- with data dependendent types.
---
--- The @TestEquality@ and @OrdF@ instances for @SymbolRepr@ are implemented using
--- @unsafeCoerce@.  This should be typesafe because we maintain the invariant
--- that the string value contained in a SymolRepr value matches its static type.
---
--- At the type level, symbols have basically no operations, so SymbolRepr
--- correspondingly has very few functions that manipulate them.
-------------------------------------------------------------------------
+{-|
+Copyright        : (c) Galois, Inc 2014-2015
+Maintainer       : Joe Hendrix <jhendrix@galois.com>
+
+This defines a type family 'SymbolRepr' for representing a type-level string
+(AKA symbol) at runtime.  This can be used to branch on a type-level value.
+
+The 'TestEquality' and 'OrdF' instances for 'SymbolRepr' are implemented using
+'unsafeCoerce'.  This should be typesafe because we maintain the invariant
+that the string value contained in a SymolRepr value matches its static type.
+
+At the type level, symbols have very few operations, so SymbolRepr
+correspondingly has very few functions that manipulate them.
+-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
@@ -26,15 +20,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.SymbolRepr
-  ( type GHC.Symbol
-  , GHC.KnownSymbol
-  , SymbolRepr
+  ( -- * SymbolRepr
+    SymbolRepr
   , symbolRepr
   , knownSymbol
+    -- * Re-exports
+  , type GHC.Symbol
+  , GHC.KnownSymbol
   ) where
 
 import GHC.TypeLits as GHC
@@ -46,12 +42,15 @@ import qualified Data.Text as Text
 
 import Data.Parameterized.Classes
 
+-- | A runtime representation of a GHC type-level symbol.
+newtype SymbolRepr (nm::GHC.Symbol)
+  = SymbolRepr { symbolRepr :: Text.Text
+                 -- ^ The underlying text representation of the symbol
+               }
 -- INVARIANT: The contained runtime text value matches the value
 -- of the type level symbol.  The SymbolRepr constructor
 -- is not exported so we can maintain this invariant in this
 -- module.
-newtype SymbolRepr (nm::GHC.Symbol)
-  = SymbolRepr { symbolRepr :: Text.Text }
 
 -- | Generate a value representative for the type level
 --   symbol.  This is the only way to generate values
