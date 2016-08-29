@@ -1,5 +1,5 @@
 Name:          parameterized-utils
-Version:       0.1.8
+Version:       0.1.9
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com
 Build-type:    Simple
@@ -45,6 +45,7 @@ library
     Data.Parameterized.Map
     Data.Parameterized.NatRepr
     Data.Parameterized.Nonce
+    Data.Parameterized.Nonce.Transformers
     Data.Parameterized.Nonce.Unsafe
     Data.Parameterized.SafeContext
     Data.Parameterized.Some
