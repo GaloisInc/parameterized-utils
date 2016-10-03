@@ -11,11 +11,13 @@
 -- It also defines some utility typeclasses for transforming
 -- between curried and uncurried versions of functions over contexts.
 ------------------------------------------------------------------------
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -29,11 +31,23 @@ module Data.Parameterized.Context
 #endif
  , singleton
  , toVector
+   -- * Context extension and embedding utilities
+ , CtxEmbedding(..)
+ , ExtendContext(..)
+ , ExtendContext'(..)
+ , ApplyEmbedding(..)
+ , ApplyEmbedding'(..)
+ , identityEmbedding
+ , extendEmbeddingRightDiff
+ , extendEmbeddingRight
+ , extendEmbeddingBoth
+
    -- * Currying and uncurrying for assignments
  , CurryAssignment
  , CurryAssignmentClass(..)
  ) where
 
+import Control.Lens hiding (Index, view)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 
@@ -42,6 +56,9 @@ import Data.Parameterized.UnsafeContext
 #else
 import Data.Parameterized.SafeContext
 #endif
+
+import Data.Parameterized.TraversableFC
+
 
 -- | Create a single element context.
 singleton :: f tp -> Assignment f (EmptyCtx ::> tp)
@@ -55,6 +72,84 @@ toVector a f = V.create $ do
     MV.write vm (indexVal i) (f (a ! i))
   return vm
 {-# INLINABLE toVector #-}
+
+
+
+
+
+--------------------------------------------------------------------------------
+-- | Context embedding.
+
+-- This datastructure contains a proof that the first context is
+-- embeddable in the second.  This is useful if we want to add extend
+-- an existing term under a larger context.
+
+data CtxEmbedding (ctx :: Ctx k) (ctx' :: Ctx k)
+  = CtxEmbedding { _ctxeSize       :: Size ctx'
+                 , _ctxeAssignment :: Assignment (Index ctx') ctx
+                 }
+
+-- Alternate encoding?
+-- data CtxEmbedding ctx ctx' where
+--   EIdentity  :: CtxEmbedding ctx ctx
+--   ExtendBoth :: CtxEmbedding ctx ctx' -> CtxEmbedding (ctx ::> tp) (ctx' ::> tp)
+--   ExtendOne  :: CtxEmbedding ctx ctx' -> CtxEmbedding ctx (ctx' ::> tp)
+
+ctxeSize :: Simple Lens (CtxEmbedding ctx ctx') (Size ctx')
+ctxeSize = lens _ctxeSize (\s v -> s { _ctxeSize = v })
+
+ctxeAssignment :: Lens (CtxEmbedding ctx1 ctx') (CtxEmbedding ctx2 ctx')
+                       (Assignment (Index ctx') ctx1) (Assignment (Index ctx') ctx2)
+ctxeAssignment = lens _ctxeAssignment (\s v -> s { _ctxeAssignment = v })
+
+class ApplyEmbedding (f :: Ctx k -> *) where
+  applyEmbedding :: CtxEmbedding ctx ctx' -> f ctx -> f ctx'
+
+class ApplyEmbedding' (f :: Ctx k -> k' -> *) where
+  applyEmbedding' :: CtxEmbedding ctx ctx' -> f ctx v -> f ctx' v
+
+class ExtendContext (f :: Ctx k -> *) where
+  extendContext :: Diff ctx ctx' -> f ctx -> f ctx'
+
+class ExtendContext' (f :: Ctx k -> k' -> *) where
+  extendContext' :: Diff ctx ctx' -> f ctx v -> f ctx' v
+
+instance ApplyEmbedding' Index where
+  applyEmbedding' ctxe idx = (ctxe ^. ctxeAssignment) ! idx
+
+instance ExtendContext' Index where
+  extendContext' = extendIndex'
+
+-- -- This is the inefficient way of doing things.  A better way is to
+-- -- just have a map between indices.
+-- applyEmbedding :: CtxEmbedding ctx ctx'
+--                -> Index ctx tp -> Index ctx' tp
+-- applyEmbedding ctxe idx = (ctxe ^. ctxeAssignment) ! idx
+
+identityEmbedding :: Size ctx -> CtxEmbedding ctx ctx
+identityEmbedding sz = CtxEmbedding sz (generate sz id)
+
+-- emptyEmbedding :: CtxEmbedding EmptyCtx EmptyCtx
+-- emptyEmbedding = identityEmbedding knownSize
+
+extendEmbeddingRightDiff :: forall ctx ctx' ctx''.
+                            Diff ctx' ctx''
+                            -> CtxEmbedding ctx ctx'
+                            -> CtxEmbedding ctx ctx''
+extendEmbeddingRightDiff diff (CtxEmbedding sz' assgn) = CtxEmbedding (extSize sz' diff) updated
+  where
+    updated :: Assignment (Index ctx'') ctx
+    updated = fmapFC (extendIndex' diff) assgn
+
+extendEmbeddingRight :: CtxEmbedding ctx ctx' -> CtxEmbedding ctx (ctx' ::> tp)
+extendEmbeddingRight = extendEmbeddingRightDiff knownDiff
+
+extendEmbeddingBoth :: forall ctx ctx' tp. CtxEmbedding ctx ctx' -> CtxEmbedding (ctx ::> tp) (ctx' ::> tp)
+extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (ctxe ^. ctxeSize))
+  where
+    updated :: CtxEmbedding ctx (ctx' ::> tp)
+    updated = extendEmbeddingRight ctxe
+
 
 --------------------------------------------------------------------------------
 -- CurryAssignment
