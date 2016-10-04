@@ -41,6 +41,8 @@ module Data.Parameterized.Context
  , extendEmbeddingRightDiff
  , extendEmbeddingRight
  , extendEmbeddingBoth
+ , ctxeSize
+ , ctxeAssignment
 
    -- * Currying and uncurrying for assignments
  , CurryAssignment
