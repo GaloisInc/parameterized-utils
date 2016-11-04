@@ -58,6 +58,13 @@ asTyConI :: Info -> Maybe Dec
 asTyConI (TyConI d) = Just d
 asTyConI _ = Nothing
 
+#if MIN_VERSION_template_haskell(2,11,0)
+gadtArgTypes :: Type -> [Type]
+gadtArgTypes (AppT c x) = gadtArgTypes c ++ [x]
+gadtArgTypes ConT{} = []
+gadtArgTypes tp = error $ "Unexpected GADT return type: " ++ show tp
+#endif
+
 asDataD :: Dec -> Maybe DataD
 #if MIN_VERSION_template_haskell(2,11,0)
 asDataD (DataD ctx n v _ ctors _d) = Just $ DD { _dataCtx = ctx
@@ -378,11 +385,6 @@ mkSimpleOrdF dTypes pats nm a = do
          , pure $ Match (TupP [anyPat, WildP]) (NormalB ltf) []
          , pure $ Match (TupP [WildP, anyPat]) (NormalB gtf) []
          ]
-
-gadtArgTypes :: Type -> [Type]
-gadtArgTypes (AppT c x) = gadtArgTypes c ++ [x]
-gadtArgTypes ConT{} = []
-gadtArgTypes tp = error $ "Unexpected GADT return type: " ++ show tp
 
 -- | Match equational form.
 mkOrdF :: DataD -- ^ Data declaration.

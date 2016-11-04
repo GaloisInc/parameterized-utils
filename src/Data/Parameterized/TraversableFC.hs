@@ -22,8 +22,8 @@ module Data.Parameterized.TraversableFC
   , anyFC
   ) where
 
-import Control.Applicative
-import Control.Monad.Identity
+import Control.Applicative (Const(..) )
+import Control.Monad.Identity ( Identity (..) )
 import Data.Coerce
 import Data.Monoid
 import GHC.Exts (build)

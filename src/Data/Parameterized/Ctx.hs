@@ -1,12 +1,10 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.Ctx
--- Copyright        : (c) Galois, Inc 2015
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
---
--- This module defines type-level lists used for representing the type of
--- variables in a context.
---------------------------------------------------------------------------
+{-|
+Copyright        : (c) Galois, Inc 2015
+Maintainer       : Joe Hendrix <jhendrix@galois.com>
+
+This module defines type-level lists used for representing the type of
+variables in a context.
+-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
@@ -16,7 +14,9 @@
 module Data.Parameterized.Ctx
   ( type Ctx(..)
   , EmptyCtx
+  , SingleCtx
   , (::>)
+  , type (<+>)
   ) where
 
 ------------------------------------------------------------------------
@@ -24,6 +24,8 @@ module Data.Parameterized.Ctx
 
 type EmptyCtx = 'EmptyCtx
 type (c ::Ctx k) ::> (a::k)  = c '::> a
+
+type SingleCtx x = EmptyCtx ::> x
 
 -- | A kind representing a hetergenous list of values in some key.
 -- The parameter a, may be any kind.

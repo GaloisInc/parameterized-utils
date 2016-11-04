@@ -40,6 +40,7 @@ library
     Data.Parameterized.Classes
     Data.Parameterized.Context
     Data.Parameterized.Ctx
+    Data.Parameterized.Ctx.Proofs
     Data.Parameterized.FreeParamF
     Data.Parameterized.HashTable
     Data.Parameterized.Map
@@ -55,7 +56,7 @@ library
     Data.Parameterized.TraversableFC
     Data.Parameterized.UnsafeContext
     Data.Parameterized.Utils.BinTree
-  ghc-options: -O2 -Wall -threaded
+  ghc-options: -O2 -Wall -threaded -Werror
   ghc-prof-options: -O2 -fprof-auto-top
 
   if flag(unsafe-operations)
