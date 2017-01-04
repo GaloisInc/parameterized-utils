@@ -17,7 +17,11 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
+#if MIN_VERSION_base(4,9,0)
+{-# LANGUAGE Safe #-}
+#else
 {-# LANGUAGE Trustworthy #-}
+#endif
 module Data.Parameterized.Classes
   ( -- * Equality exports
     Equality.TestEquality(..)

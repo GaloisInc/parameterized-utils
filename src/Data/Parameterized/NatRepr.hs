@@ -13,6 +13,7 @@ The 'TestEquality' instance for 'NatRepr' is implemented using
 typesafe because we maintain the invariant that the integer value
 contained in a NatRepr value matches its static type.
 -}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
@@ -24,6 +25,9 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
+#if MIN_VERSION_base(4,9,0)
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#endif
 module Data.Parameterized.NatRepr
   ( NatRepr
   , natValue

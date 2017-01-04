@@ -348,9 +348,12 @@ adjust f = go (\x -> x)
   go :: (forall tp'. g tp' -> f tp') -> Index ctx' tp -> Assignment g ctx' -> Assignment f ctx'
   go g (IndexHere _)    (AssignExtend asgn x) = AssignExtend (map g asgn) (f (g x))
   go g (IndexThere idx) (AssignExtend asgn x) = AssignExtend (go g idx asgn) (g x)
---  go _ (IndexHere _) AssignEmpty = undefined
---  go _ (IndexThere _) AssignEmpty = undefined
+#if !MIN_VERSION_base(4,9,0)
+-- GHC 7.10.3 and early does not recognize that the above definition is complete,
+-- and so need the equation below.  GHC 8.0.1 does not require the additional
+-- equation.
   go _ _ _ = error "SafeTypeContext.adjust: impossible!"
+#endif
 
 
 -- | Return assignment with all but the last block.
