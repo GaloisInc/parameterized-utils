@@ -28,6 +28,7 @@ module Data.Parameterized.Map
   , singleton
   , lookup
   , insert
+  , insertWith
   , delete
   , union
   , map
@@ -238,13 +239,39 @@ filterLt k m = fromMaybeS m (Bin.filterLt (compareKeyPair k) m)
 ------------------------------------------------------------------------
 -- User operations
 
--- | Insert a binding into the map, replacing the existing
--- binding if needed.
+-- | Insert a binding into the map, replacing the existing binding if needed.
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
 insert = \k v m -> seq k $ updatedValue (Bin.insert (Pair k v) m)
 {-# INLINABLE insert #-}
 {-# SPECIALIZE Bin.insert :: OrdF k => Pair k a -> MapF k a -> Updated (MapF k a) #-}
 
+-- | Insert a binding into the map, replacing the existing binding if needed.
+insertWithImpl :: OrdF k => (a tp -> a tp -> a tp) -> k tp -> a tp -> MapF k a -> Updated (MapF k a)
+insertWithImpl f k v t = seq k $
+  case t of
+    Tip -> Bin.Updated (Bin 1 k v Tip Tip)
+    Bin sz yk yv l r ->
+      case compareF k yk of
+        LTF ->
+          case insertWithImpl f k v l of
+            Bin.Updated l'   -> Bin.Updated   (Bin.balanceL (Pair yk yv) l' r)
+            Bin.Unchanged l' -> Bin.Unchanged (Bin sz yk yv l' r)
+        GTF ->
+          case insertWithImpl f k v r of
+            Bin.Updated r'   -> Bin.Updated   (Bin.balanceR (Pair yk yv) l r')
+            Bin.Unchanged r' -> Bin.Unchanged (Bin sz yk yv l r')
+        EQF -> Bin.Unchanged (Bin sz yk (f v yv) l r)
+{-# INLINABLE insertWithImpl #-}
+
+-- | @insertWith f new m@ inserts the binding into @m@.
+--
+-- It inserts @f new old@ if @m@ already contains an equivaltn value
+-- @old@, and @new@ otherwise.  It returns an Unchanged value if the
+-- map stays the same size and an updated value if a new entry was
+-- inserted.
+insertWith :: OrdF k => (a tp -> a tp -> a tp) -> k tp -> a tp -> MapF k a -> MapF k a
+insertWith = \f k v t -> seq k $ updatedValue (insertWithImpl f k v t)
+{-# INLINABLE insertWith #-}
 
 -- | Delete a value from the map if present.
 delete :: OrdF k => k tp -> MapF k a -> MapF k a
