@@ -1,14 +1,11 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.Map
--- Copyright        : (c) Galois, Inc 2014-2015
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
--- Stability        : provisional
---
--- This module defines finite maps where the key and value types are
--- parameterized by an arbitrary kind.
--- Some code was adapted from containers.
-------------------------------------------------------------------------
+{-|
+Copyright        : (c) Galois, Inc 2014-2017
+
+This module defines finite maps where the key and value types are
+parameterized by an arbitrary kind.
+
+Some code was adapted from containers.
+-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
@@ -32,6 +29,7 @@ module Data.Parameterized.Map
   , delete
   , union
   , map
+  , mapMaybe
   , elems
   , filterGt
   , filterLt
@@ -54,7 +52,7 @@ module Data.Parameterized.Map
 import Control.Applicative
 import Control.Monad.Identity
 import Data.List (intercalate, foldl')
-import Data.Maybe
+import Data.Maybe ()
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
@@ -85,22 +83,23 @@ import Prelude hiding (lookup, map, null)
 data Pair k a where
   Pair :: !(k tp) -> !(a tp) -> Pair k a
 
-instance TestEquality k => Eq (Pair k a) where
-  Pair x _ == Pair y _ = isJust (testEquality x y)
+comparePairKeys :: OrdF k => Pair k a -> Pair k a -> Ordering
+comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
+{-# INLINABLE comparePairKeys #-}
 
-comparePair :: OrdF k => Pair k a -> Pair k a -> Ordering
-comparePair (Pair x _) (Pair y _) = toOrdering (compareF x y)
-{-# INLINABLE comparePair #-}
-
-instance OrdF k => Ord (Pair k a) where
-  compare = comparePair
+instance (TestEquality k, EqF a) => Eq (Pair k a) where
+  Pair xk xv == Pair yk yv =
+    case testEquality xk yk of
+      Just Refl -> eqF xv yv
+      Nothing -> False
 
 ------------------------------------------------------------------------
 -- MapF
 
+-- | A map from parameterized keys to values with the same paramter type.
 data MapF (k :: v -> *) (a :: v -> *) where
   Bin :: {-# UNPACK #-}
-         !Size
+         !Size -- Number of elements in tree.
       -> !(k x)
       -> !(a x)
       -> !(MapF k a)
@@ -133,6 +132,9 @@ instance Bin.IsBinTree (MapF k a) (Pair k a) where
   size Tip              = 0
   size (Bin sz _ _ _ _) = sz
 
+instance (TestEquality k, EqF a) => Eq (MapF k a) where
+  x == y = size x == size y && toList x == toList y
+
 ------------------------------------------------------------------------
 -- Traversals
 
@@ -157,6 +159,14 @@ instance Bin.IsBinTree (MapF k a) (Pair k a) where
 map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
 map _ Tip = Tip
 map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
+
+-- | Run partial map over elements.
+mapMaybe :: (forall tp . f tp -> Maybe (g tp)) -> MapF ktp f -> MapF ktp g
+mapMaybe _ Tip = Tip
+mapMaybe f (Bin _ k x l r) =
+  case f x of
+    Just y -> Bin.link (Pair k y) (mapMaybe f l) (mapMaybe f r)
+    Nothing -> Bin.merge (mapMaybe f l) (mapMaybe f r)
 
 -- | Traverse elements in a map
 traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
@@ -241,9 +251,9 @@ filterLt k m = fromMaybeS m (Bin.filterLt (compareKeyPair k) m)
 
 -- | Insert a binding into the map, replacing the existing binding if needed.
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
-insert = \k v m -> seq k $ updatedValue (Bin.insert (Pair k v) m)
+insert = \k v m -> seq k $ updatedValue (Bin.insert comparePairKeys (Pair k v) m)
 {-# INLINABLE insert #-}
-{-# SPECIALIZE Bin.insert :: OrdF k => Pair k a -> MapF k a -> Updated (MapF k a) #-}
+-- {-# SPECIALIZE Bin.insert :: OrdF k => Pair k a -> MapF k a -> Updated (MapF k a) #-}
 
 -- | Insert a binding into the map, replacing the existing binding if needed.
 insertWithImpl :: OrdF k => (a tp -> a tp -> a tp) -> k tp -> a tp -> MapF k a -> Updated (MapF k a)
@@ -283,9 +293,9 @@ delete = \k m -> seq k $ fromMaybeS m $ Bin.delete (p k) m
 
 -- | Union two sets
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a
-union t1 t2 = Bin.union t1 t2
+union t1 t2 = Bin.union comparePairKeys t1 t2
 {-# INLINABLE union #-}
-{-# SPECIALIZE Bin.union :: OrdF k => MapF k a -> MapF k a -> MapF k a #-}
+-- {-# SPECIALIZE Bin.union compare :: OrdF k => MapF k a -> MapF k a -> MapF k a #-}
 
 ------------------------------------------------------------------------
 -- updateAtKey
@@ -367,6 +377,7 @@ filterLtMaybe :: OrdF k => MaybeS (k x) -> MapF k a -> MapF k a
 filterLtMaybe NothingS m = m
 filterLtMaybe (JustS k) m = filterLt k m
 
+-- | Merge bindings in two maps to get a third.
 mergeWithKeyM :: forall k a b c m
                . (Applicative m, OrdF k)
               => (forall tp . k tp -> a tp -> b tp -> m (Maybe (c tp)))
@@ -403,7 +414,7 @@ mergeWithKeyM f g1 g2 = go
                           <*> hedgeMerge blo bmi l (trim blo bmi t2)
                           <*> hedgeMerge bmi bhi r trim_t2
       where bmi = JustS kx
-{-# INLINE mergeWithKeyM #-}
+{-# INLINABLE mergeWithKeyM #-}
 
 {--------------------------------------------------------------------
   [trim blo bhi t] trims away all subtrees that surely contain no

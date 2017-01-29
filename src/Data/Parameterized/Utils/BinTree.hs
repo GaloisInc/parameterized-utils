@@ -8,6 +8,7 @@ Maintainer       : Joe Hendrix <jhendrix@galois.com>
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE Safe #-}
 module Data.Parameterized.Utils.BinTree
@@ -91,8 +92,10 @@ delta,ratio :: Int
 delta = 3
 ratio = 2
 
--- balanceL is called when left subtree might have been inserted to or when
--- right subtree might have been deleted from.
+-- `balanceL p l r` returns a balanced tree for the sequence @l ++ [p] ++ r@.
+--
+-- It assumes that @l@ and @r@ are close to being balanced, and that only
+-- @l@ may contain too many elements.
 balanceL :: (IsBinTree c e) => e -> c -> c -> c
 balanceL p l r = do
   case asBin l of
@@ -105,8 +108,10 @@ balanceL p l r = do
     _ -> bin p l r
 {-# INLINE balanceL #-}
 
--- balanceR is called when right subtree might have been inserted to or when
--- left subtree might have been deleted from.
+-- `balanceR p l r` returns a balanced tree for the sequence @l ++ [p] ++ r@.
+--
+-- It assumes that @l@ and @r@ are close to being balanced, and that only
+-- @r@ may contain too many elements.
 balanceR :: (IsBinTree c e) => e -> c -> c -> c
 balanceR p l r = do
   case asBin r of
@@ -115,11 +120,8 @@ balanceR p l r = do
         BinTree rl_pair rll rlr | size rl >= max 2 (ratio*size rr) ->
           (bin rl_pair $! bin p l rll) $! bin r_pair rlr rr
         _ -> bin r_pair (bin p l rl) rr
-
     _ -> bin p l r
 {-# INLINE balanceR #-}
-
-
 
 -- | Insert a new maximal element.
 insertMax :: IsBinTree c e => e -> c -> c
@@ -135,7 +137,7 @@ insertMin p t =
     TipTree -> bin p tip tip
     BinTree q l r -> balanceL q (insertMin p l) r
 
--- link is called to insert a key and value between two disjoint subtrees.
+-- | link is called to insert a key and value between two disjoint subtrees.
 link :: IsBinTree c e => e -> c -> c -> c
 link p l r =
   case (asBin l, asBin r) of
@@ -168,23 +170,7 @@ deleteFindMax p l r =
         PairS q r' -> PairS q (balanceL p l r')
 {-# INLINABLE deleteFindMax #-}
 
--- glue l r glues two trees together.
--- Assumes that [l] and [r] are already balanced with respect to each other.
-glue :: IsBinTree c e => c -> c -> c
-glue l r =
-  case (asBin l, asBin r) of
-    (TipTree, _) -> r
-    (_, TipTree) -> l
-    (BinTree lp ll lr, BinTree rp rl rr)
-     | size l > size r ->
-       case deleteFindMax lp ll lr of
-         PairS q l' -> balanceR q l' r
-     | otherwise ->
-       case deleteFindMin rp rl rr of
-         PairS q r' -> balanceL q l r'
-{-# INLINABLE glue #-}
-
--- | Merge two trees that are ordered with respect to each other.
+-- | Concatenate two trees that are ordered with respect to each other.
 merge :: IsBinTree c e => c -> c -> c
 merge l r =
   case (asBin l, asBin r) of
@@ -193,7 +179,13 @@ merge l r =
     (BinTree x lx rx, BinTree y ly ry)
       | delta*size l < size r -> balanceL y (merge l ly) ry
       | delta*size r < size l -> balanceR x lx (merge rx r)
-      | otherwise             -> glue l r
+      | size l > size r ->
+        case deleteFindMax x lx rx of
+          PairS q l' -> balanceR q l' r
+      | otherwise ->
+        case deleteFindMin y ly ry of
+          PairS q r' -> balanceL q l r'
+{-# INLINABLE merge #-}
 
 ------------------------------------------------------------------------
 -- Ordered operations
@@ -201,22 +193,39 @@ merge l r =
 -- | @insert p m@ inserts the binding into @m@.  It returns
 -- an Unchanged value if the map stays the same size and an updated
 -- value if a new entry was inserted.
-insert :: (IsBinTree c e, Ord e) => e -> c -> Updated c
-insert x t =
+insert :: (IsBinTree c e) => (e -> e -> Ordering) -> e -> c -> Updated c
+insert comp x t =
   case asBin t of
     TipTree -> Updated (bin x tip tip)
     BinTree y l r ->
-      case compare x y of
+      case comp x y of
         LT ->
-          case insert x l of
+          case insert comp x l of
             Updated l'   -> Updated   (balanceL y l' r)
             Unchanged l' -> Unchanged (bin       y l' r)
         GT ->
-          case insert x r of
+          case insert comp x r of
             Updated r'   -> Updated   (balanceR y l r')
             Unchanged r' -> Unchanged (bin       y l r')
         EQ -> Unchanged (bin x l r)
 {-# INLINABLE insert #-}
+
+-- | 'glue l r' concatenates @l@ and @r@.
+--
+-- It assumes that @l@ and @r@ are already balanced with respect to each other.
+glue :: IsBinTree c e => c -> c -> c
+glue l r =
+  case (asBin l, asBin r) of
+    (TipTree, _) -> r
+    (_, TipTree) -> l
+    (BinTree x lx rx, BinTree y ly ry)
+     | size l > size r ->
+       case deleteFindMax x lx rx of
+         PairS q l' -> balanceR q l' r
+     | otherwise ->
+       case deleteFindMin y ly ry of
+         PairS q r' -> balanceL q l r'
+{-# INLINABLE glue #-}
 
 delete :: IsBinTree c e
        => (e -> Ordering)
@@ -269,91 +278,91 @@ filterLt k t =
 
 -- Insert a new key and value in the map if it is not already present.
 -- Used by `union`.
-insertR :: (IsBinTree c e, Ord e) => e -> c -> c
-insertR e m = fromMaybeS m (go e m)
+insertR :: forall c e . (IsBinTree c e) => (e -> e -> Ordering) -> e -> c -> c
+insertR comp e m = fromMaybeS m (go e m)
   where
-    go :: (IsBinTree c e, Ord e) => e -> c -> MaybeS c
+    go :: e -> c -> MaybeS c
     go x t =
       case asBin t of
         TipTree -> JustS (bin x tip tip)
         BinTree y l r ->
-          case compare x y of
+          case comp x y of
             LT -> (\l' -> balanceL y l' r) <$> go x l
             GT -> (\r' -> balanceR y l r') <$> go x r
             EQ -> NothingS
 {-# INLINABLE insertR #-}
 
 -- | Union two sets
-union :: (IsBinTree c e, Ord e) => c -> c -> c
-union t1 t2 =
+union :: (IsBinTree c e) => (e -> e -> Ordering) -> c -> c -> c
+union comp t1 t2 =
   case (asBin t1, asBin t2) of
     (TipTree, _) -> t2
     (_, TipTree) -> t1
-    (_, BinTree p (asBin -> TipTree) (asBin -> TipTree)) -> insertR p t1
+    (_, BinTree p (asBin -> TipTree) (asBin -> TipTree)) -> insertR comp p t1
     (BinTree x l r, _) ->
       link x
-           (hedgeUnion_UB   x l t2)
-           (hedgeUnion_LB x   r t2)
+           (hedgeUnion_UB comp x   l t2)
+           (hedgeUnion_LB comp x r   t2)
 {-# INLINABLE union #-}
 
 -- | Hedge union where we only add elements in second map if key is
 -- strictly above a lower bound.
-hedgeUnion_LB :: (IsBinTree c e, Ord e) => e -> c -> c -> c
-hedgeUnion_LB lo t1 t2 =
+hedgeUnion_LB :: (IsBinTree c e) => (e -> e -> Ordering) -> e -> c -> c -> c
+hedgeUnion_LB comp lo t1 t2 =
   case (asBin t1, asBin t2) of
     (_, TipTree) -> t1
-    (TipTree, _) -> fromMaybeS t2 (filterGt (compare lo) t2)
+    (TipTree, _) -> fromMaybeS t2 (filterGt (comp lo) t2)
     -- Prune left tree.
-    (_, BinTree k _ r) | k <= lo -> hedgeUnion_LB lo t1 r
+    (_, BinTree k _ r) | comp k lo <= EQ -> hedgeUnion_LB comp lo t1 r
     -- Special case when t2 is a single element.
-    (_, BinTree x (asBin -> TipTree) (asBin -> TipTree)) -> insertR x t1
+    (_, BinTree x (asBin -> TipTree) (asBin -> TipTree)) -> insertR comp x t1
     -- Split on left-and-right subtrees of t1.
     (BinTree x l r, _) ->
       link x
-           (hedgeUnion_LB_UB lo x  l t2)
-           (hedgeUnion_LB    x     r t2)
+           (hedgeUnion_LB_UB comp lo x  l t2)
+           (hedgeUnion_LB    comp x     r t2)
 {-# INLINABLE hedgeUnion_LB #-}
 
 -- | Hedge union where we only add elements in second map if key is
 -- strictly below a upper bound.
-hedgeUnion_UB :: (IsBinTree c e, Ord e) => e -> c -> c -> c
-hedgeUnion_UB hi t1 t2 =
+hedgeUnion_UB :: (IsBinTree c e) => (e -> e -> Ordering) -> e -> c -> c -> c
+hedgeUnion_UB comp hi t1 t2 =
   case (asBin t1, asBin t2) of
     (_, TipTree) -> t1
-    (TipTree, _) -> fromMaybeS t2 (filterLt (compare hi) t2)
+    (TipTree, _) -> fromMaybeS t2 (filterLt (comp hi) t2)
     -- Prune right tree.
-    (_, BinTree x l _) | x >= hi -> hedgeUnion_UB hi t1 l
+    (_, BinTree x l _) | comp x hi >= EQ -> hedgeUnion_UB comp hi t1 l
     -- Special case when t2 is a single element.
-    (_, BinTree x (asBin -> TipTree) (asBin -> TipTree))  -> insertR x t1
+    (_, BinTree x (asBin -> TipTree) (asBin -> TipTree))  -> insertR comp x t1
     -- Split on left-and-right subtrees of t1.
     (BinTree x l r, _) ->
       link x
-           (hedgeUnion_UB       x   l t2)
-           (hedgeUnion_LB_UB x  hi  r t2)
+           (hedgeUnion_UB    comp x      l t2)
+           (hedgeUnion_LB_UB comp x  hi  r t2)
 {-# INLINABLE hedgeUnion_UB #-}
 
 -- | Hedge union where we only add elements in second map if key is
 -- strictly between a lower and upper bound.
-hedgeUnion_LB_UB :: (IsBinTree c e, Ord e) => e -> e -> c -> c -> c
-hedgeUnion_LB_UB lo hi t1 t2 =
+hedgeUnion_LB_UB :: (IsBinTree c e) => (e -> e -> Ordering) -> e -> e -> c -> c -> c
+hedgeUnion_LB_UB comp lo hi t1 t2 =
   case (asBin t1, asBin t2) of
     (_, TipTree) -> t1
     -- Prune left tree.
-    (_,   BinTree k _ r) | k <= lo -> hedgeUnion_LB_UB lo hi t1 r
+    (_,   BinTree k _ r) | comp k lo <= EQ -> hedgeUnion_LB_UB comp lo hi t1 r
     -- Prune right tree.
-    (_,   BinTree k l _) | k >= hi -> hedgeUnion_LB_UB lo hi t1 l
+    (_,   BinTree k l _) | comp k hi >= EQ -> hedgeUnion_LB_UB comp lo hi t1 l
     -- When t1 becomes empty (assumes lo <= k <= hi)
     (TipTree, BinTree x l r) ->
-      case (filterGt (compare lo) l, filterLt (compare hi) r) of
+      case (filterGt (comp lo) l, filterLt (comp hi) r) of
         -- No variables in t2 were eliminated.
         (NothingS, NothingS) -> t2
         -- Relink t2 with filtered elements removed.
         (l',r') -> link x (fromMaybeS l l') (fromMaybeS r r')
     -- Special case when t2 is a single element.
-    (_, BinTree x (asBin -> TipTree) (asBin -> TipTree)) -> insertR x t1
+    (_, BinTree x (asBin -> TipTree) (asBin -> TipTree)) -> insertR comp x t1
     -- Split on left-and-right subtrees of t1.
     (BinTree x l r, _) ->
       link x
-           (hedgeUnion_LB_UB lo x  l t2)
-           (hedgeUnion_LB_UB x  hi r t2)
+           (hedgeUnion_LB_UB comp lo x  l t2)
+           (hedgeUnion_LB_UB comp x  hi r t2)
 {-# INLINABLE hedgeUnion_LB_UB #-}
