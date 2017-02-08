@@ -2,3 +2,4 @@ dist
 cabal.sandbox.config
 .stack-work
 stack.yaml
+.*.swp

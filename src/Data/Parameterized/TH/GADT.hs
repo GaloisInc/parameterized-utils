@@ -66,32 +66,32 @@ asTyConI :: Info -> Maybe Dec
 asTyConI (TyConI d) = Just d
 asTyConI _ = Nothing
 
-normalizeCon :: Type -> Con -> Maybe [NormalizedCon]
+normalizeCon :: Type -> Con -> Either String [NormalizedCon]
 normalizeCon t c =
   case c of
-    NormalC n xs      -> Just [NC n (map snd xs)]
-    RecC n xs         -> Just [NC n [x | (_,_,x) <- xs ]]
-    InfixC l n r      -> Just [NC n [snd l, snd r]]
+    NormalC n xs      -> pure [NC n (map snd xs)]
+    RecC n xs         -> pure [NC n [x | (_,_,x) <- xs ]]
+    InfixC l n r      -> pure [NC n [snd l, snd r]]
     ForallC _ _ c'    -> normalizeCon t c'
 #if MIN_VERSION_template_haskell(2,11,0)
     GadtC ns xs t'    -> traverse (gadtCase (map snd xs) t t') ns
     RecGadtC ns xs t' -> traverse (gadtCase [x | (_,_,x) <- xs] t t') ns
 
-gadtCase :: [Type] -> Type -> Type -> Name -> Maybe NormalizedCon
+gadtCase :: [Type] -> Type -> Type -> Name -> Either String NormalizedCon
 gadtCase fields t t' n = NC n <$> traverse subst fields
   where
     typeMapping = [ (x,y) | (VarT x, VarT y) <- zip (unappsT t') (unappsT t) ]
 
-    subst (AppT f x) = AppT <$> subst f <*> subst x
-    subst (VarT x)   = case lookup x typeMapping of
-                         Nothing -> Just (VarT x)
-                         Just y  -> Just (VarT y)
-    subst ForallT{} = error "subst: forallt"
-    subst (SigT x y) = SigT <$> subst x <*> subst y
-    subst (InfixT l c r) = InfixT <$> subst l <*> pure c <*> pure r
-    subst (UInfixT l c r) = InfixT <$> subst l <*> pure c <*> pure r
-    subst (ParensT x) = ParensT <$> subst x
-    subst x          = Just x
+    subst (VarT x)        = case lookup x typeMapping of
+                              Nothing -> pure WildCardT
+                              Just y  -> pure (VarT y)
+    subst ForallT{}       = Left "Unable to normalize field types with ForallT"
+    subst (AppT f x)      = AppT    <$> subst f <*> subst x
+    subst (SigT x y)      = SigT    <$> subst x <*> subst y
+    subst (InfixT l c r)  = InfixT  <$> subst l <*> pure c <*> pure r
+    subst (UInfixT l c r) = InfixT  <$> subst l <*> pure c <*> pure r
+    subst (ParensT x)     = ParensT <$> subst x
+    subst x               = pure x
 
 unappsT :: Type -> [Type]
 unappsT t = reverse (go t)
@@ -104,7 +104,7 @@ tyVarBndrName :: TyVarBndr -> Name
 tyVarBndrName (PlainTV  n  ) = n
 tyVarBndrName (KindedTV n _) = n
 
-asDataD :: Dec -> Maybe DataD
+asDataD :: Dec -> Either String DataD
 #if MIN_VERSION_template_haskell(2,11,0)
 asDataD (DataD ctx n v _ ctors _d) =
 #else
@@ -112,13 +112,13 @@ asDataD (DataD ctx n v ctors _d) =
 #endif
   do let ty = foldl AppT (ConT n) (map (VarT . tyVarBndrName) v)
      nctors <- normalizeCon ty `traverse` ctors
-     Just DD
+     pure DD
        { _dataCtx = ctx
        , _dataName = n
        , dataTyVarBndrs = v
        , dataCtors = concat nctors
        }
-asDataD _ = Nothing
+asDataD _ = Left "asDataD: Expected name of data type"
 
 -- | Given a constructor and string, this generates a pattern for matching
 -- the expression, and the names of variables bound by pattern in order
@@ -191,8 +191,11 @@ typeVars' _ s = s
 lookupDataType' :: Name -> Q DataD
 lookupDataType' tpName = do
   info <- reify tpName
-  maybe (fail $ "Expected datatype: " ++ show (ppr tpName)) return $
-    asDataD =<< asTyConI info
+  let dec = maybe (Left "not a type constructor") Right
+          $ asTyConI info
+  case asDataD =<< dec of
+    Left e   -> fail ("lookupDataType' " ++ show (ppr tpName) ++ ": " ++ e)
+    Right dd -> return dd
 
 -- | @declareStructuralEquality@ declares a structural equality predicate.
 structuralEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
