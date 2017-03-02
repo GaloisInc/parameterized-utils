@@ -191,7 +191,7 @@ traverseWithKey_
   -> MapF ktp f
   -> m ()
 traverseWithKey_ _ Tip = pure ()
-traverseWithKey_ f (Bin sx kx x l r) = f kx x *> traverseWithKey_ f l *> traverseWithKey_ f r
+traverseWithKey_ f (Bin _ kx x l r) = f kx x *> traverseWithKey_ f l *> traverseWithKey_ f r
 
 -- | Lookup value in map.
 lookup :: OrdF k => k tp -> MapF k a -> Maybe (a tp)
