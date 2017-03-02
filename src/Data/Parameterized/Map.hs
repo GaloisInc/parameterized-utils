@@ -38,6 +38,7 @@ module Data.Parameterized.Map
   , toList
   , size
   , traverseWithKey
+  , traverseWithKey_
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
@@ -182,6 +183,15 @@ traverseWithKey
 traverseWithKey _ Tip = pure Tip
 traverseWithKey f (Bin sx kx x l r) =
    Bin sx kx <$> f kx x <*> traverseWithKey f l <*> traverseWithKey f r
+
+-- | Traverse elements in a map without returning result.
+traverseWithKey_
+  :: Applicative m
+  => (forall tp . ktp tp -> f tp -> m ())
+  -> MapF ktp f
+  -> m ()
+traverseWithKey_ _ Tip = pure ()
+traverseWithKey_ f (Bin sx kx x l r) = f kx x *> traverseWithKey_ f l *> traverseWithKey_ f r
 
 -- | Lookup value in map.
 lookup :: OrdF k => k tp -> MapF k a -> Maybe (a tp)
