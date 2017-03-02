@@ -25,6 +25,8 @@ module Data.Parameterized.TH.GADT
   , DataD(..)
   , lookupDataType'
   , asTypeCon
+  , NormalizedCon(..)
+  , normalizeCon
   , TypePat(..)
   , dataParamTypes
   , assocTypePats
@@ -51,96 +53,89 @@ tyVarName (KindedTV nm _) = nm
 data DataD = DD { _dataCtx :: Cxt
                 , _dataName :: Name
                 , dataTyVarBndrs :: [TyVarBndr]
-                , dataCtors :: [Con]
+                , dataCtors :: [NormalizedCon]
                 } deriving (Show)
+
+data NormalizedCon = NC
+  { nrmlConName   :: Name
+  , nrmlConFields :: [Type]
+  }
+  deriving (Show)
 
 asTyConI :: Info -> Maybe Dec
 asTyConI (TyConI d) = Just d
 asTyConI _ = Nothing
 
+normalizeCon :: Type -> Con -> Either String [NormalizedCon]
+normalizeCon t c =
+  case c of
+    NormalC n xs      -> pure [NC n (map snd xs)]
+    RecC n xs         -> pure [NC n [x | (_,_,x) <- xs ]]
+    InfixC l n r      -> pure [NC n [snd l, snd r]]
+    ForallC _ _ c'    -> normalizeCon t c'
 #if MIN_VERSION_template_haskell(2,11,0)
-gadtArgTypes :: Type -> [Type]
-gadtArgTypes (AppT c x) = gadtArgTypes c ++ [x]
-gadtArgTypes ConT{} = []
-gadtArgTypes tp = error $ "Unexpected GADT return type: " ++ show tp
+    GadtC ns xs t'    -> traverse (gadtCase (map snd xs) t t') ns
+    RecGadtC ns xs t' -> traverse (gadtCase [x | (_,_,x) <- xs] t t') ns
+
+gadtCase :: [Type] -> Type -> Type -> Name -> Either String NormalizedCon
+gadtCase fields t t' n = NC n <$> traverse subst fields
+  where
+    typeMapping = [ (x,y) | (VarT x, VarT y) <- zip (unappsT t') (unappsT t) ]
+
+    subst (VarT x)        = case lookup x typeMapping of
+                              Nothing -> pure WildCardT
+                              Just y  -> pure (VarT y)
+    subst ForallT{}       = Left "Unable to normalize field types with ForallT"
+    subst (AppT f x)      = AppT    <$> subst f <*> subst x
+    subst (SigT x y)      = SigT    <$> subst x <*> subst y
+    subst (InfixT l c r)  = InfixT  <$> subst l <*> pure c <*> pure r
+    subst (UInfixT l c r) = InfixT  <$> subst l <*> pure c <*> pure r
+    subst (ParensT x)     = ParensT <$> subst x
+    subst x               = pure x
+
+unappsT :: Type -> [Type]
+unappsT t = reverse (go t)
+  where
+    go (AppT f x) = x : go f
+    go x          = [x]
 #endif
 
-asDataD :: Dec -> Maybe DataD
+tyVarBndrName :: TyVarBndr -> Name
+tyVarBndrName (PlainTV  n  ) = n
+tyVarBndrName (KindedTV n _) = n
+
+asDataD :: Dec -> Either String DataD
 #if MIN_VERSION_template_haskell(2,11,0)
-asDataD (DataD ctx n v _ ctors _d) = Just $ DD { _dataCtx = ctx
-                                              , _dataName = n
-                                              , dataTyVarBndrs = v
-                                              , dataCtors = ctors
-                                              }
+asDataD (DataD ctx n v _ ctors _d) =
 #else
-asDataD (DataD ctx n v ctors _d) = Just $ DD ctx n v ctors
+asDataD (DataD ctx n v ctors _d) =
 #endif
-asDataD _ = Nothing
-
-infixPat :: Name -> String -> Q (Pat, [Name])
-infixPat nm pre = do
-  xnm <- newName pre
-  ynm <- newName pre
-  return (InfixP (VarP xnm) nm (VarP ynm), [xnm, ynm])
+  do let ty = foldl AppT (ConT n) (map (VarT . tyVarBndrName) v)
+     nctors <- normalizeCon ty `traverse` ctors
+     pure DD
+       { _dataCtx = ctx
+       , _dataName = n
+       , dataTyVarBndrs = v
+       , dataCtors = concat nctors
+       }
+asDataD _ = Left "asDataD: Expected name of data type"
 
 -- | Given a constructor and string, this generates a pattern for matching
 -- the expression, and the names of variables bound by pattern in order
 -- they appear in constructor.
-conPat :: Con
+conPat :: NormalizedCon
         -> String
         -> Q (Pat, [Name])
-conPat (NormalC nm a) pre = do
+conPat (NC nm a) pre = do
   nms <- replicateM (length a) (newName pre)
   return (ConP nm (VarP <$> nms), nms)
-conPat (RecC nm a) pre = do
-  nms <- replicateM (length a) (newName pre)
-  return (ConP nm (VarP <$> nms), nms)
-conPat (InfixC _ nm _) pre = infixPat nm pre
-conPat (ForallC _ _ c) pre = conPat c pre
-#if MIN_VERSION_template_haskell(2,11,0)
-conPat (GadtC nms a _) pre =
-  case nms of
-    [nm] -> do
-      argNms <- replicateM (length a) (newName pre)
-      return (ConP nm (VarP <$> argNms), argNms)
-    _ ->
-      fail $ "conPat does not support GADTs with multiple ctors per declaration"
-conPat RecGadtC{} _ = error "conPat does not support record GADTs."
-#endif
 
--- | Get types of arguments for constructor.
-conArgTypes :: Con
-            -> [Type]
-conArgTypes (NormalC _ a)              = snd <$> a
-conArgTypes (RecC _ a)                 = (\(_,_,tp) -> tp) <$> a
-conArgTypes (InfixC (_,xtp) _ (_,ytp)) = [xtp, ytp]
-conArgTypes (ForallC _ _ c) = conArgTypes c
-#if MIN_VERSION_template_haskell(2,11,0)
-conArgTypes (GadtC _ a _)              = snd <$> a
-conArgTypes RecGadtC{} = error "conArgTypes does not support GADTs."
-#endif
-
--- | Return an expression corresponding to the constructor.
--- Note that this will have the type of a function expecting
--- the argumnts given.
-conName :: Con -> Name
-conName (NormalC nm _) = nm
-conName (RecC nm _)   = nm
-conName (InfixC _ nm _) = nm
-conName (ForallC _ _ c) = conName c
-#if MIN_VERSION_template_haskell(2,11,0)
-conName (GadtC nms _ _) =
-  case nms of
-    [nm] -> nm
-    _ -> error "conName does not support multi ctor GADTs."
-conName RecGadtC{} = error "conName does not support record GADTs."
-#endif
 
 -- | Return an expression corresponding to the constructor.
 -- Note that this will have the type of a function expecting
 -- the argumetns given.
-conExpr :: Con -> Exp
-conExpr c = ConE (conName c)
+conExpr :: NormalizedCon -> Exp
+conExpr c = ConE (nrmlConName c)
 
 ------------------------------------------------------------------------
 -- TypePat
@@ -196,8 +191,11 @@ typeVars' _ s = s
 lookupDataType' :: Name -> Q DataD
 lookupDataType' tpName = do
   info <- reify tpName
-  maybe (fail $ "Expected datatype: " ++ show (ppr tpName)) return $
-    asDataD =<< asTyConI info
+  let dec = maybe (Left "not a type constructor") Right
+          $ asTyConI info
+  case asDataD =<< dec of
+    Left e   -> fail ("lookupDataType' " ++ show (ppr tpName) ++ ": " ++ e)
+    Right dd -> return dd
 
 -- | @declareStructuralEquality@ declares a structural equality predicate.
 structuralEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
@@ -262,32 +260,13 @@ mkSimpleEqF dTypes bnd pats nm a = do
 -- | Match equational form.
 mkEqF :: DataD -- ^ Data declaration.
       -> [(TypePat,ExpQ)]
-      -> Con
+      -> NormalizedCon
       -> [MatchQ]
-mkEqF d pats (NormalC nm a) = (:[]) $ do
+mkEqF d pats (NC nm a) = (:[]) $ do
   let dVars = tyVarName <$> dataTyVarBndrs d
   let bnd | null dVars = Set.empty
           | otherwise  = Set.fromList (init dVars)
-  mkSimpleEqF (VarT <$> dVars) bnd pats nm (snd <$> a)
-mkEqF d pats (RecC nm a) = (:[]) $ do
-  let dVars = tyVarName <$> dataTyVarBndrs d
-  let bnd | null dVars = Set.empty
-          | otherwise  = Set.fromList (init dVars)
-  mkSimpleEqF (VarT <$> dVars) bnd pats nm ((\(_,_,tp) -> tp) <$> a)
-mkEqF d pats (InfixC (_,xtp) nm (_,ytp)) = (:[]) $ do
-  let tps = [ xtp, ytp ]
-  (xp,xv) <- infixPat nm "x"
-  (yp,yv) <- infixPat nm "y"
-  let rv = matchEqArguments (dataParamTypes d) pats nm Set.empty tps xv yv
-  match (pure (TupP [xp, yp])) (normalB rv) []
-mkEqF d pats (ForallC _ _ c) = mkEqF d pats c
-#if MIN_VERSION_template_haskell(2,11,0)
-mkEqF _ _ RecGadtC{} = do
-  fail "mkEqF does not support record GADTs."
-mkEqF _ pats (GadtC nms a tp) = f <$> nms
-  where f nm = do
-          mkSimpleEqF (gadtArgTypes tp) Set.empty pats nm (snd <$> a)
-#endif
+  mkSimpleEqF (VarT <$> dVars) bnd pats nm a
 
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> Maybe (x :~: y)
@@ -389,36 +368,9 @@ mkSimpleOrdF dTypes pats nm a = do
 -- | Match equational form.
 mkOrdF :: DataD -- ^ Data declaration.
        -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
-       -> Con
+       -> NormalizedCon
        -> Q [MatchQ]
-mkOrdF d pats (NormalC nm a) = do
-  mkSimpleOrdF (dataParamTypes d) pats nm (snd <$> a)
-mkOrdF d pats (RecC nm a) = do
-  mkSimpleOrdF (dataParamTypes d) pats nm ((\(_,_,tp) -> tp) <$> a)
-mkOrdF d pats (InfixC (_,xtp) nm (_,ytp)) = do
-  let tps = [ xtp, ytp ]
-  -- Get argument types for constructor.
-  (xp,xv) <- infixPat nm "x"
-  (yp,yv) <- infixPat nm "y"
-  --let dataVars = Set.fromList dataVarNames
-  rv <- matchOrdArguments (dataParamTypes d) pats nm Set.empty tps xv yv
-  ltf <- [| LTF |]
-  gtf <- [| GTF |]
-  let anyPat = InfixP WildP nm WildP
-  -- Return match expression
-  return [ pure $ Match (TupP [xp, yp]) (NormalB rv) []
-         , pure $ Match (TupP [anyPat, WildP]) (NormalB ltf) []
-         , pure $ Match (TupP [WildP, anyPat]) (NormalB gtf) []
-         ]
-mkOrdF d pats (ForallC _ _ c) =
-  mkOrdF d pats c
-#if MIN_VERSION_template_haskell(2,11,0)
-mkOrdF _ _ RecGadtC{} = do
-  fail "mkOrdF does not support record GADTs."
-mkOrdF _ pats (GadtC nms a tp) = fmap concat $ do
-  forM nms $ \nm -> do
-    mkSimpleOrdF (gadtArgTypes tp) pats nm (snd <$> a)
-#endif
+mkOrdF d pats (NC nm a) = mkSimpleOrdF (dataParamTypes d) pats nm a
 
 -- | Find the first recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
 recurseArg :: (Type -> Q (Maybe ExpQ))
@@ -440,11 +392,11 @@ recurseArg m f v tp = do
 -- the constructor @c@ and applies @f@ to each argument.
 traverseAppMatch :: (Type -> Q (Maybe ExpQ)) -- Pattern match function
                  -> ExpQ -- ^ Function to apply to each argument recursively.
-                 -> Con -- ^ Constructor to match.
+                 -> NormalizedCon -- ^ Constructor to match.
                  -> MatchQ -- ^ Match expression that
 traverseAppMatch pats fv c0 = do
   (pat,patArgs) <- conPat c0 "p"
-  exprs <- zipWithM (recurseArg pats fv) (varE <$> patArgs) (conArgTypes c0)
+  exprs <- zipWithM (recurseArg pats fv) (varE <$> patArgs) (nrmlConFields c0)
 
   let mkRes :: ExpQ -> [(Name, Maybe Exp)] -> ExpQ
       mkRes e [] = e
@@ -476,7 +428,7 @@ structuralTraversal tpq pats0 = do
   f <- newName "f"
   a <- newName "a"
   lamE [varP f, varP a] $
-    caseE (varE a)
+      caseE (varE a)
       (traverseAppMatch (assocTypePats (dataParamTypes d) pats0) (varE f) <$> dataCtors d)
 
 asTypeCon :: Monad m => String -> Type -> m Name
@@ -493,7 +445,7 @@ structuralHash tpq = do
   lamE [varP s, varP a] $
     caseE (varE a) (zipWith (matchHashCtor (varE s)) [0..] (dataCtors d))
 
-matchHashCtor :: ExpQ -> Integer  -> Con -> MatchQ
+matchHashCtor :: ExpQ -> Integer  -> NormalizedCon -> MatchQ
 matchHashCtor s0 i c = do
   (pat,vars) <- conPat c "x"
   let args = [| $(litE (IntegerL i)) :: Int |] : (varE <$> vars)
@@ -521,15 +473,5 @@ showCon p nm n = do
           | otherwise = [| showParen ($(p) >= 10) $(foldl go ctor vars) |]
   match (pure pat) (normalB rhs) []
 
-matchShowCtor :: ExpQ -> Con -> MatchQ
-matchShowCtor p (NormalC nm tps) = showCon p nm (length tps)
-matchShowCtor _ RecC{} = error "structuralShow does not support records."
-matchShowCtor _ InfixC{} = error "structuralShow does not support infix constructors."
-matchShowCtor p (ForallC _ _ c) = matchShowCtor p c
-#if MIN_VERSION_template_haskell(2,11,0)
-matchShowCtor p (GadtC nms a _) =
-  case nms of
-    [nm] -> showCon p nm (length a)
-    _ -> error $ "matchShowCtor does not support GADTs with multiple ctors per declaration"
-matchShowCtor _ RecGadtC{} = error "structuralShow does not support GADT records."
-#endif
+matchShowCtor :: ExpQ -> NormalizedCon -> MatchQ
+matchShowCtor p (NC nm tps) = showCon p nm (length tps)
