@@ -3,14 +3,14 @@ Copyright        : (c) Galois, Inc 2014-2016
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
 
 This module provides a simple generator of new indexes in the ST monad.
-It is predicatable and not intended for cryptographic purposes.
+It is predictable and not intended for cryptographic purposes.
 
 This module also provides a global nonce generator that will generate
 2^64 nonces before looping.
 
-NOTE: the TestEquality and OrdF instances for the Nonce type simply
+NOTE: The 'TestEquality' and 'OrdF' instances for the 'Nonce' type simply
 compare the generated nonce values and then assert to the compiler
-(via unsafeCoerce) that the types ascribed to the nonces are equal
+(via 'unsafeCoerce') that the types ascribed to the nonces are equal
 if their values are equal.
 -}
 {-# LANGUAGE CPP #-}
@@ -56,8 +56,8 @@ import Data.Kind
 
 -- | Provides a monadic action for getting fresh typed names.
 --
--- The first type parameter is the monad used for generating names, and
--- the second is used for the counter.
+-- The first type parameter @m@ is the monad used for generating names, and
+-- the second parameter @s@ is used for the counter.
 data NonceGenerator (m :: * -> *) (s :: *) = NonceGenerator {
 #if MIN_VERSION_base(4,9,0)
 -- We have to make the k explicit in GHC 8.0 to avoid a warning.
@@ -136,7 +136,7 @@ globalNonceIORef :: IORef Word64
 globalNonceIORef = unsafePerformIO (newIORef 0)
 {-# NOINLINE globalNonceIORef #-}
 
--- | A nonce generator that uses a globally-defined counter
+-- | A nonce generator that uses a globally-defined counter.
 globalNonceGenerator :: NonceGenerator IO GlobalNonceGenerator
 globalNonceGenerator =
   NonceGenerator

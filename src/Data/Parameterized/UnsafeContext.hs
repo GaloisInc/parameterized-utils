@@ -159,6 +159,7 @@ instance Cat.Category Diff where
 extSize :: Size l -> Diff l r -> Size r
 extSize (Size i) (Diff j) = Size (i+j)
 
+-- | The total size of two concatenated contexts.
 addSize :: Size x -> Size y -> Size (x <+> y)
 addSize (Size x) (Size y) = Size (x + y)
 
@@ -833,7 +834,7 @@ data AssignView f ctx where
                -> f tp
                -> AssignView f (ctx::>tp)
 
--- | Return assignment with all but the last block.
+-- | View an assignment as either empty or an assignment with one appended.
 view :: forall f ctx . Assignment f ctx -> AssignView f ctx
 view (Assignment x) =
   case bin_drop x of

@@ -7,29 +7,29 @@
 -- Stability        : provisional
 --
 -- This module provides a simple generator of new indexes in the ST monad.
--- It is predicatable and not intended for cryptographic purposes.
+-- It is predictable and not intended for cryptographic purposes.
 --
--- NOTE: the TestEquality and OrdF instances for the Nonce type simply
+-- NOTE: the 'TestEquality' and 'OrdF' instances for the 'Nonce' type simply
 -- compare the generated nonce values and then assert to the compiler
--- (via unsafeCoerce) that the types ascribed to the nonces are equal
+-- (via 'unsafeCoerce') that the types ascribed to the nonces are equal
 -- if their values are equal.  This is only OK because of the discipline
 -- by which nonces should be used: they should only be generated from
--- a NonceGenerator (i.e., sholuld not be built directly), and nonces from
+-- a 'NonceGenerator' (i.e., should not be built directly), and nonces from
 -- different generators must never be compared!  Arranging to compare
--- Nonces from different origins would allow users to build unsafeCoerce
--- via the testEquality function.
+-- Nonces from different origins would allow users to build 'unsafeCoerce'
+-- via the 'testEquality' function.
 --
 -- A somewhat safer API would be to brand the generated Nonces with the
 -- state type variable of the NonceGenerator whence they came, and to only
 -- provide NonceGenerators via a Rank-2 continuation-passing API, similar to
--- runST. This would (via a meta-argument involving parametricity)
+-- 'runST'. This would (via a meta-argument involving parametricity)
 -- help to prevent nonces of different origin from being compared.
--- However, this would force us to push the ST type brand into a significant
+-- However, this would force us to push the 'ST' type brand into a significant
 -- number of other structures and APIs.
 --
--- Another alternative would be to use unsafePerformIO magic to make
+-- Another alternative would be to use 'unsafePerformIO' magic to make
 -- a global nonce generator, and make that the only way to generate nonces.
--- It is not clear that this is actually an improvment from a type safety
+-- It is not clear that this is actually an improvement from a type safety
 -- point of view, but an argument could be made.
 --
 -- For now, be careful using Nonces, and ensure that you do not mix
@@ -57,9 +57,8 @@ import Unsafe.Coerce
 
 import Data.Parameterized.Classes
 
--- | A simple type that for getting fresh indices in the ST monad.
--- The first type is used for the ST monad, the second is the type
--- used for the counter.
+-- | A simple type that for getting fresh indices in the 'ST' monad.
+-- The type parameter @s@ is used for the 'ST' monad parameter.
 newtype NonceGenerator s = NonceGenerator (STRef s Word64)
 
 -- | Create a new counter.

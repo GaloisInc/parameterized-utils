@@ -6,18 +6,23 @@
 --
 -- This module defines type contexts as a data-kind that consists of
 -- a list of types.  Indexes are defined with respect to these contexts.
--- In addition, finite dependent products (Assignements) are defined over
+-- In addition, finite dependent products (Assignments) are defined over
 -- type contexts.  The elements of an assignment can be accessed using
--- appropriately-typed indices.
+-- appropriately-typed indexes.
+--
+-- This module is intended to export exactly the same API as module
+-- "Data.Parameterized.UnsafeContext", so that they can be used
+-- interchangeably.
 --
 -- This implementation is entirely typesafe, and provides a proof that
 -- the signature implemented by this module is consistent.  Contexts,
--- indexes, and assignements are represented naively by linear sequences.
+-- indexes, and assignments are represented naively by linear sequences.
 --
--- Compared to the implementation in UnsafeTypeContext, this one suffers
--- from the fact that the operation of extending an the context of an index
--- is _not_ a no-op.  We therefore cannot use Data.Coerce.coerce to understand
--- indexes in a new context without actually breaking things.
+-- Compared to the implementation in "Data.Parameterized.UnsafeContext",
+-- this one suffers from the fact that the operation of extending an
+-- the context of an index is /not/ a no-op. We therefore cannot use
+-- 'Data.Coerce.coerce' to understand indexes in a new context without
+-- actually breaking things.
 --------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
@@ -103,11 +108,12 @@ import Data.Parameterized.TraversableFC
 ------------------------------------------------------------------------
 -- Size
 
--- | Represents the size of a context.
+-- | An indexed singleton type representing the size of a context.
 data Size (ctx :: Ctx k) where
   SizeZero :: Size 'EmptyCtx
   SizeSucc :: Size ctx -> Size (ctx '::> tp)
 
+-- | Convert a context size to an 'Int'.
 sizeInt :: Size ctx -> Int
 sizeInt SizeZero = 0
 sizeInt (SizeSucc sz) = (+1) $! sizeInt sz
@@ -185,6 +191,7 @@ data Index (ctx :: Ctx k) (tp :: k) where
   IndexHere :: Size ctx -> Index (ctx '::> tp) tp
   IndexThere :: Index ctx tp -> Index (ctx '::> tp') tp
 
+-- | Convert an index to an 'Int', where the index of the left-most type in the context is 0.
 indexVal :: Index ctx tp -> Int
 indexVal (IndexHere sz) = sizeInt sz
 indexVal (IndexThere idx) = indexVal idx
@@ -226,7 +233,7 @@ _indexSize :: Index ctx tp -> Size ctx
 _indexSize (IndexHere sz) = SizeSucc sz
 _indexSize (IndexThere idx) = SizeSucc (_indexSize idx)
 
--- | Return the index of a element one past the size.
+-- | Return the index of an element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
 nextIndex sz = IndexHere sz
 
@@ -239,9 +246,9 @@ extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' DiffHere idx = idx
 extendIndex' (DiffThere diff) idx = IndexThere (extendIndex' diff idx)
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, @forIndex n v0 f@,
--- calls @f@ on each index less than @n@ starting from @0@ and @v0@, with the value @v@ obtained
--- from the last call.
+-- | Given a size @n@, an initial value @v0@, and a function @f@,
+-- @forIndex n v0 f@ calls @f@ on each index less than @n@ starting
+-- from @0@ and @v0@, with the value @v@ obtained from the last call.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
@@ -294,6 +301,7 @@ instance NFData (Assignment f ctx) where
   rnf AssignmentEmpty = ()
   rnf (AssignmentExtend asgn x) = rnf asgn `seq` x `seq` ()
 
+-- | Return number of elements in assignment.
 size :: Assignment f ctx -> Size ctx
 size AssignmentEmpty = SizeZero
 size (AssignmentExtend asgn _) = SizeSucc (size asgn)
