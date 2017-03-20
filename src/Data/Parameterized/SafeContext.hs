@@ -45,18 +45,23 @@ module Data.Parameterized.SafeContext
   , zeroSize
   , incSize
   , extSize
+  , addSize
+  , SizeView(..)
+  , viewSize
   , KnownContext(..)
     -- * Diff
   , Diff
   , noDiff
   , extendRight
   , KnownDiff(..)
+  , DiffView(..)
+  , viewDiff
     -- * Indexing
   , Index
   , indexVal
   , base
   , skip
-
+  , lastIndex
   , nextIndex
   , extendIndex
   , extendIndex'
@@ -126,6 +131,21 @@ zeroSize = SizeZero
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize sz = SizeSucc sz
 
+-- | The total size of two concatenated contexts.
+addSize :: Size x -> Size y -> Size (x <+> y)
+addSize sx SizeZero = sx
+addSize sx (SizeSucc sy) = SizeSucc (addSize sx sy)
+
+-- | Allows interpreting a size.
+data SizeView (ctx :: Ctx k) where
+  ZeroSize :: SizeView 'EmptyCtx
+  IncSize :: !(Size ctx) -> SizeView (ctx '::> tp)
+
+-- | View a size as either zero or a smaller size plus one.
+viewSize :: Size ctx -> SizeView ctx
+viewSize SizeZero = ZeroSize
+viewSize (SizeSucc s) = IncSize s
+
 ------------------------------------------------------------------------
 -- Size
 
@@ -168,6 +188,14 @@ instance Cat.Category Diff where
 extSize :: Size l -> Diff l r -> Size r
 extSize sz DiffHere = sz
 extSize sz (DiffThere diff) = incSize (extSize sz diff)
+
+data DiffView a b where
+  NoDiff :: DiffView a a
+  ExtendRightDiff :: Diff a b -> DiffView a (b ::> r)
+
+viewDiff :: Diff a b -> DiffView a b
+viewDiff DiffHere = NoDiff
+viewDiff (DiffThere diff) = ExtendRightDiff diff
 
 ------------------------------------------------------------------------
 -- KnownDiff
@@ -236,6 +264,10 @@ _indexSize (IndexThere idx) = SizeSucc (_indexSize idx)
 -- | Return the index of an element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
 nextIndex sz = IndexHere sz
+
+-- | Return the last index of a element.
+lastIndex :: Size (ctx ::> tp) -> Index (ctx ::> tp) tp
+lastIndex (SizeSucc s) = IndexHere s
 
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
