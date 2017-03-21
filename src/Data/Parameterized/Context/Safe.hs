@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------
 -- |
--- Module           : Data.Parameterized.SafeContext
+-- Module           : Data.Parameterized.Context.Safe
 -- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 --
@@ -11,14 +11,14 @@
 -- appropriately-typed indexes.
 --
 -- This module is intended to export exactly the same API as module
--- "Data.Parameterized.UnsafeContext", so that they can be used
+-- "Data.Parameterized.Context.Unsafe", so that they can be used
 -- interchangeably.
 --
 -- This implementation is entirely typesafe, and provides a proof that
 -- the signature implemented by this module is consistent.  Contexts,
 -- indexes, and assignments are represented naively by linear sequences.
 --
--- Compared to the implementation in "Data.Parameterized.UnsafeContext",
+-- Compared to the implementation in "Data.Parameterized.Context.Unsafe",
 -- this one suffers from the fact that the operation of extending an
 -- the context of an index is /not/ a no-op. We therefore cannot use
 -- 'Data.Coerce.coerce' to understand indexes in a new context without
@@ -38,7 +38,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-module Data.Parameterized.SafeContext
+module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
   , Size
   , sizeInt
@@ -407,7 +407,7 @@ init (AssignmentExtend asgn _) = asgn
 idxlookup :: (forall tp. a tp -> b tp) -> Assignment a ctx -> forall tp. Index ctx tp -> b tp
 idxlookup f (AssignmentExtend _   x) (IndexHere _) = f x
 idxlookup f (AssignmentExtend ctx _) (IndexThere idx) = idxlookup f ctx idx
-idxlookup _ AssignmentEmpty _ = error "Data.Parameterized.SafeContext.lookup: impossible case"
+idxlookup _ AssignmentEmpty _ = error "Data.Parameterized.Context.Safe.lookup: impossible case"
 
 -- | Return value of assignment.
 (!) :: Assignment f ctx -> Index ctx tp -> f tp

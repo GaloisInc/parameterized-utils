@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Parameterized.UnsafeContext
+module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
   , Size
   , sizeInt
