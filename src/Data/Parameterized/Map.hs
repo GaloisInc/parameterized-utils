@@ -20,23 +20,31 @@ Some code was adapted from containers.
 {-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.Map
   ( MapF
+    -- * Construction
   , Data.Parameterized.Map.empty
-  , null
   , singleton
-  , lookup
   , insert
   , insertWith
   , delete
   , union
-  , map
-  , mapMaybe
+    -- * Query
+  , null
+  , lookup
+  , size
+    -- * Conversion
   , elems
+  , fromList
+  , toList
+  , fromKeys
+  , fromKeysM
+   -- * Filter
   , filterGt
   , filterLt
-  , fromList
+    -- * Folds
   , foldrWithKey
-  , toList
-  , size
+    -- * Traversal
+  , map
+  , mapMaybe
   , traverseWithKey
   , traverseWithKey_
     -- * Complex interface.
@@ -50,7 +58,7 @@ module Data.Parameterized.Map
   , Pair(..)
   ) where
 
-import Control.Applicative
+import Control.Applicative hiding (empty)
 import Control.Monad.Identity
 import Data.List (intercalate, foldl')
 import Data.Maybe ()
@@ -378,6 +386,32 @@ fromList = foldl' (\m (Pair k a) -> insert k a m) Data.Parameterized.Map.empty
 
 toList :: MapF k a -> [Pair k a]
 toList = foldrWithKey (\k x m -> Pair k x : m) []
+
+-- | Generate a map from a foldable collection of keys and a
+-- function from keys to values.
+fromKeys :: forall m (t :: * -> *) (a :: k -> *) (v :: k -> *)
+          .  (Monad m, Foldable t, OrdF a)
+            => (forall tp . a tp -> m (v tp))
+            -- ^ Function for evaluating a register value.
+            -> t (Some a)
+               -- ^ Set of X86 registers
+            -> m (MapF a v)
+fromKeys f = foldM go empty
+  where go :: MapF a v -> Some a -> m (MapF a v)
+        go m (Some k) = (\v -> insert k v m) <$> f k
+
+-- | Generate a map from a foldable collection of keys and a monadic
+-- function from keys to values.
+fromKeysM :: forall m (t :: * -> *) (a :: k -> *) (v :: k -> *)
+          .  (Monad m, Foldable t, OrdF a)
+           => (forall tp . a tp -> m (v tp))
+           -- ^ Function for evaluating a register value.
+           -> t (Some a)
+           -- ^ Set of X86 registers
+           -> m (MapF a v)
+fromKeysM f = foldM go empty
+  where go :: MapF a v -> Some a -> m (MapF a v)
+        go m (Some k) = (\v -> insert k v m) <$> f k
 
 filterGtMaybe :: OrdF k => MaybeS (k x) -> MapF k a -> MapF k a
 filterGtMaybe NothingS m = m
