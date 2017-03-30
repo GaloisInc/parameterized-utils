@@ -39,6 +39,8 @@ library
   exposed-modules:
     Data.Parameterized.Classes
     Data.Parameterized.Context
+    Data.Parameterized.Context.Safe
+    Data.Parameterized.Context.Unsafe
     Data.Parameterized.Ctx
     Data.Parameterized.Ctx.Proofs
     Data.Parameterized.FreeParamF
@@ -48,13 +50,11 @@ library
     Data.Parameterized.Nonce
     Data.Parameterized.Nonce.Transformers
     Data.Parameterized.Nonce.Unsafe
-    Data.Parameterized.SafeContext
     Data.Parameterized.Some
     Data.Parameterized.SymbolRepr
     Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
-    Data.Parameterized.UnsafeContext
     Data.Parameterized.Utils.BinTree
   ghc-options: -O2 -Wall -threaded -Werror
   ghc-prof-options: -O2 -fprof-auto-top

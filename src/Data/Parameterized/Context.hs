@@ -4,8 +4,8 @@
 -- Copyright        : (c) Galois, Inc 2014-16
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 --
--- This module reexports either "Data.Parameterized.SafeContext"
--- or "Data.Parameterized.UnsafeContext" depending on the
+-- This module reexports either "Data.Parameterized.Context.Safe"
+-- or "Data.Parameterized.Context.Unsafe" depending on the
 -- the unsafe-operations compile-time flag.
 --
 -- It also defines some utility typeclasses for transforming
@@ -25,9 +25,9 @@
 module Data.Parameterized.Context
  (
 #ifdef UNSAFE_OPS
-   module Data.Parameterized.UnsafeContext
+   module Data.Parameterized.Context.Unsafe
 #else
-   module Data.Parameterized.SafeContext
+   module Data.Parameterized.Context.Safe
 #endif
  , singleton
  , toVector
@@ -54,9 +54,9 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 
 #ifdef UNSAFE_OPS
-import Data.Parameterized.UnsafeContext
+import Data.Parameterized.Context.Unsafe
 #else
-import Data.Parameterized.SafeContext
+import Data.Parameterized.Context.Safe
 #endif
 
 import Data.Parameterized.TraversableFC

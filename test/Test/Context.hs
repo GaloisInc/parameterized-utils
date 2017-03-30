@@ -15,8 +15,8 @@ import Data.Parameterized.Classes
 import Data.Parameterized.TraversableFC
 import Data.Parameterized.Some
 
-import qualified Data.Parameterized.SafeContext as S
-import qualified Data.Parameterized.UnsafeContext as U
+import qualified Data.Parameterized.Context.Safe as S
+import qualified Data.Parameterized.Context.Unsafe as U
 
 data Payload (ty :: *) where
   IntPayload    :: Int -> Payload Int

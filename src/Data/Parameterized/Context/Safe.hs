@@ -1,23 +1,28 @@
 ------------------------------------------------------------------------
 -- |
--- Module           : Data.Parameterized.SafeContext
+-- Module           : Data.Parameterized.Context.Safe
 -- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 --
 -- This module defines type contexts as a data-kind that consists of
 -- a list of types.  Indexes are defined with respect to these contexts.
--- In addition, finite dependent products (Assignements) are defined over
+-- In addition, finite dependent products (Assignments) are defined over
 -- type contexts.  The elements of an assignment can be accessed using
--- appropriately-typed indices.
+-- appropriately-typed indexes.
+--
+-- This module is intended to export exactly the same API as module
+-- "Data.Parameterized.Context.Unsafe", so that they can be used
+-- interchangeably.
 --
 -- This implementation is entirely typesafe, and provides a proof that
 -- the signature implemented by this module is consistent.  Contexts,
--- indexes, and assignements are represented naively by linear sequences.
+-- indexes, and assignments are represented naively by linear sequences.
 --
--- Compared to the implementation in UnsafeTypeContext, this one suffers
--- from the fact that the operation of extending an the context of an index
--- is _not_ a no-op.  We therefore cannot use Data.Coerce.coerce to understand
--- indexes in a new context without actually breaking things.
+-- Compared to the implementation in "Data.Parameterized.Context.Unsafe",
+-- this one suffers from the fact that the operation of extending an
+-- the context of an index is /not/ a no-op. We therefore cannot use
+-- 'Data.Coerce.coerce' to understand indexes in a new context without
+-- actually breaking things.
 --------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
@@ -33,25 +38,30 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-module Data.Parameterized.SafeContext
+module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
   , Size
   , sizeInt
   , zeroSize
   , incSize
   , extSize
+  , addSize
+  , SizeView(..)
+  , viewSize
   , KnownContext(..)
     -- * Diff
   , Diff
   , noDiff
   , extendRight
   , KnownDiff(..)
+  , DiffView(..)
+  , viewDiff
     -- * Indexing
   , Index
   , indexVal
   , base
   , skip
-
+  , lastIndex
   , nextIndex
   , extendIndex
   , extendIndex'
@@ -103,11 +113,12 @@ import Data.Parameterized.TraversableFC
 ------------------------------------------------------------------------
 -- Size
 
--- | Represents the size of a context.
+-- | An indexed singleton type representing the size of a context.
 data Size (ctx :: Ctx k) where
   SizeZero :: Size 'EmptyCtx
   SizeSucc :: Size ctx -> Size (ctx '::> tp)
 
+-- | Convert a context size to an 'Int'.
 sizeInt :: Size ctx -> Int
 sizeInt SizeZero = 0
 sizeInt (SizeSucc sz) = (+1) $! sizeInt sz
@@ -119,6 +130,21 @@ zeroSize = SizeZero
 -- | Increment the size to the next value.
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize sz = SizeSucc sz
+
+-- | The total size of two concatenated contexts.
+addSize :: Size x -> Size y -> Size (x <+> y)
+addSize sx SizeZero = sx
+addSize sx (SizeSucc sy) = SizeSucc (addSize sx sy)
+
+-- | Allows interpreting a size.
+data SizeView (ctx :: Ctx k) where
+  ZeroSize :: SizeView 'EmptyCtx
+  IncSize :: !(Size ctx) -> SizeView (ctx '::> tp)
+
+-- | View a size as either zero or a smaller size plus one.
+viewSize :: Size ctx -> SizeView ctx
+viewSize SizeZero = ZeroSize
+viewSize (SizeSucc s) = IncSize s
 
 ------------------------------------------------------------------------
 -- Size
@@ -163,6 +189,14 @@ extSize :: Size l -> Diff l r -> Size r
 extSize sz DiffHere = sz
 extSize sz (DiffThere diff) = incSize (extSize sz diff)
 
+data DiffView a b where
+  NoDiff :: DiffView a a
+  ExtendRightDiff :: Diff a b -> DiffView a (b ::> r)
+
+viewDiff :: Diff a b -> DiffView a b
+viewDiff DiffHere = NoDiff
+viewDiff (DiffThere diff) = ExtendRightDiff diff
+
 ------------------------------------------------------------------------
 -- KnownDiff
 
@@ -185,6 +219,7 @@ data Index (ctx :: Ctx k) (tp :: k) where
   IndexHere :: Size ctx -> Index (ctx '::> tp) tp
   IndexThere :: Index ctx tp -> Index (ctx '::> tp') tp
 
+-- | Convert an index to an 'Int', where the index of the left-most type in the context is 0.
 indexVal :: Index ctx tp -> Int
 indexVal (IndexHere sz) = sizeInt sz
 indexVal (IndexThere idx) = indexVal idx
@@ -226,9 +261,13 @@ _indexSize :: Index ctx tp -> Size ctx
 _indexSize (IndexHere sz) = SizeSucc sz
 _indexSize (IndexThere idx) = SizeSucc (_indexSize idx)
 
--- | Return the index of a element one past the size.
+-- | Return the index of an element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
 nextIndex sz = IndexHere sz
+
+-- | Return the last index of a element.
+lastIndex :: Size (ctx ::> tp) -> Index (ctx ::> tp) tp
+lastIndex (SizeSucc s) = IndexHere s
 
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
@@ -239,9 +278,9 @@ extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' DiffHere idx = idx
 extendIndex' (DiffThere diff) idx = IndexThere (extendIndex' diff idx)
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, @forIndex n v0 f@,
--- calls @f@ on each index less than @n@ starting from @0@ and @v0@, with the value @v@ obtained
--- from the last call.
+-- | Given a size @n@, an initial value @v0@, and a function @f@,
+-- @forIndex n v0 f@ calls @f@ on each index less than @n@ starting
+-- from @0@ and @v0@, with the value @v@ obtained from the last call.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
@@ -275,24 +314,29 @@ instance ShowF (Index ctx) where
 ------------------------------------------------------------------------
 -- Assignment
 
-type Assignment = AssignView
+-- | An assignment is a sequence that maps each index with type 'tp' to
+-- a value of type 'f tp'.
+data Assignment (f :: k -> *) (ctx :: Ctx k) where
+  AssignmentEmpty :: Assignment f EmptyCtx
+  AssignmentExtend :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
 
-data AssignView f ctx where
+-- | View an assignment as either empty or an assignment with one appended.
+data AssignView (f :: k -> *) (ctx :: Ctx k) where
   AssignEmpty :: AssignView f EmptyCtx
-  AssignExtend :: Assignment f ctx
-               -> f tp
-               -> AssignView f (ctx::>tp)
+  AssignExtend :: Assignment f ctx -> f tp -> AssignView f (ctx::>tp)
 
 view :: forall f ctx . Assignment f ctx -> AssignView f ctx
-view asgn = asgn
+view AssignmentEmpty = AssignEmpty
+view (AssignmentExtend asgn x) = AssignExtend asgn x
 
 instance NFData (Assignment f ctx) where
-  rnf AssignEmpty = ()
-  rnf (AssignExtend asgn x) = rnf asgn `seq` x `seq` ()
+  rnf AssignmentEmpty = ()
+  rnf (AssignmentExtend asgn x) = rnf asgn `seq` x `seq` ()
 
+-- | Return number of elements in assignment.
 size :: Assignment f ctx -> Size ctx
-size AssignEmpty = SizeZero
-size (AssignExtend asgn _) = SizeSucc (size asgn)
+size AssignmentEmpty = SizeZero
+size (AssignmentExtend asgn _) = SizeSucc (size asgn)
 
 -- | Generate an assignment
 generate :: forall ctx f
@@ -304,11 +348,11 @@ generate sz_top f = go id sz_top
            . (forall tp. Index ctx' tp -> Index ctx tp)
           -> Size ctx'
           -> Assignment f ctx'
-       go _ SizeZero = AssignEmpty
+       go _ SizeZero = AssignmentEmpty
        go g (SizeSucc sz) =
             let ctx = go (\i -> g (IndexThere i)) sz
                 x = f (g (IndexHere sz))
-             in AssignExtend ctx x
+             in AssignmentExtend ctx x
 
 -- | Generate an assignment
 generateM :: forall ctx m f
@@ -318,9 +362,9 @@ generateM :: forall ctx m f
           -> m (Assignment f ctx)
 generateM sz_top f = go id sz_top
  where go :: forall ctx'. (forall tp. Index ctx' tp -> Index ctx tp) -> Size ctx' -> m (Assignment f ctx')
-       go _ SizeZero = pure AssignEmpty
+       go _ SizeZero = pure AssignmentEmpty
        go g (SizeSucc sz) =
-             AssignExtend <$> (go (\i -> g (IndexThere i)) sz) <*> f (g (IndexHere sz))
+             AssignmentExtend <$> (go (\i -> g (IndexThere i)) sz) <*> f (g (IndexHere sz))
 
 -- | @replicate n@ make a context with different copies of the same
 -- polymorphic value.
@@ -329,15 +373,15 @@ replicate n c = generate n (\_ -> c)
 
 -- | Create empty indexec vector.
 empty :: Assignment f 'EmptyCtx
-empty = AssignEmpty
+empty = AssignmentEmpty
 
 -- | Return true if assignment is empty.
 null :: Assignment f ctx -> Bool
-null AssignEmpty = True
+null AssignmentEmpty = True
 null _ = False
 
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
-extend asgn e = AssignExtend asgn e
+extend asgn e = AssignmentExtend asgn e
 
 update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
 update idx e asgn = adjust (\_ -> e) idx asgn
@@ -346,8 +390,8 @@ adjust :: forall f ctx tp. (f tp -> f tp) -> Index ctx tp -> Assignment f ctx ->
 adjust f = go (\x -> x)
  where
   go :: (forall tp'. g tp' -> f tp') -> Index ctx' tp -> Assignment g ctx' -> Assignment f ctx'
-  go g (IndexHere _)    (AssignExtend asgn x) = AssignExtend (map g asgn) (f (g x))
-  go g (IndexThere idx) (AssignExtend asgn x) = AssignExtend (go g idx asgn) (g x)
+  go g (IndexHere _)    (AssignmentExtend asgn x) = AssignmentExtend (map g asgn) (f (g x))
+  go g (IndexThere idx) (AssignmentExtend asgn x) = AssignmentExtend (go g idx asgn) (g x)
 #if !MIN_VERSION_base(4,9,0)
 -- GHC 7.10.3 and early does not recognize that the above definition is complete,
 -- and so need the equation below.  GHC 8.0.1 does not require the additional
@@ -358,12 +402,12 @@ adjust f = go (\x -> x)
 
 -- | Return assignment with all but the last block.
 init :: Assignment f (ctx '::> tp) -> Assignment f ctx
-init (AssignExtend asgn _) = asgn
+init (AssignmentExtend asgn _) = asgn
 
 idxlookup :: (forall tp. a tp -> b tp) -> Assignment a ctx -> forall tp. Index ctx tp -> b tp
-idxlookup f (AssignExtend _   x) (IndexHere _) = f x
-idxlookup f (AssignExtend ctx _) (IndexThere idx) = idxlookup f ctx idx
-idxlookup _ AssignEmpty _ = error "Data.Parameterized.SafeContext.lookup: impossible case"
+idxlookup f (AssignmentExtend _   x) (IndexHere _) = f x
+idxlookup f (AssignmentExtend ctx _) (IndexThere idx) = idxlookup f ctx idx
+idxlookup _ AssignmentEmpty _ = error "Data.Parameterized.Context.Safe.lookup: impossible case"
 
 -- | Return value of assignment.
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
@@ -377,16 +421,16 @@ instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
 
 testEq :: TestEquality f => Assignment f cxt1 -> Assignment f cxt2 -> Maybe (cxt1 :~: cxt2)
-testEq AssignEmpty AssignEmpty = Just Refl
-testEq (AssignExtend ctx1 x1) (AssignExtend ctx2 x2) =
+testEq AssignmentEmpty AssignmentEmpty = Just Refl
+testEq (AssignmentExtend ctx1 x1) (AssignmentExtend ctx2 x2) =
      case testEq ctx1 ctx2 of
        Nothing -> Nothing
        Just Refl ->
           case testEquality x1 x2 of
              Nothing -> Nothing
              Just Refl -> Just Refl
-testEq AssignEmpty (AssignExtend _ctx2 _x2) = Nothing
-testEq (AssignExtend _ctx1 _x1) AssignEmpty = Nothing
+testEq AssignmentEmpty (AssignmentExtend _ctx2 _x2) = Nothing
+testEq (AssignmentExtend _ctx1 _x1) AssignmentEmpty = Nothing
 
 
 instance TestEquality f => TestEquality (Assignment f) where
@@ -396,10 +440,10 @@ instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
   polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
 
 compareAsgn :: OrdF f => Assignment f ctx1 -> Assignment f ctx2 -> OrderingF ctx1 ctx2
-compareAsgn AssignEmpty AssignEmpty = EQF
-compareAsgn AssignEmpty _ = GTF
-compareAsgn _ AssignEmpty = LTF
-compareAsgn (AssignExtend ctx1 x) (AssignExtend ctx2 y) =
+compareAsgn AssignmentEmpty AssignmentEmpty = EQF
+compareAsgn AssignmentEmpty _ = GTF
+compareAsgn _ AssignmentEmpty = LTF
+compareAsgn (AssignmentExtend ctx1 x) (AssignmentExtend ctx2 y) =
   case compareAsgn ctx1 ctx2 of
     LTF -> LTF
     GTF -> GTF
@@ -425,8 +469,8 @@ instance HashableF f => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
 
 instance HashableF f => Hashable (Assignment f ctx) where
-  hashWithSalt s AssignEmpty = s
-  hashWithSalt s (AssignExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
+  hashWithSalt s AssignmentEmpty = s
+  hashWithSalt s (AssignmentExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
 
 instance ShowF f => ShowF (Assignment f) where
   showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
@@ -452,8 +496,8 @@ traverseF :: forall (f:: k -> *) (g::k -> *) (m:: * -> *) (c::Ctx k)
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
           -> m (Assignment g c)
-traverseF _ AssignEmpty = pure AssignEmpty
-traverseF f (AssignExtend asgn x) = pure AssignExtend <*> traverseF f asgn <*> f x
+traverseF _ AssignmentEmpty = pure AssignmentEmpty
+traverseF f (AssignmentExtend asgn x) = pure AssignmentExtend <*> traverseF f asgn <*> f x
 
 -- | Convert assignment to list.
 toList :: (forall tp . f tp -> a)
@@ -467,9 +511,9 @@ zipWithM :: Applicative m
          -> Assignment g c
          -> m (Assignment h c)
 zipWithM f x y = go x y
- where go AssignEmpty AssignEmpty = pure AssignEmpty
-       go (AssignExtend asgn1 x1) (AssignExtend asgn2 x2) =
-             AssignExtend <$> (zipWithM f asgn1 asgn2) <*> (f x1 x2)
+ where go AssignmentEmpty AssignmentEmpty = pure AssignmentEmpty
+       go (AssignmentExtend asgn1 x1) (AssignmentExtend asgn2 x2) =
+             AssignmentExtend <$> (zipWithM f asgn1 asgn2) <*> (f x1 x2)
 
 zipWith :: (forall x . f x -> g x -> h x)
         -> Assignment f a
@@ -513,14 +557,14 @@ type family MyNatLookup (n::MyNat) (ctx::Ctx k) (f::k -> *) :: * where
   MyNatLookup (MyS n) (ctx::>x) f = MyNatLookup n ctx f
 
 mynat_lookup :: MyNatRepr n -> Assignment f ctx -> MyNatLookup n ctx f
-mynat_lookup _   AssignEmpty = ()
-mynat_lookup MyZR     (AssignExtend _    x) = x
-mynat_lookup (MySR n) (AssignExtend asgn _) = mynat_lookup n asgn
+mynat_lookup _   AssignmentEmpty = ()
+mynat_lookup MyZR     (AssignmentExtend _    x) = x
+mynat_lookup (MySR n) (AssignmentExtend asgn _) = mynat_lookup n asgn
 
 strong_ctx_update :: MyNatRepr n -> Assignment f ctx -> f tp -> Assignment f (StrongCtxUpdate n ctx tp)
-strong_ctx_update _        AssignEmpty           _ = AssignEmpty
-strong_ctx_update MyZR     (AssignExtend asgn _) z = AssignExtend asgn z
-strong_ctx_update (MySR n) (AssignExtend asgn x) z = AssignExtend (strong_ctx_update n asgn z) x
+strong_ctx_update _        AssignmentEmpty           _ = AssignmentEmpty
+strong_ctx_update MyZR     (AssignmentExtend asgn _) z = AssignmentExtend asgn z
+strong_ctx_update (MySR n) (AssignmentExtend asgn x) z = AssignmentExtend (strong_ctx_update n asgn z) x
 
 ------------------------------------------------------------------------
 -- 1 field lens combinators
