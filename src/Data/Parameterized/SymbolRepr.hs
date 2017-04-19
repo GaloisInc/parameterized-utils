@@ -7,7 +7,7 @@ This defines a type family 'SymbolRepr' for representing a type-level string
 
 The 'TestEquality' and 'OrdF' instances for 'SymbolRepr' are implemented using
 'unsafeCoerce'.  This should be typesafe because we maintain the invariant
-that the string value contained in a SymolRepr value matches its static type.
+that the string value contained in a SymbolRepr value matches its static type.
 
 At the type level, symbols have very few operations, so SymbolRepr
 correspondingly has very few functions that manipulate them.
@@ -28,6 +28,7 @@ module Data.Parameterized.SymbolRepr
     SymbolRepr
   , symbolRepr
   , knownSymbol
+  , someSymbol
     -- * Re-exports
   , type GHC.Symbol
   , GHC.KnownSymbol
@@ -41,6 +42,7 @@ import Data.Proxy
 import qualified Data.Text as Text
 
 import Data.Parameterized.Classes
+import Data.Parameterized.Some
 
 -- | A runtime representation of a GHC type-level symbol.
 newtype SymbolRepr (nm::GHC.Symbol)
@@ -52,9 +54,12 @@ newtype SymbolRepr (nm::GHC.Symbol)
 -- is not exported so we can maintain this invariant in this
 -- module.
 
--- | Generate a value representative for the type level
---   symbol.  This is the only way to generate values
---   of `SymbolRepr`.
+-- | Generate a symbol representative at runtime.  The type-level
+--   symbol will be abstract, as it is hidden by the 'Some' constructor.
+someSymbol :: Text.Text -> Some SymbolRepr
+someSymbol nm = Some (SymbolRepr nm)
+
+-- | Generate a value representative for the type level symbol.
 knownSymbol :: GHC.KnownSymbol s => SymbolRepr s
 knownSymbol = go Proxy
   where go :: GHC.KnownSymbol s => Proxy s -> SymbolRepr s
