@@ -56,7 +56,8 @@ library
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
     Data.Parameterized.Utils.BinTree
-  ghc-options: -O2 -Wall -threaded -Werror
+
+  ghc-options: -O2 -Wall -Werror
   ghc-prof-options: -O2 -fprof-auto-top
 
   if flag(unsafe-operations)
