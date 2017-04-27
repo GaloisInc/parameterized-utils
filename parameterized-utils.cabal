@@ -23,6 +23,7 @@ flag unsafe-operations
 library
   build-depends:
     base >= 4.7,
+    th-abstraction >=0.1 && <0.2,
     containers,
     deepseq,
     ghc-prim,
