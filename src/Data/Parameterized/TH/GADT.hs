@@ -86,7 +86,12 @@ matchTypePat _ AnyType _ = return True
 matchTypePat tps (DataArg i) tp
   | i < 0 || i > length tps = error $ "Illegal type pattern index " ++ show i
   | otherwise = do
-    return $ tps !! i == tp
+    return $ stripSigT (tps !! i) == tp
+  where
+    -- th-abstraction can annotate type parameters with their kinds,
+    -- we ignore these for matching
+    stripSigT (SigT t _) = t
+    stripSigT t          = t
 matchTypePat _ (ConType tpq) tp = do
   tp' <- tpq
   return (tp' == tp)
