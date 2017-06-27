@@ -139,8 +139,7 @@ instance OrdF (Nonce s) where
 instance HashableF (Nonce s) where
   hashWithSaltF s (Nonce x) = hashWithSalt s x
 
-instance ShowF (Nonce s) where
-  showF = show
+instance ShowF (Nonce s)
 
 ------------------------------------------------------------------------
 -- GlobalNonceGenerator

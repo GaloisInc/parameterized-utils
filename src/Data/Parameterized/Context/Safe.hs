@@ -308,8 +308,7 @@ intIndex n sz = listToMaybe $ drop n $ indexList sz
 instance Show (Index ctx tp) where
    show = show . indexVal
 
-instance ShowF (Index ctx) where
-   showF = show
+instance ShowF (Index ctx)
 
 ------------------------------------------------------------------------
 -- Assignment
@@ -472,11 +471,10 @@ instance HashableF f => Hashable (Assignment f ctx) where
   hashWithSalt s AssignmentEmpty = s
   hashWithSalt s (AssignmentExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
 
-instance ShowF f => ShowF (Assignment f) where
-  showF a = "[" ++ intercalate ", " (toList showF a) ++ "]"
-
 instance ShowF f => Show (Assignment f ctx) where
-  show a = showF a
+  show a = "[" ++ intercalate ", " (toList showF a) ++ "]"
+
+instance ShowF f => ShowF (Assignment f)
 
 instance FunctorFC Assignment where
   fmapFC = fmapFCDefault

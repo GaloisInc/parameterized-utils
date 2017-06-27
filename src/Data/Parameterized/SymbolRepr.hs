@@ -96,7 +96,7 @@ instance HashableF SymbolRepr where
 instance Hashable (SymbolRepr nm) where
   hashWithSalt s (SymbolRepr nm) = hashWithSalt s nm
 
-instance ShowF SymbolRepr where
-  showF = show
 instance Show (SymbolRepr nm) where
   show (SymbolRepr nm) = Text.unpack nm
+
+instance ShowF SymbolRepr

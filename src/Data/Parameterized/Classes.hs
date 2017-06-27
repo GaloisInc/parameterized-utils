@@ -11,11 +11,13 @@
 ------------------------------------------------------------------------
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 #if MIN_VERSION_base(4,9,0)
 {-# LANGUAGE Safe #-}
@@ -43,6 +45,7 @@ module Data.Parameterized.Classes
   ) where
 
 import Data.Maybe (isJust)
+import Data.Proxy
 import Data.Type.Equality as Equality
 
 -- | An instance of CoerceableF gives a way to coerce between
@@ -133,14 +136,21 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
       GTF -> True
 
 -- | A parameterized type that can be shown on all instances.
-class ShowF f where
-  {-# MINIMAL showF | showsF #-}
+--
+-- To implement `ShowF g`, one should implement an instance `Show (g tp)` for all
+-- argument types `tp`, then write an empty instance  `instance ShowF g`.
+class ShowF (f :: k -> *) where
+  -- | Provides a show instance for each type.
+  withShow :: p f -> q tp -> (Show (f tp) => a) -> a
 
-  showF :: f tp -> String
-  showF f = showsF f ""
+  default withShow :: Show (f tp) => p f -> q tp -> (Show (f tp) => a) -> a
+  withShow _ _ x = x
 
-  showsF :: f tp -> String -> String
-  showsF f s = showF f ++ s
+  showF :: forall tp . f tp -> String
+  showF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (show x)
+
+  showsF :: forall tp . f tp -> String -> String
+  showsF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (shows x)
 
 -- | A default salt used in the implementation of 'hash'.
 defaultSalt :: Int

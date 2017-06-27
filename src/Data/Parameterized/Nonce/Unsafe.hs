@@ -88,8 +88,8 @@ instance OrdF Nonce where
 
 instance HashableF Nonce where
   hashWithSaltF s (Nonce x) = hashWithSalt s x
-instance ShowF Nonce where
-  showF = show
+
+instance ShowF Nonce
 
 {-# INLINE freshNonce #-}
 -- | Get a fresh index and increment the counter.

@@ -275,8 +275,7 @@ intIndex i n | 0 <= i && i < sizeInt n = Just (Some (Index i))
 instance Show (Index ctx tp) where
    show = show . indexVal
 
-instance ShowF (Index ctx) where
-   showF = show
+instance ShowF (Index ctx)
 
 ------------------------------------------------------------------------
 -- IndexRange
@@ -396,9 +395,11 @@ traverse_bal = go
         go f (BalPair x y) = BalPair <$> go f x <*> go f y
 {-# INLINABLE traverse_bal #-}
 
-instance ShowF f => ShowF (BalancedTree h f) where
-  showF (BalLeaf x) = showF x
-  showF (BalPair x y) = "BalPair " Prelude.++ showF x Prelude.++ " " Prelude.++ showF y
+instance ShowF f => Show (BalancedTree h f tp) where
+  show (BalLeaf x) = showF x
+  show (BalPair x y) = "BalPair " Prelude.++ show x Prelude.++ " " Prelude.++ show y
+
+instance ShowF f => ShowF (BalancedTree h f)
 
 unsafe_bal_generate :: forall ctx h f t
                      . Int -- ^ Height of tree to generate
@@ -809,11 +810,10 @@ instance HashableF f => HashableF (Assignment f) where
 instance HashableF f => Hashable (Assignment f ctx) where
   hashWithSalt s (Assignment a) = hashWithSaltF s a
 
-instance ShowF f => ShowF (Assignment f) where
-  showF a = "[" Prelude.++ intercalate ", " (toListFC showF a) Prelude.++ "]"
-
 instance ShowF f => Show (Assignment f ctx) where
-  show = showF
+  show a = "[" Prelude.++ intercalate ", " (toListFC showF a) Prelude.++ "]"
+
+instance ShowF f => ShowF (Assignment f)
 
 -- | Modify the value of an assignment at a particular index.
 adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
