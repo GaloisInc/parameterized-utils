@@ -67,6 +67,7 @@ import Data.Maybe ()
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
+import Data.Parameterized.Pair ( Pair(..) )
 import Data.Parameterized.TraversableF
 import Data.Parameterized.Utils.BinTree
   ( MaybeS(..)
@@ -91,18 +92,9 @@ import Prelude hiding (lookup, map, null)
 ------------------------------------------------------------------------
 -- Pair
 
-data Pair k a where
-  Pair :: !(k tp) -> !(a tp) -> Pair k a
-
 comparePairKeys :: OrdF k => Pair k a -> Pair k a -> Ordering
 comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
 {-# INLINABLE comparePairKeys #-}
-
-instance (TestEquality k, EqF a) => Eq (Pair k a) where
-  Pair xk xv == Pair yk yv =
-    case testEquality xk yk of
-      Just Refl -> eqF xv yv
-      Nothing -> False
 
 ------------------------------------------------------------------------
 -- MapF
