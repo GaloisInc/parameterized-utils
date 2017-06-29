@@ -30,6 +30,8 @@ module Data.Parameterized.Map
     -- * Query
   , null
   , lookup
+  , member
+  , notMember
   , size
     -- * Conversion
   , elems
@@ -213,6 +215,24 @@ lookup k0 = seq k0 (go k0)
         GTF -> go k r
         EQF -> Just x
 {-# INLINABLE lookup #-}
+
+-- | Return true if key is bound in map.
+member :: OrdF k => k tp -> MapF k a -> Bool
+member k0 = seq k0 (go k0)
+  where
+    go :: OrdF k => k tp -> MapF k a -> Bool
+    go _ Tip = False
+    go k (Bin _ kx _ l r) =
+      case compareF k kx of
+        LTF -> go k l
+        GTF -> go k r
+        EQF -> True
+{-# INLINABLE member #-}
+
+-- | Return true if key is not bound in map.
+notMember :: OrdF k => k tp -> MapF k a -> Bool
+notMember k m = not $ member k m
+{-# INLINABLE notMember #-}
 
 instance FunctorF (MapF ktp) where
   fmapF = map
