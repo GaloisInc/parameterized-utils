@@ -29,10 +29,12 @@ instance TestEquality Payload where
   testEquality (BoolPayload x) (BoolPayload y) = if x == y then Just Refl else Nothing
   testEquality _ _ = Nothing
 
-instance ShowF Payload where
-  showF (IntPayload x) = show x
-  showF (StringPayload x) = show x
-  showF (BoolPayload x) = show x
+instance Show (Payload tp) where
+  show (IntPayload x) = show x
+  show (StringPayload x) = show x
+  show (BoolPayload x) = show x
+
+instance ShowF Payload
 
 instance Arbitrary (Some Payload) where
   arbitrary = oneof
@@ -41,7 +43,7 @@ instance Arbitrary (Some Payload) where
     , Some . BoolPayload <$> arbitrary
     ]
 
-type UAsgn = U.Assignment Payload 
+type UAsgn = U.Assignment Payload
 type SAsgn = S.Assignment Payload
 
 mkUAsgn :: [Some Payload] -> Some UAsgn
