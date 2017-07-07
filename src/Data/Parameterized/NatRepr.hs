@@ -68,12 +68,14 @@ module Data.Parameterized.NatRepr
   , leqTrans
   , leqAdd2
   , leqSub2
+  , leqMulCongr
     -- * LeqProof combinators
   , leqProof
   , withLeqProof
   , isPosNat
   , leqAdd
   , leqSub
+  , leqMulPos
   , addIsLeq
   , withAddLeq
   , addPrefixIsLeq
@@ -378,6 +380,21 @@ withLeqProof p a =
 -- | Test whether natural number is positive.
 isPosNat :: NatRepr n -> Maybe (LeqProof 1 n)
 isPosNat = testLeq (knownNat :: NatRepr 1)
+
+-- | Congruence rule for multiplication
+leqMulCongr :: LeqProof a x
+            -> LeqProof b y
+            -> LeqProof (a*b) (x*y)
+leqMulCongr LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 1 1)
+{-# NOINLINE leqMulCongr #-}
+
+-- | Multiplying two positive numbers results in a positive number.
+leqMulPos :: forall p q x y
+          .  (1 <= x, 1 <= y)
+          => p x
+          -> q y
+          -> LeqProof 1 (x*y)
+leqMulPos _ _ = leqMulCongr (LeqProof :: LeqProof 1 x) (LeqProof :: LeqProof 1 y)
 
 -- | Produce proof that adding a value to the larger element in an LeqProof
 -- is larger
