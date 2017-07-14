@@ -34,6 +34,7 @@ module Data.Parameterized.Map
   , notMember
   , size
     -- * Conversion
+  , keys
   , elems
   , fromList
   , toList
@@ -240,7 +241,11 @@ instance TraversableF (MapF ktp) where
 instance (ShowF ktp, ShowF rtp) => Show (MapF ktp rtp) where
   show m = showMap showF showF m
 
--- | Return elements in the tree sorted by key.
+-- | Return all keys of the map in ascending order.
+keys :: MapF k a -> [Some k]
+keys = foldrWithKey (\k _ l -> Some k : l) []
+
+-- | Return all elements of the map in the ascending order of their keys.
 elems :: MapF k a -> [Some a]
 elems = foldrF (\e l -> Some e : l) []
 
