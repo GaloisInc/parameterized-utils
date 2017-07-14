@@ -6,7 +6,7 @@
 --
 -- This module declares classes for working with types with the kind
 -- @k -> *@ for any kind @k@.  These are generalizations of the
--- @Data.Functor.Classes@ types as they work with any kind @k@, and are
+-- "Data.Functor.Classes" types as they work with any kind @k@, and are
 -- not restricted to '*'.
 ------------------------------------------------------------------------
 {-# LANGUAGE ConstraintKinds #-}
@@ -48,9 +48,9 @@ import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
 
--- | An instance of CoerceableF gives a way to coerce between
+-- | An instance of 'CoerceableF' gives a way to coerce between
 --   all the types of a family.  We generally use this to witness
---   the fact that the type parameter to rtp is a phantom type
+--   the fact that the type parameter to @rtp@ is a phantom type
 --   by giving an implementation in terms of Data.Coerce.coerce.
 class CoerceableF (rtp :: k -> *) where
   coerceF :: rtp a -> rtp b
@@ -58,15 +58,15 @@ class CoerceableF (rtp :: k -> *) where
 -- | @EqF@ provides a method @eqF@ for testing whether two parameterized
 -- types are equal.
 --
--- Unlike @testEquality@, this only works when the type arguments are the
--- same, and does not provide a proof that the types has
--- the same type when they are equal, and thus this can be implemented
--- over parameterized types that are unable to provide the evidence they
--- are equal.
+-- Unlike 'TestEquality', this only works when the type arguments are
+-- the same, and does not provide a proof that the types have the same
+-- type when they are equal. Thus this can be implemented over
+-- parameterized types that are unable to provide evidence that their
+-- type arguments are equal.
 class EqF (f :: k -> *) where
   eqF :: f a -> f a -> Bool
 
--- | A polymorphic equality operator that generalizes TestEquality.
+-- | A polymorphic equality operator that generalizes 'TestEquality'.
 class PolyEq u v where
   polyEqF :: u -> v -> Maybe (u :~: v)
 
@@ -86,13 +86,13 @@ orderingF_refl o =
     EQF -> Just Refl
     GTF -> Nothing
 
--- | Convert orderingF to standard ordering
+-- | Convert 'OrderingF' to standard ordering.
 toOrdering :: OrderingF x y -> Ordering
 toOrdering LTF = LT
 toOrdering EQF = EQ
 toOrdering GTF = GT
 
--- | Convert standard ordering to OrderF
+-- | Convert standard ordering to 'OrderingF'.
 fromOrdering :: Ordering -> OrderingF x x
 fromOrdering LT = LTF
 fromOrdering EQ = EQF
@@ -137,8 +137,9 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
 
 -- | A parameterized type that can be shown on all instances.
 --
--- To implement `ShowF g`, one should implement an instance `Show (g tp)` for all
--- argument types `tp`, then write an empty instance  `instance ShowF g`.
+-- To implement @'ShowF' g@, one should implement an instance @'Show'
+-- (g tp)@ for all argument types @tp@, then write an empty instance
+-- @instance 'ShowF' g@.
 class ShowF (f :: k -> *) where
   -- | Provides a show instance for each type.
   withShow :: p f -> q tp -> (Show (f tp) => a) -> a
@@ -161,7 +162,7 @@ defaultSalt = 0x087fc72c
 #endif
 {-# INLINE defaultSalt #-}
 
--- | A parameterized type that is hashable on all instance.
+-- | A parameterized type that is hashable on all instances.
 class HashableF (f :: k -> *) where
   hashWithSaltF :: Int -> f tp -> Int
 
