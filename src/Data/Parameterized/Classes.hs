@@ -39,7 +39,7 @@ module Data.Parameterized.Classes
     -- * Typeclass generalizations
   , ShowF(..)
   , HashableF(..)
-  , CoerceableF(..)
+  , CoercibleF(..)
     -- * Re-exports
   , Data.Maybe.isJust
   ) where
@@ -48,11 +48,11 @@ import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
 
--- | An instance of 'CoerceableF' gives a way to coerce between
+-- | An instance of 'CoercibleF' gives a way to coerce between
 --   all the types of a family.  We generally use this to witness
 --   the fact that the type parameter to @rtp@ is a phantom type
 --   by giving an implementation in terms of Data.Coerce.coerce.
-class CoerceableF (rtp :: k -> *) where
+class CoercibleF (rtp :: k -> *) where
   coerceF :: rtp a -> rtp b
 
 -- | @EqF@ provides a method @eqF@ for testing whether two parameterized
