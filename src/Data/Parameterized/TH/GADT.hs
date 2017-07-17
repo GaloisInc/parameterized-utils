@@ -12,6 +12,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE EmptyCase #-}
 module Data.Parameterized.TH.GADT
   ( structuralEquality
   , structuralTypeEquality
@@ -164,37 +165,48 @@ matchEqArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 mkSimpleEqF :: [Type] -- ^ Data declaration types
             -> Set Name
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
-             -> Name
-             -> [Type]
-             -> MatchQ
-mkSimpleEqF dTypes bnd pats nm a = do
+             -> ConstructorInfo
+             -> [Name]
+             -> ExpQ
+             -> Bool -- ^ wildcard case required
+             -> ExpQ
+mkSimpleEqF dTypes bnd pats con xv yQ multipleCases = do
   -- Get argument types for constructor.
-  xv <- newNames "x" (length a)
-  yv <- newNames "y" (length a)
-  let xp = ConP nm (VarP <$> xv)
-  let yp = ConP nm (VarP <$> yv)
-  let rv = matchEqArguments dTypes pats nm bnd a xv yv
-  match (pure (TupP [xp, yp])) (normalB rv) []
+  let nm = constructorName con
+  (yp,yv) <- conPat con "y"
+  let rv = matchEqArguments dTypes pats nm bnd (constructorFields con) xv yv
+  caseE yQ $ match (pure yp) (normalB rv) []
+           : [ match wildP (normalB [| Nothing |]) [] | multipleCases ]
 
 -- | Match equational form.
 mkEqF :: DatatypeInfo -- ^ Data declaration.
       -> [(TypePat,ExpQ)]
       -> ConstructorInfo
-      -> [MatchQ]
+      -> [Name]
+      -> ExpQ
+      -> Bool -- ^ wildcard case required
+      -> ExpQ
 mkEqF d pats con =
   let dVars = datatypeVars d
       bnd | null dVars = Set.empty
           | otherwise  = typeVars (init dVars)
-  in [mkSimpleEqF dVars bnd pats (constructorName con) (constructorFields con)]
+  in mkSimpleEqF dVars bnd pats con
 
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> Maybe (x :~: y)
 structuralTypeEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralTypeEquality tpq pats = do
   d <- reifyDatatype =<< asTypeCon "structuralTypeEquality" =<< tpq
-  let trueEqs = concatMap (mkEqF d pats) (datatypeCons d)
-      baseEq  = match [p| (_, _)|] (normalB [| Nothing |]) []
-  [| \x y -> $(caseE [| (x, y) |] (trueEqs ++ [baseEq])) |]
+
+  let multipleCons = not (null (drop 1 (datatypeCons d)))
+      trueEqs yQ = [ do (xp,xv) <- conPat con "x"
+                        match (pure xp) (normalB (mkEqF d pats con xv yQ multipleCons)) []
+                   | con <- datatypeCons d
+                   ]
+
+  if null (datatypeCons d)
+    then [| \x _ -> case x of {} |]
+    else [| \x y -> $(caseE [| x |] (trueEqs [| y |])) |]
 
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> OrderingF x y
@@ -211,10 +223,16 @@ structuralTypeOrd ::
 structuralTypeOrd tpq l = do
   d <- reifyDatatype =<< asTypeCon "structuralTypeEquality" =<< tpq
 
-  [| \x y ->
-       let yn :: Int
-           yn = $(caseE [| y |] (constructorNumberMatches (datatypeCons d)))
-       in $(caseE [| x |] (outerOrdMatches d [| yn |])) |]
+  let withNumber :: ExpQ -> (Maybe ExpQ -> ExpQ) -> ExpQ
+      withNumber yQ k
+        | null (drop 1 (datatypeCons d)) = k Nothing
+        | otherwise =  [| let yn :: Int
+                              yn = $(caseE yQ (constructorNumberMatches (datatypeCons d)))
+                          in $(k (Just [| yn |])) |]
+
+  if null (datatypeCons d)
+    then [| \x _ -> case x of {} |]
+    else [| \x y -> $(withNumber [| y |] $ \mbYn -> caseE [| x |] (outerOrdMatches d mbYn)) |]
   where
     constructorNumberMatches :: [ConstructorInfo] -> [MatchQ]
     constructorNumberMatches cons =
@@ -223,11 +241,11 @@ structuralTypeOrd tpq l = do
               []
       | (i,con) <- zip [0..] cons ]
 
-    outerOrdMatches :: DatatypeInfo -> ExpQ -> [MatchQ]
-    outerOrdMatches d yn =
+    outerOrdMatches :: DatatypeInfo -> Maybe ExpQ -> [MatchQ]
+    outerOrdMatches d mbYn =
       [ do (pat,xv) <- conPat con "x"
            match (pure pat)
-                 (normalB (do xs <- mkOrdF d l con i yn xv
+                 (normalB (do xs <- mkOrdF d l con i mbYn xv
                               caseE [| y |] xs))
                  []
       | (i,con) <- zip [0..] (datatypeCons d) ]
@@ -298,23 +316,24 @@ mkSimpleOrdF :: [Type] -- ^ Data declaration types
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
              -> ConstructorInfo -- ^ Information about the second constructor
              -> Integer -- ^ First constructor's index
-             -> ExpQ    -- ^ Second constructors index
+             -> Maybe ExpQ -- ^ Optional second constructor's index
              -> [Name]  -- ^ Name from first pattern
              -> Q [MatchQ]
-mkSimpleOrdF dTypes pats con xnum ynumQ xv = do
+mkSimpleOrdF dTypes pats con xnum mbYn xv = do
   (yp,yv) <- conPat con "y"
-  rv <- matchOrdArguments dTypes pats (constructorName con) Set.empty (constructorFields con) xv yv
+  let rv = matchOrdArguments dTypes pats (constructorName con) Set.empty (constructorFields con) xv yv
   -- Return match expression
-  return [ pure $ Match yp (NormalB rv) []
-         , match wildP (normalB [| if xnum < $ynumQ then LTF else GTF |]) []
-         ]
+  return $ match (pure yp) (normalB rv) []
+         : case mbYn of
+             Nothing -> []
+             Just yn -> [match wildP (normalB [| if xnum < $yn then LTF else GTF |]) []]
 
 -- | Match equational form.
 mkOrdF :: DatatypeInfo -- ^ Data declaration.
        -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
        -> ConstructorInfo
        -> Integer
-       -> ExpQ
+       -> Maybe ExpQ -- ^ optional right constructr index
        -> [Name]
        -> Q [MatchQ]
 mkOrdF d pats = mkSimpleOrdF (datatypeVars d) pats
