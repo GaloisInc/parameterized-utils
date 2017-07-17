@@ -57,7 +57,7 @@ conPat ::
   String          {- ^ generated name prefix   -} ->
   Q (Pat, [Name]) {- ^ pattern and bound names -}
 conPat con pre = do
-  nms <- replicateM (length (constructorFields con)) (newName pre)
+  nms <- newNames pre (length (constructorFields con))
   return (ConP (constructorName con) (VarP <$> nms), nms)
 
 
@@ -169,8 +169,8 @@ mkSimpleEqF :: [Type] -- ^ Data declaration types
              -> MatchQ
 mkSimpleEqF dTypes bnd pats nm a = do
   -- Get argument types for constructor.
-  xv <- replicateM (length a) $ newName "x"
-  yv <- replicateM (length a) $ newName "y"
+  xv <- newNames "x" (length a)
+  yv <- newNames "y" (length a)
   let xp = ConP nm (VarP <$> xv)
   let yp = ConP nm (VarP <$> yv)
   let rv = matchEqArguments dTypes pats nm bnd a xv yv
@@ -198,18 +198,48 @@ structuralTypeEquality tpq pats = do
 
 -- | @structuralTypeEquality f@ returns a function with the type:
 --   forall x y . f x -> f y -> OrderingF x y
-structuralTypeOrd :: TypeQ
-                  -> [(TypePat,ExpQ)] -- ^ List of type patterns to match.
-                  -> ExpQ
+--
+-- This implementation avoids matching on both the first and second
+-- parameters in a simple case expression in order to avoid stressing
+-- GHC's coverage checker. In the case that the first and second parameters
+-- have unique constructors, a simple numeric comparison is done to
+-- compute the result.
+structuralTypeOrd ::
+  TypeQ ->
+  [(TypePat,ExpQ)] {- ^ List of type patterns to match. -} ->
+  ExpQ
 structuralTypeOrd tpq l = do
   d <- reifyDatatype =<< asTypeCon "structuralTypeEquality" =<< tpq
-  matchEqs <- traverse (mkOrdF d l) (datatypeCons d)
-  case reverse matchEqs of
-    [] -> do
-      [| \_ _ -> EQF |]
-    [t,_,_] : r -> do
-      [| \x y -> $(caseE [| (x, y) |] (concat (reverse ([t]:r)))) |]
-    _ -> error "Bad return value from structuralTypeOrd"
+
+  [| \x y ->
+       let yn :: Int
+           yn = $(caseE [| y |] (constructorNumberMatches (datatypeCons d)))
+       in $(caseE [| x |] (outerOrdMatches d [| yn |])) |]
+  where
+    constructorNumberMatches :: [ConstructorInfo] -> [MatchQ]
+    constructorNumberMatches cons =
+      [ match (recP (constructorName con) [])
+              (normalB (litE (integerL i)))
+              []
+      | (i,con) <- zip [0..] cons ]
+
+    outerOrdMatches :: DatatypeInfo -> ExpQ -> [MatchQ]
+    outerOrdMatches d yn =
+      [ do (pat,xv) <- conPat con "x"
+           match (pure pat)
+                 (normalB (do xs <- mkOrdF d l con i yn xv
+                              caseE [| y |] xs))
+                 []
+      | (i,con) <- zip [0..] (datatypeCons d) ]
+
+-- | Generate a list of fresh names using the base name
+-- numbered 1 to n to make them useful in conjunction with
+-- @-dsuppress-unqiues@.
+newNames ::
+  String   {- ^ base name                     -} ->
+  Int      {- ^ quantity                      -} ->
+  Q [Name] {- ^ list of names: base1, base2.. -}
+newNames base n = traverse (\i -> newName (base ++ show i)) [1..n]
 
 
 joinCompareF :: ExpQ -> Name -> Name -> ExpQ -> ExpQ
@@ -266,30 +296,28 @@ matchOrdArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 
 mkSimpleOrdF :: [Type] -- ^ Data declaration types
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
-             -> Name
-             -> [Type]
+             -> ConstructorInfo -- ^ Information about the second constructor
+             -> Integer -- ^ First constructor's index
+             -> ExpQ    -- ^ Second constructors index
+             -> [Name]  -- ^ Name from first pattern
              -> Q [MatchQ]
-mkSimpleOrdF dTypes pats nm a = do
-  xv <- replicateM (length a) $ newName "x"
-  yv <- replicateM (length a) $ newName "y"
-  let xp = ConP nm (VarP <$> xv)
-  let yp = ConP nm (VarP <$> yv)
-  rv <- matchOrdArguments dTypes pats nm Set.empty a xv yv
-  ltf <- [| LTF |]
-  gtf <- [| GTF |]
+mkSimpleOrdF dTypes pats con xnum ynumQ xv = do
+  (yp,yv) <- conPat con "y"
+  rv <- matchOrdArguments dTypes pats (constructorName con) Set.empty (constructorFields con) xv yv
   -- Return match expression
-  let anyPat = ConP nm (replicate (length a) WildP)
-  return [ pure $ Match (TupP [xp, yp]) (NormalB rv) []
-         , pure $ Match (TupP [anyPat, WildP]) (NormalB ltf) []
-         , pure $ Match (TupP [WildP, anyPat]) (NormalB gtf) []
+  return [ pure $ Match yp (NormalB rv) []
+         , match wildP (normalB [| if xnum < $ynumQ then LTF else GTF |]) []
          ]
 
 -- | Match equational form.
 mkOrdF :: DatatypeInfo -- ^ Data declaration.
        -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
        -> ConstructorInfo
+       -> Integer
+       -> ExpQ
+       -> [Name]
        -> Q [MatchQ]
-mkOrdF d pats con = mkSimpleOrdF (datatypeVars d) pats (constructorName con) (constructorFields con)
+mkOrdF d pats = mkSimpleOrdF (datatypeVars d) pats
 
 -- | Find the first recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
 recurseArg :: (Type -> Q (Maybe ExpQ))
@@ -384,7 +412,7 @@ structuralShowsPrec tpq = do
 
 showCon :: ExpQ -> Name -> Int -> MatchQ
 showCon p nm n = do
-  vars <- replicateM n $ newName "x"
+  vars <- newNames "x" n
   let pat = ConP nm (VarP <$> vars)
   let go s e = [| $(s) . showChar ' ' . showsPrec 10 $(varE e) |]
   let ctor = [| showString $(return (LitE (StringL (nameBase nm)))) |]
