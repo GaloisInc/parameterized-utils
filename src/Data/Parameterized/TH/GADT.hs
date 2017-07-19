@@ -205,7 +205,7 @@ structuralTypeEquality tpq pats = do
                    ]
 
   if null (datatypeCons d)
-    then [| \x _ -> case x of {} |]
+    then [| \x -> case x of {} |]
     else [| \x y -> $(caseE [| x |] (trueEqs [| y |])) |]
 
 -- | @structuralTypeEquality f@ returns a function with the type:
@@ -231,7 +231,7 @@ structuralTypeOrd tpq l = do
                           in $(k (Just [| yn |])) |]
 
   if null (datatypeCons d)
-    then [| \x _ -> case x of {} |]
+    then [| \x -> case x of {} |]
     else [| \x y -> $(withNumber [| y |] $ \mbYn -> caseE [| x |] (outerOrdMatches d mbYn)) |]
   where
     constructorNumberMatches :: [ConstructorInfo] -> [MatchQ]

@@ -3,7 +3,6 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -183,7 +182,7 @@ class KnownDiff (l :: Ctx k) (r :: Ctx k) where
 instance KnownDiff l l where
   knownDiff = noDiff
 
-instance KnownDiff l r => KnownDiff l (r '::> tp) where
+instance {-# INCOHERENT #-} KnownDiff l r => KnownDiff l (r '::> tp) where
   knownDiff = extendRight knownDiff
 
 ------------------------------------------------------------------------
