@@ -10,6 +10,7 @@
 -- hashtable abstraction.  This should be typesafe provided the
 -- 'TestEquality' instance on the key type is implemented soundly.
 ------------------------------------------------------------------------
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE Trustworthy #-}
@@ -30,7 +31,11 @@ module Data.Parameterized.HashTable
 import Control.Applicative
 import Control.Monad.ST
 import qualified Data.HashTable.ST.Cuckoo as H
+#if __GLASGOW_HASKELL__ >= 802
+import GHC.Types (Any)
+#else
 import GHC.Prim (Any)
+#endif
 import Unsafe.Coerce
 
 import Prelude hiding (lookup)
