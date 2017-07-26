@@ -32,6 +32,7 @@ module Data.Parameterized.NatRepr
   ( NatRepr
   , natValue
   , knownNat
+  , withKnownNat
   , IsZeroNat(..)
   , isZeroNat
   , NatComparison(..)
@@ -175,6 +176,14 @@ knownNat = go Proxy
   where go :: KnownNat n => Proxy n -> NatRepr n
         go p = assert (v <= maxInt) (NatRepr (fromInteger v))
           where v = natVal p
+
+withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
+withKnownNat (NatRepr nVal) v =
+  case someNatVal nVal of
+    Just (SomeNat (_ :: Proxy n')) ->
+      case unsafeCoerce (Refl :: 0 :~: 0) :: n :~: n' of
+        Refl -> v
+    Nothing -> undefined
 
 data IsZeroNat n where
   ZeroNat    :: IsZeroNat 0
