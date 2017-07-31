@@ -180,7 +180,7 @@ knownNat = go Proxy
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =
   case someNatVal nVal of
-    Just (SomeNat (_ :: Proxy n')) ->
+    Just (SomeNat (Proxy :: Proxy n')) ->
       case unsafeCoerce (Refl :: 0 :~: 0) :: n :~: n' of
         Refl -> v
     Nothing -> error "withKnownNat: inner value in NatRepr is not a natural"
