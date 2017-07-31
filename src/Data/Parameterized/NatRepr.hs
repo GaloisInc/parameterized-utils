@@ -183,7 +183,7 @@ withKnownNat (NatRepr nVal) v =
     Just (SomeNat (_ :: Proxy n')) ->
       case unsafeCoerce (Refl :: 0 :~: 0) :: n :~: n' of
         Refl -> v
-    Nothing -> undefined
+    Nothing -> error "withKnownNat: inner value in NatRepr is not a natural"
 
 data IsZeroNat n where
   ZeroNat    :: IsZeroNat 0
