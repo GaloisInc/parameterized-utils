@@ -27,6 +27,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -529,6 +530,15 @@ traverseWithIndex :: Applicative m
                   -> m (Assignment g ctx)
 traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
 
+------------------------------------------------------------------------
+-- KnownRepr instances
+
+instance (KnownRepr (Assignment f) ctx, KnownRepr f bt)
+      => KnownRepr (Assignment f) (ctx ::> bt) where
+  knownRepr = knownRepr %> knownRepr
+
+instance KnownRepr (Assignment f) EmptyCtx where
+  knownRepr = empty
 
 --------------------------------------------------------------------------------------
 -- lookups and update for lenses

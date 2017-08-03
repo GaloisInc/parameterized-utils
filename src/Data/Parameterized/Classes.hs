@@ -40,6 +40,8 @@ module Data.Parameterized.Classes
   , ShowF(..)
   , HashableF(..)
   , CoercibleF(..)
+    -- * KnownRepr
+  , KnownRepr(..)
     -- * Re-exports
   , Data.Maybe.isJust
   ) where
@@ -169,3 +171,10 @@ class HashableF (f :: k -> *) where
   -- | Hash with default salt.
   hashF :: f tp -> Int
   hashF = hashWithSaltF defaultSalt
+
+-- | This class is parameterized by a kind @k@ (typically a data
+-- kind), a type constructor @f@ of kind @k -> *@ (typically a GADT of
+-- singleton types indexed by @k@), and an index parameter @ctx@ of
+-- kind @k@.
+class KnownRepr (f :: k -> *) (ctx :: k) where
+  knownRepr :: f ctx

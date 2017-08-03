@@ -908,6 +908,16 @@ appendBin x (PlusZero _ y) = x `appendBin` y
 x ++ Assignment y = x `appendBin` y
 
 ------------------------------------------------------------------------
+-- KnownRepr instances
+
+instance (KnownRepr (Assignment f) ctx, KnownRepr f bt)
+      => KnownRepr (Assignment f) (ctx ::> bt) where
+  knownRepr = knownRepr %> knownRepr
+
+instance KnownRepr (Assignment f) EmptyCtx where
+  knownRepr = empty
+
+------------------------------------------------------------------------
 -- Lens combinators
 
 unsafeLens :: Int -> Lens.Lens (Assignment f ctx) (Assignment f ctx') (f tp) (f u)

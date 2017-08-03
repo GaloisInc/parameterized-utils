@@ -16,6 +16,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
@@ -98,7 +99,6 @@ module Data.Parameterized.NatRepr
   , Data.Parameterized.Some.Some
   ) where
 
-import Control.Exception (assert)
 import Data.Bits ((.&.))
 import Data.Hashable
 import Data.Proxy as Proxy
@@ -171,11 +171,11 @@ instance HashableF NatRepr where
   hashWithSaltF = hashWithSalt
 
 -- | This generates a NatRepr from a type-level context.
-knownNat :: KnownNat n => NatRepr n
-knownNat = go Proxy
-  where go :: KnownNat n => Proxy n -> NatRepr n
-        go p = assert (v <= maxInt) (NatRepr (fromInteger v))
-          where v = natVal p
+knownNat :: forall n . KnownNat n => NatRepr n
+knownNat = NatRepr (natVal (Proxy :: Proxy n))
+
+instance (KnownNat n) => KnownRepr NatRepr n where
+  knownRepr = knownNat
 
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =

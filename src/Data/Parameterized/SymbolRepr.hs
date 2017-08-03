@@ -14,6 +14,7 @@ correspondingly has very few functions that manipulate them.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
@@ -72,6 +73,9 @@ knownSymbol = go Proxy
            | Text.unpack txt == str = txt
            | otherwise = error $ "Unrepresentable symbol! "++ str
          where txt = Text.pack str
+
+instance (GHC.KnownSymbol s) => KnownRepr SymbolRepr s where
+  knownRepr = knownSymbol
 
 instance TestEquality SymbolRepr where
    testEquality (SymbolRepr x :: SymbolRepr x) (SymbolRepr y)
