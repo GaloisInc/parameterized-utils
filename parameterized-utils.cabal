@@ -75,6 +75,7 @@ test-suite parameterizedTests
   main-is:UnitTest.hs
   other-modules:
     Test.Context
+    Test.NatRepr
 
   build-depends:
     base,
