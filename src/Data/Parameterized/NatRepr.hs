@@ -170,11 +170,11 @@ instance HashableF NatRepr where
   hashWithSaltF = hashWithSalt
 
 -- | This generates a NatRepr from a type-level context.
-knownNat :: KnownNat n => NatRepr n
-knownNat = go Proxy
-  where go :: KnownNat n => Proxy n -> NatRepr n
-        go p = assert (v <= maxInt) (NatRepr (fromInteger v))
-          where v = natVal p
+knownNat :: forall n . KnownNat n => NatRepr n
+knownNat = NatRepr (natVal (Proxy :: Proxy n))
+
+instance (KnownNat n) => KnownRepr NatRepr n where
+  knownRepr = knownNat
 
 data IsZeroNat n where
   ZeroNat    :: IsZeroNat 0
