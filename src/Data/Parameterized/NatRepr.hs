@@ -16,6 +16,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
@@ -97,7 +98,6 @@ module Data.Parameterized.NatRepr
   , Data.Parameterized.Some.Some
   ) where
 
-import Control.Exception (assert)
 import Data.Bits ((.&.))
 import Data.Hashable
 import Data.Proxy as Proxy
