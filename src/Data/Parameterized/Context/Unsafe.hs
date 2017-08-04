@@ -94,6 +94,7 @@ import qualified Prelude
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Ctx
+import           Data.Parameterized.Ctx.Proofs
 import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
 
@@ -322,12 +323,6 @@ data BalancedTree h (f :: k -> *) (p :: Ctx k) where
           -> !(BalancedTree h f y)
           -> BalancedTree ('Succ h) f (x <+> y)
 
-{-
-_bal_height :: BalancedTree h f p -> Int
-_bal_height (BalLeaf _) = 0
-_bal_height (BalPair x _) = 1 + _bal_height x
--}
-
 bal_size :: BalancedTree h f p -> Int
 bal_size (BalLeaf _) = 1
 bal_size (BalPair x y) = bal_size x + bal_size y
@@ -345,24 +340,16 @@ instance TestEquality f => TestEquality (BalancedTree h f) where
 #endif
 
 instance OrdF f => OrdF (BalancedTree h f) where
-  compareF (BalLeaf x) (BalLeaf y) = do
-    case compareF x y of
-      LTF -> LTF
-      GTF -> GTF
-      EQF -> EQF
+  compareF (BalLeaf x) (BalLeaf y) =
+    lexCompareF x y $ EQF
 #if !MIN_VERSION_base(4,9,0)
   compareF BalLeaf{} _ = LTF
   compareF _ BalLeaf{} = GTF
 #endif
-  compareF (BalPair x1 x2) (BalPair y1 y2) = do
-    case compareF x1 y1 of
-      LTF -> LTF
-      GTF -> GTF
-      EQF ->
-        case compareF x2 y2 of
-          LTF -> LTF
-          GTF -> GTF
-          EQF -> EQF
+  compareF (BalPair x1 x2) (BalPair y1 y2) =
+    lexCompareF x1 y1 $
+    lexCompareF x2 y2 $
+    EQF
 
 instance HashableF f => HashableF (BalancedTree h f) where
   hashWithSaltF s t =
@@ -370,9 +357,9 @@ instance HashableF f => HashableF (BalancedTree h f) where
       BalLeaf x -> s `hashWithSaltF` x
       BalPair x y -> s `hashWithSaltF` x `hashWithSaltF` y
 
-fmap_bal ::(forall tp . f tp -> g tp)
-             -> BalancedTree h f c
-             -> BalancedTree h g c
+fmap_bal :: (forall tp . f tp -> g tp)
+         -> BalancedTree h f c
+         -> BalancedTree h g c
 fmap_bal = go
   where go :: (forall tp . f tp -> g tp)
               -> BalancedTree h f c
@@ -500,19 +487,22 @@ append :: BinomialTree h f x
        -> BalancedTree h f y
        -> BinomialTree h f (x <+> y)
 append Empty y = PlusOne 0 Empty y
-append (PlusOne _ t x) y = unsafeCoerce $ PlusZero (tsize t') t'
-  where t' = append t (BalPair x y)
+append (PlusOne _ t x) y =
+  case assoc t x y of
+    Refl ->
+      let t' = append t (BalPair x y)
+       in PlusZero (tsize t') t'
 append (PlusZero s t) x = PlusOne s t x
 
 instance TestEquality f => TestEquality (BinomialTree h f) where
   testEquality Empty Empty = return Refl
   testEquality (PlusZero _ x1) (PlusZero _ y1) = do
     Refl <- testEquality x1 y1
-    return (unsafeCoerce Refl)
+    return Refl
   testEquality (PlusOne _ x1 x2) (PlusOne _ y1 y2) = do
     Refl <- testEquality x1 y1
     Refl <- testEquality x2 y2
-    return (unsafeCoerce Refl)
+    return Refl
   testEquality _ _ = Nothing
 
 instance OrdF f => OrdF (BinomialTree h f) where
@@ -520,23 +510,14 @@ instance OrdF f => OrdF (BinomialTree h f) where
   compareF Empty _ = LTF
   compareF _ Empty = GTF
 
-  compareF (PlusZero _ x1) (PlusZero _ y1) = do
-    case compareF x1 y1 of
-      LTF -> LTF
-      GTF -> GTF
-      EQF -> unsafeCoerce EQF
+  compareF (PlusZero _ x1) (PlusZero _ y1) = lexCompareF x1 y1 $ EQF
   compareF PlusZero{} _ = LTF
   compareF _ PlusZero{} = GTF
 
-  compareF (PlusOne _ x1 x2) (PlusOne _ y1 y2) = do
-    case compareF x1 y1 of
-      LTF -> LTF
-      GTF -> GTF
-      EQF ->
-        case compareF x2 y2 of
-          LTF -> LTF
-          GTF -> GTF
-          EQF -> unsafeCoerce EQF
+  compareF (PlusOne _ x1 x2) (PlusOne _ y1 y2) =
+    lexCompareF x1 y1 $
+    lexCompareF x2 y2 $
+    EQF
 
 instance HashableF f => HashableF (BinomialTree h f) where
   hashWithSaltF s t =
@@ -635,13 +616,13 @@ bal_drop t (BalPair x y) =
 bin_drop :: forall h f ctx
           . BinomialTree h f ctx
          -> DropResult f ctx
-bin_drop Empty = unsafeCoerce DropEmpty
-bin_drop (PlusZero _ u) = unsafeCoerce (bin_drop u)
+bin_drop Empty = DropEmpty
+bin_drop (PlusZero _ u) = bin_drop u
 bin_drop (PlusOne s t u) =
   let m = case t of
-            Empty -> unsafeCoerce Empty
+            Empty -> Empty
             _ -> PlusZero s t
-   in unsafeCoerce (bal_drop m u)
+   in bal_drop m u
 
 ------------------------------------------------------------------------
 -- Indexing
@@ -786,14 +767,10 @@ instance TestEquality f => Eq (Assignment f ctx) where
 instance TestEquality f => TestEquality (Assignment f) where
    testEquality (Assignment x) (Assignment y) = do
      Refl <- testEquality x y
-     return (unsafeCoerce Refl)
+     return Refl
 
 instance OrdF f => OrdF (Assignment f) where
-  compareF (Assignment x) (Assignment y) = do
-    case compareF x y of
-      LTF -> LTF
-      GTF -> GTF
-      EQF -> unsafeCoerce EQF
+  compareF (Assignment x) (Assignment y) = lexCompareF x y $ EQF
 
 instance OrdF f => Ord (Assignment f ctx) where
   compare x y = toOrdering (compareF x y)
@@ -837,7 +814,7 @@ data AssignView f ctx where
 view :: forall f ctx . Assignment f ctx -> AssignView f ctx
 view (Assignment x) =
   case bin_drop x of
-    DropEmpty -> unsafeCoerce $ AssignEmpty
+    DropEmpty -> AssignEmpty
     DropExt t v -> unsafeCoerce $ AssignExtend (Assignment (unsafeCoerce t)) v
 
 -- | Return assignment with all but the last block.
@@ -897,11 +874,15 @@ fromList = go empty
 
 appendBal :: Assignment f x -> BalancedTree h f y -> Assignment f (x <+> y)
 appendBal x (BalLeaf a) = x %> a
-appendBal x (BalPair y z) = unsafeCoerce (x `appendBal` y `appendBal` z)
+appendBal x (BalPair y z) =
+  case assoc x y z of
+    Refl -> x `appendBal` y `appendBal` z
 
 appendBin :: Assignment f x -> BinomialTree h f y -> Assignment f (x <+> y)
 appendBin x Empty = x
-appendBin x (PlusOne _ y z) = unsafeCoerce (x `appendBin` y `appendBal` z)
+appendBin x (PlusOne _ y z) =
+  case assoc x y z of
+    Refl -> x `appendBin` y `appendBal` z
 appendBin x (PlusZero _ y) = x `appendBin` y
 
 (++) :: Assignment f x -> Assignment f y -> Assignment f (x <+> y)

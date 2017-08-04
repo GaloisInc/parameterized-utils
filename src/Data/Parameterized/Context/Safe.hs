@@ -244,11 +244,7 @@ instance OrdF (Index ctx) where
   compareF (IndexHere _) (IndexHere _) = EQF
   compareF (IndexThere _) (IndexHere _) = LTF
   compareF (IndexHere _) (IndexThere _) = GTF
-  compareF (IndexThere idx1) (IndexThere idx2) =
-     case compareF idx1 idx2 of
-        EQF -> EQF
-        LTF -> LTF
-        GTF -> GTF
+  compareF (IndexThere idx1) (IndexThere idx2) = lexCompareF idx1 idx2 $ EQF
 
 -- | Index for first element in context.
 base :: Index ('EmptyCtx '::> tp) tp
@@ -257,10 +253,6 @@ base = IndexHere SizeZero
 -- | Increase context while staying at same index.
 skip :: Index ctx x -> Index (ctx '::> y) x
 skip idx = IndexThere idx
-
-_indexSize :: Index ctx tp -> Size ctx
-_indexSize (IndexHere sz) = SizeSucc sz
-_indexSize (IndexThere idx) = SizeSucc (_indexSize idx)
 
 -- | Return the index of an element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp

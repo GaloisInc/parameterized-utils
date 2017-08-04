@@ -32,7 +32,9 @@ module Data.Parameterized.Classes
   , PolyEq(..)
     -- * Ordering generalization
   , OrdF(..)
+  , lexCompareF
   , OrderingF(..)
+  , joinOrderingF
   , orderingF_refl
   , toOrdering
   , fromOrdering
@@ -50,12 +52,18 @@ import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
 
+------------------------------------------------------------------------
+-- CoercibleF
+
 -- | An instance of 'CoercibleF' gives a way to coerce between
 --   all the types of a family.  We generally use this to witness
 --   the fact that the type parameter to @rtp@ is a phantom type
 --   by giving an implementation in terms of Data.Coerce.coerce.
 class CoercibleF (rtp :: k -> *) where
   coerceF :: rtp a -> rtp b
+
+------------------------------------------------------------------------
+-- EqF
 
 -- | @EqF@ provides a method @eqF@ for testing whether two parameterized
 -- types are equal.
@@ -68,12 +76,18 @@ class CoercibleF (rtp :: k -> *) where
 class EqF (f :: k -> *) where
   eqF :: f a -> f a -> Bool
 
+------------------------------------------------------------------------
+-- PolyEq
+
 -- | A polymorphic equality operator that generalizes 'TestEquality'.
 class PolyEq u v where
   polyEqF :: u -> v -> Maybe (u :~: v)
 
   polyEq :: u -> v -> Bool
   polyEq x y = isJust (polyEqF x y)
+
+------------------------------------------------------------------------
+-- Ordering
 
 -- | Ordering over two distinct types with a proof they are equal.
 data OrderingF x y where
@@ -99,6 +113,19 @@ fromOrdering :: Ordering -> OrderingF x x
 fromOrdering LT = LTF
 fromOrdering EQ = EQF
 fromOrdering GT = GTF
+
+-- | `joinOrderingF x y` first compares on x, returning an equivalent
+-- value if it is not `EQF`.  If it is EQF, it returns `y`.
+joinOrderingF :: forall (a :: j) (b :: j) (c :: k) (d :: k)
+              .  OrderingF a b
+              -> (a ~ b => OrderingF c d)
+              -> OrderingF c d
+joinOrderingF EQF y = y
+joinOrderingF LTF _ = LTF
+joinOrderingF GTF _ = GTF
+
+------------------------------------------------------------------------
+-- OrdF
 
 -- | A parameterized type that can be compared on distinct instances.
 class TestEquality ktp => OrdF (ktp :: k -> *) where
@@ -137,6 +164,19 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
       EQF -> False
       GTF -> True
 
+-- | Compare two values, and if they are equal compare the next values,
+-- otherwise return LTF or GTF
+lexCompareF :: forall (f :: j -> *) (a :: j) (b :: j) (c :: k) (d :: k)
+             .  OrdF f
+            => f a
+            -> f b
+            -> (a ~ b => OrderingF c d)
+            -> OrderingF c d
+lexCompareF x y = joinOrderingF (compareF x y)
+
+------------------------------------------------------------------------
+-- ShowF
+
 -- | A parameterized type that can be shown on all instances.
 --
 -- To implement @'ShowF' g@, one should implement an instance @'Show'
@@ -155,6 +195,9 @@ class ShowF (f :: k -> *) where
   showsF :: forall tp . f tp -> String -> String
   showsF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (shows x)
 
+------------------------------------------------------------------------
+-- HashableF
+
 -- | A default salt used in the implementation of 'hash'.
 defaultSalt :: Int
 #if WORD_SIZE_IN_BITS == 64
@@ -171,6 +214,9 @@ class HashableF (f :: k -> *) where
   -- | Hash with default salt.
   hashF :: f tp -> Int
   hashF = hashWithSaltF defaultSalt
+
+------------------------------------------------------------------------
+-- KnownRepr
 
 -- | This class is parameterized by a kind @k@ (typically a data
 -- kind), a type constructor @f@ of kind @k -> *@ (typically a GADT of
