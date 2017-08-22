@@ -62,6 +62,7 @@ module Data.Parameterized.Context.Unsafe
   , extend
   , update
   , adjust
+  , adjustM
   , init
   , last
   , AssignView(..)
@@ -429,16 +430,25 @@ unsafe_bal_index (BalPair x y) j i
   | otherwise         = unsafe_bal_index x j $! (i-1)
 
 -- | Update value at index in tree.
-unsafe_bal_adjust :: (f x -> f y)
+unsafe_bal_adjust :: Functor m
+                  => (f x -> m (f y))
                   -> BalancedTree h f a -- ^ Tree to update
                   -> Int -- ^ Index to lookup.
                   -> Int  -- ^ Height of tree
-                  -> BalancedTree h f b
+                  -> m (BalancedTree h f b)
 unsafe_bal_adjust f (BalLeaf u) _ i = assert (i == 0) $
-  unsafeCoerce (BalLeaf (f (unsafeCoerce u)))
+  (unsafeCoerce . BalLeaf <$> (f (unsafeCoerce u)))
 unsafe_bal_adjust f (BalPair x y) j i
-  | j `testBit` (i-1) = unsafeCoerce $ BalPair x (unsafe_bal_adjust f y j (i-1))
-  | otherwise         = unsafeCoerce $ BalPair (unsafe_bal_adjust f x j (i-1)) y
+  | j `testBit` (i-1) = (unsafeCoerce . BalPair x      <$> (unsafe_bal_adjust f y j (i-1)))
+  | otherwise         = (unsafeCoerce . flip BalPair y <$> (unsafe_bal_adjust f x j (i-1)))
+
+{-# SPECIALIZE unsafe_bal_adjust
+     :: (f x -> Identity (f y))
+     -> BalancedTree h f a
+     -> Int
+     -> Int
+     -> Identity (BalancedTree h f b)
+  #-}
 
 -- | Zip two balanced trees together.
 bal_zipWithM :: Applicative m
@@ -643,22 +653,31 @@ unsafe_bin_index (PlusZero sz t) j i
   | otherwise = unsafe_bin_index t j $! (1+i)
 
 -- | Lookup value in tree.
-unsafe_bin_adjust :: forall h f x y a b
-                   . (f x -> f y)
+unsafe_bin_adjust :: forall m h f x y a b
+                   . Functor m
+                  => (f x -> m (f y))
                   -> BinomialTree h f a -- ^ Tree to lookup in.
                   -> Int
                   -> Int -- ^ Size of tree
-                  -> BinomialTree h f b
+                  -> m (BinomialTree h f b)
 unsafe_bin_adjust _ Empty _ _ = error "unsafe_bin_adjust reached end of list"
 unsafe_bin_adjust f (PlusOne sz t u) j i
   | sz == j `shiftR` (1+i) =
-    unsafeCoerce $ PlusOne sz t (unsafe_bal_adjust f u j i)
+    unsafeCoerce . PlusOne sz t        <$> (unsafe_bal_adjust f u j i)
   | otherwise =
-    unsafeCoerce $ PlusOne sz (unsafe_bin_adjust f t j (i+1)) u
+    unsafeCoerce . flip (PlusOne sz) u <$> (unsafe_bin_adjust f t j (i+1))
 unsafe_bin_adjust f (PlusZero sz t) j i
   | sz == j `shiftR` (1+i) = error "unsafe_bin_adjust stopped at PlusZero"
-  | otherwise = PlusZero sz (unsafe_bin_adjust f t j (i+1))
-{-# NOINLINE unsafe_bin_adjust #-}
+  | otherwise = PlusZero sz <$> (unsafe_bin_adjust f t j (i+1))
+
+
+{-# SPECIALIZE unsafe_bin_adjust
+     :: (f x -> Identity (f y))
+     -> BinomialTree h f a
+     -> Int
+     -> Int
+     -> Identity (BinomialTree h f b)
+  #-}
 
 tree_zipWithM :: Applicative m
              => (forall x . f x -> g x -> m (h x))
@@ -792,8 +811,13 @@ instance ShowF f => Show (Assignment f ctx) where
 instance ShowF f => ShowF (Assignment f)
 
 -- | Modify the value of an assignment at a particular index.
+adjustM :: Functor m => (f tp -> m (f tp)) -> Index ctx tp -> Assignment f ctx -> m (Assignment f ctx)
+adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
+{-# SPECIALIZE adjustM :: (f tp -> Identity (f tp)) -> Index ctx tp -> Assignment f ctx -> Identity (Assignment f ctx) #-}
+
+-- | Modify the value of an assignment at a particular index.
 adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
-adjust f (Index i) (Assignment a) = Assignment (unsafe_bin_adjust f a i 0)
+adjust f idx asgn = runIdentity (adjustM (Identity . f) idx asgn)
 
 -- | Update the assignment at a particular index.
 update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
@@ -801,7 +825,7 @@ update i v a = adjust (\_ -> v) i a
 
 -- This is an unsafe version of update that changes the type of the expression.
 unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
-unsafeUpdate i (Assignment a) e = Assignment (unsafe_bin_adjust (\_ -> e) a i 0)
+unsafeUpdate i (Assignment a) e = Assignment (runIdentity (unsafe_bin_adjust (\_ -> Identity e) a i 0))
 
 -- | View an assignment as either empty or an assignment with one appended.
 data AssignView f ctx where

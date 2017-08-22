@@ -79,6 +79,7 @@ module Data.Parameterized.Context.Safe
   , extend
   , update
   , adjust
+  , adjustM
   , init
   , AssignView(..)
   , view
@@ -379,16 +380,19 @@ update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
 update idx e asgn = adjust (\_ -> e) idx asgn
 
 adjust :: forall f ctx tp. (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
-adjust f = go (\x -> x)
+adjust f idx m = runIdentity (adjustM (Identity . f) idx m)
+
+adjustM :: forall m f ctx tp. Functor m => (f tp -> m (f tp)) -> Index ctx tp -> Assignment f ctx -> m (Assignment f ctx)
+adjustM f = go (\x -> x)
  where
-  go :: (forall tp'. g tp' -> f tp') -> Index ctx' tp -> Assignment g ctx' -> Assignment f ctx'
-  go g (IndexHere _)    (AssignmentExtend asgn x) = AssignmentExtend (map g asgn) (f (g x))
-  go g (IndexThere idx) (AssignmentExtend asgn x) = AssignmentExtend (go g idx asgn) (g x)
+  go :: (forall tp'. g tp' -> f tp') -> Index ctx' tp -> Assignment g ctx' -> m (Assignment f ctx')
+  go g (IndexHere _)     (AssignmentExtend asgn x) = AssignmentExtend (map g asgn) <$> f (g x)
+  go g (IndexThere idx)  (AssignmentExtend asgn x) = flip AssignmentExtend (g x)   <$> go g idx asgn
 #if !MIN_VERSION_base(4,9,0)
 -- GHC 7.10.3 and early does not recognize that the above definition is complete,
 -- and so need the equation below.  GHC 8.0.1 does not require the additional
 -- equation.
-  go _ _ _ = error "SafeTypeContext.adjust: impossible!"
+  go _ _ _ = error "SafeTypeContext.adjustM: impossible!"
 #endif
 
 
