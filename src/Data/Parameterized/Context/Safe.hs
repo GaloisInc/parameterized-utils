@@ -83,12 +83,12 @@ module Data.Parameterized.Context.Safe
   , init
   , AssignView(..)
   , view
+  , decompose
   , (!)
   , (!!)
   , toList
   , zipWith
   , zipWithM
-  , (%>)
   , traverseWithIndex
   ) where
 
@@ -322,6 +322,9 @@ view :: forall f ctx . Assignment f ctx -> AssignView f ctx
 view AssignmentEmpty = AssignEmpty
 view (AssignmentExtend asgn x) = AssignExtend asgn x
 
+decompose :: Assignment f (ctx ::> tp) -> (Assignment f ctx, f tp)
+decompose (AssignmentExtend a v) = (a,v)
+
 instance NFData (Assignment f ctx) where
   rnf AssignmentEmpty = ()
   rnf (AssignmentExtend asgn x) = rnf asgn `seq` x `seq` ()
@@ -517,9 +520,6 @@ zipWith :: (forall x . f x -> g x -> h x)
 zipWith f = \x y -> runIdentity $ zipWithM (\u v -> pure (f u v)) x y
 {-# INLINE zipWith #-}
 
-(%>) :: Assignment f x -> f tp -> Assignment f (x '::> tp)
-a %> v = extend a v
-
 traverseWithIndex :: Applicative m
                   => (forall tp . Index ctx tp -> f tp -> m (g tp))
                   -> Assignment f ctx
@@ -531,7 +531,7 @@ traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
 
 instance (KnownRepr (Assignment f) ctx, KnownRepr f bt)
       => KnownRepr (Assignment f) (ctx ::> bt) where
-  knownRepr = knownRepr %> knownRepr
+  knownRepr = knownRepr `extend` knownRepr
 
 instance KnownRepr (Assignment f) EmptyCtx where
   knownRepr = empty

@@ -67,12 +67,12 @@ module Data.Parameterized.Context.Unsafe
   , last
   , AssignView(..)
   , view
+  , decompose
   , fromList
   , (!)
   , (!!)
   , zipWith
   , zipWithM
-  , (%>)
   , (++)
   , traverseWithIndex
   ) where
@@ -718,7 +718,7 @@ generateSome :: forall f
 generateSome n f = go n
   where go :: Int -> Some (Assignment f)
         go 0 = Some empty
-        go i = (\(Some a) (Some e) -> Some (a %> e)) (go (i-1)) (f (i-1))
+        go i = (\(Some a) (Some e) -> Some (a `extend` e)) (go (i-1)) (f (i-1))
 
 -- | Generate an assignment with some context type that is not known.
 generateSomeM :: forall m f
@@ -729,7 +729,7 @@ generateSomeM :: forall m f
 generateSomeM n f = go n
   where go :: Int -> m (Some (Assignment f))
         go 0 = pure (Some empty)
-        go i = (\(Some a) (Some e) -> Some (a %> e)) <$> go (i-1) <*> f (i-1)
+        go i = (\(Some a) (Some e) -> Some (a `extend` e)) <$> go (i-1) <*> f (i-1)
 
 -- | @replicate n@ make a context with different copies of the same
 -- polymorphic value.
@@ -763,9 +763,6 @@ null (Assignment _) = False
 
 extend :: Assignment f ctx -> f x -> Assignment f (ctx ::> x)
 extend (Assignment x) y = Assignment $ append x (BalLeaf y)
-
-(%>) :: Assignment f x -> f tp -> Assignment f (x ::> tp)
-a %> v = extend a v
 
 -- | Unexported index that returns an arbitrary type of expression.
 unsafeIndex :: proxy u -> Int -> Assignment f ctx -> f u
@@ -853,6 +850,9 @@ last x =
   case view x of
     AssignExtend _ e -> e
 
+decompose :: Assignment f (ctx ::> tp) -> (Assignment f ctx, f tp)
+decompose x = case view x of AssignExtend a v -> (a,v)
+
 zipWith :: (forall x . f x -> g x -> h x)
         -> Assignment f a
         -> Assignment g a
@@ -891,13 +891,13 @@ fromList :: [Some f] -> Some (Assignment f)
 fromList = go empty
   where go :: Assignment f ctx -> [Some f] -> Some (Assignment f)
         go prev [] = Some prev
-        go prev (Some g:next) = (go $! prev %> g) next
+        go prev (Some g:next) = (go $! prev `extend` g) next
 
 ------------------------------------------------------------------------
 -- Appending
 
 appendBal :: Assignment f x -> BalancedTree h f y -> Assignment f (x <+> y)
-appendBal x (BalLeaf a) = x %> a
+appendBal x (BalLeaf a) = x `extend` a
 appendBal x (BalPair y z) =
   case assoc x y z of
     Refl -> x `appendBal` y `appendBal` z
@@ -917,7 +917,7 @@ x ++ Assignment y = x `appendBin` y
 
 instance (KnownRepr (Assignment f) ctx, KnownRepr f bt)
       => KnownRepr (Assignment f) (ctx ::> bt) where
-  knownRepr = knownRepr %> knownRepr
+  knownRepr = knownRepr `extend` knownRepr
 
 instance KnownRepr (Assignment f) EmptyCtx where
   knownRepr = empty

@@ -38,6 +38,9 @@ module Data.Parameterized.Context
 #endif
  , singleton
  , toVector
+ , (%>)
+ , pattern (:>)
+ , pattern Empty
    -- * Context extension and embedding utilities
  , CtxEmbedding(..)
  , ExtendContext(..)
@@ -64,8 +67,11 @@ module Data.Parameterized.Context
  , CurryAssignmentClass(..)
  ) where
 
-import Control.Lens hiding (Index, view)
+import Prelude hiding (null)
+
 import GHC.TypeLits (Nat, type (-))
+
+import Control.Lens hiding (Index, view, (:>), Empty)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 
@@ -80,7 +86,7 @@ import Data.Parameterized.TraversableFC
 
 -- | Create a single element context.
 singleton :: f tp -> Assignment f (EmptyCtx ::> tp)
-singleton = (empty %>)
+singleton = (empty :>)
 
 -- | Convert the assignment to a vector.
 toVector :: Assignment f tps -> (forall tp . f tp -> e) -> V.Vector e
@@ -164,6 +170,28 @@ extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (c
     updated :: CtxEmbedding ctx (ctx' ::> tp)
     updated = extendEmbeddingRight ctxe
 
+-- | Extend an assignment on the right
+(%>) :: Assignment f x -> f tp -> Assignment f (x ::> tp)
+(%>) = extend
+
+-- | Pattern synonym for the empty assignment
+pattern Empty :: Assignment f EmptyCtx
+pattern Empty <- (null -> True)
+  where
+  Empty = empty
+
+infixl :>
+
+-- | Pattern synonym for extending an assignment on the right
+pattern (:>) :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
+pattern (:>) a v <- (decompose -> (a,v))
+  where
+  a :> v = extend a v
+
+-- GHC < 8.2 doesn't have the COMPLETE pragma yet...
+-- {-# COMPLETE (:>) -}
+-- {-# COMPLETE Empty -}
+
 --------------------------------------------------------------------------------
 -- Static indexing based on type-level naturals
 
@@ -246,7 +274,7 @@ instance CurryAssignmentClass EmptyCtx where
   uncurryAssignment k _ = k
 
 instance CurryAssignmentClass ctx => CurryAssignmentClass (ctx ::> a) where
-  curryAssignment k = curryAssignment (\asgn a -> k (asgn %> a))
+  curryAssignment k = curryAssignment (\asgn a -> k (asgn :> a))
   uncurryAssignment k asgn =
     case view asgn of
       AssignExtend asgn' x -> uncurryAssignment k asgn' x
