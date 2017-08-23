@@ -12,16 +12,23 @@
 -- between curried and uncurried versions of functions over contexts.
 ------------------------------------------------------------------------
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE ViewPatterns #-}
 module Data.Parameterized.Context
  (
 #ifdef UNSAFE_OPS
@@ -44,12 +51,21 @@ module Data.Parameterized.Context
  , ctxeSize
  , ctxeAssignment
 
+   -- * Static indexing and lenses for assignments
+ , Idx
+ , getCtx
+ , setCtx
+ , field
+ , natIndex
+ , natIndexProxy
+
    -- * Currying and uncurrying for assignments
  , CurryAssignment
  , CurryAssignmentClass(..)
  ) where
 
 import Control.Lens hiding (Index, view)
+import GHC.TypeLits (Nat, type (-))
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 
@@ -74,10 +90,6 @@ toVector a f = V.create $ do
     MV.write vm (indexVal i) (f (a ! i))
   return vm
 {-# INLINABLE toVector #-}
-
-
-
-
 
 --------------------------------------------------------------------------------
 -- | Context embedding.
@@ -151,6 +163,56 @@ extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (c
   where
     updated :: CtxEmbedding ctx (ctx' ::> tp)
     updated = extendEmbeddingRight ctxe
+
+--------------------------------------------------------------------------------
+-- Static indexing based on type-level naturals
+
+-- | Get an element from an 'Assignment' by zero-based, left-to-right position.
+-- The position must be specified using @TypeApplications@ for the @n@ parameter.
+getCtx :: forall n ctx f r. Idx n ctx r => Assignment f ctx -> f r
+getCtx asgn = asgn ! natIndex @n
+
+setCtx :: forall n ctx f r. Idx n ctx r => f r -> Assignment f ctx -> Assignment f ctx
+setCtx = update (natIndex @n)
+
+-- | Get a lens for an position in an 'Assignment' by zero-based, left-to-right position.
+-- The position must be specified using @TypeApplications@ for the @n@ parameter.
+field :: forall n ctx f r. Idx n ctx r => Lens' (Assignment f ctx) (f r)
+field f = adjustM f (natIndex @n)
+
+-- | Constraint synonym used for getting an 'Index' into a 'Ctx'.
+-- @n@ is the zero-based, left-counted index into the list of types
+-- @ctx@ which has the type @r@.
+type Idx n ctx r = (ValidIx n ctx, Idx' (FromLeft ctx n) ctx r)
+
+-- | Compute an 'Index' value for a particular position in a 'Ctx'. The
+-- @TypeApplications@ extension will be needed to disambiguate the choice
+-- of the type @n@.
+natIndex :: forall n ctx r. Idx n ctx r => Index ctx r
+natIndex = natIndex' @_ @(FromLeft ctx n)
+
+-- | This version of 'natIndex' is suitable for use without the @TypeApplications@
+-- extension.
+natIndexProxy :: forall n ctx r proxy. Idx n ctx r => proxy n -> Index ctx r
+natIndexProxy _ = natIndex @n
+
+------------------------------------------------------------------------
+-- Implementation
+------------------------------------------------------------------------
+
+-- | Class for computing 'Index' values for positions in a 'Ctx'.
+class KnownContext ctx => Idx' (n :: Nat) (ctx :: Ctx k) (r :: k) | n ctx -> r where
+  natIndex' :: Index ctx r
+
+-- | Base-case
+instance KnownContext xs => Idx' 0 (xs '::> x) x where
+  natIndex' = lastIndex knownSize
+
+-- | Inductive-step
+instance {-# Overlaps #-} (KnownContext xs, Idx' (n-1) xs r) =>
+  Idx' n (xs '::> x) r where
+
+  natIndex' = skip (natIndex' @_ @(n-1))
 
 
 --------------------------------------------------------------------------------
