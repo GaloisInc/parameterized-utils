@@ -85,7 +85,7 @@ anyF p = getAny #. foldMapF (Any #. p)
 ------------------------------------------------------------------------
 -- TraversableF
 
-class FoldableF t => TraversableF t where
+class (FunctorF t, FoldableF t) => TraversableF t where
   traverseF :: Applicative m
             => (forall s . e s -> m (f s))
             -> t e
