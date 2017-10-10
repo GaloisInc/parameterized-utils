@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
@@ -811,6 +812,15 @@ instance ShowF f => ShowF (Assignment f)
 adjustM :: Functor m => (f tp -> m (f tp)) -> Index ctx tp -> Assignment f ctx -> m (Assignment f ctx)
 adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
 {-# SPECIALIZE adjustM :: (f tp -> Identity (f tp)) -> Index ctx tp -> Assignment f ctx -> Identity (Assignment f ctx) #-}
+
+type instance IndexF       (Assignment f ctx) = Index ctx
+type instance IxValueF     (Assignment f ctx) = f
+type instance IxConstraint (Assignment f ctx) = Functor
+
+instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
+  ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
+  ixF idx f = adjustM f idx
+
 
 -- | Modify the value of an assignment at a particular index.
 adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx

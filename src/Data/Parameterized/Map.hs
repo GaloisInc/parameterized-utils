@@ -7,8 +7,10 @@ parameterized by an arbitrary kind.
 Some code was adapted from containers.
 -}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternGuards #-}
@@ -18,6 +20,7 @@ Some code was adapted from containers.
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeFamilies #-}
 module Data.Parameterized.Map
   ( MapF
     -- * Construction
@@ -62,6 +65,7 @@ module Data.Parameterized.Map
   ) where
 
 import Control.Applicative hiding (empty)
+import Control.Lens (Traversal', Lens')
 import Control.Monad.Identity
 import Data.List (intercalate, foldl')
 import Data.Maybe ()
@@ -195,6 +199,22 @@ traverseWithKey_
   -> m ()
 traverseWithKey_ _ Tip = pure ()
 traverseWithKey_ f (Bin _ kx x l r) = f kx x *> traverseWithKey_ f l *> traverseWithKey_ f r
+
+
+type instance IndexF   (MapF k v) = k
+type instance IxValueF (MapF k v) = v
+type instance IxConstraint (MapF k v) = Applicative
+
+-- | Turn a map key into a traversal that visits the indicated element in the map, if it exists.
+instance forall (k:: a -> *) v. OrdF k => IxedF a (MapF k v) where
+  ixF :: k x -> Traversal' (MapF k v) (v x)
+  ixF i f m = updatedValue <$> updateAtKey i (pure Nothing) (\x -> Set <$> f x) m
+
+-- | Turn a map key into a lens that points into the indicated position in the map.
+instance forall (k:: a -> *) v. OrdF k => AtF a (MapF k v) where
+  atF :: k x -> Lens' (MapF k v) (Maybe (v x))
+  atF i f m = updatedValue <$> updateAtKey i (f Nothing) (\x -> maybe Delete Set <$> f (Just x)) m
+
 
 -- | Lookup value in map.
 lookup :: OrdF k => k tp -> MapF k a -> Maybe (a tp)

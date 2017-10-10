@@ -29,6 +29,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE IncoherentInstances #-}
@@ -397,6 +398,14 @@ adjustM f = go (\x -> x)
 -- equation.
   go _ _ _ = error "SafeTypeContext.adjustM: impossible!"
 #endif
+
+type instance IndexF   (Assignment (f :: k -> *) ctx) = Index ctx
+type instance IxValueF (Assignment (f :: k -> *) ctx) = f
+type instance IxConstraint (Assignment (f :: k -> *) ctx) = Functor
+
+instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
+  ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
+  ixF idx f = adjustM f idx
 
 
 -- | Return assignment with all but the last block.

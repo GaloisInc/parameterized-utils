@@ -12,12 +12,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 #if MIN_VERSION_base(4,9,0)
 {-# LANGUAGE Safe #-}
@@ -42,13 +44,21 @@ module Data.Parameterized.Classes
   , ShowF(..)
   , HashableF(..)
   , CoercibleF(..)
+    -- * Optics generalizations
+  , IndexF
+  , IxValueF
+  , IxConstraint
+  , IxedF(..)
+  , AtF(..)
     -- * KnownRepr
   , KnownRepr(..)
     -- * Re-exports
   , Data.Maybe.isJust
   ) where
 
+import Control.Lens (Lens', LensLike') --, Traversal')
 import Data.Maybe (isJust)
+import Data.Kind
 import Data.Proxy
 import Data.Type.Equality as Equality
 
@@ -194,6 +204,31 @@ class ShowF (f :: k -> *) where
 
   showsF :: forall tp . f tp -> String -> String
   showsF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (shows x)
+
+------------------------------------------------------------------------
+-- IxedF
+
+type family IndexF       (m :: *) :: k -> *
+type family IxValueF     (m :: *) :: k -> *
+type family IxConstraint (m :: *) :: (* -> *) -> Constraint
+
+-- | Parameterized generalization of the lens @Ixed@ class.
+class IxedF k m where
+  -- | Given an index into a container, build a traversal that visits
+  --   the given element in the container, if it exists.
+  ixF :: forall (x :: k) f. IxConstraint m f => IndexF m x -> LensLike' f m (IxValueF m x)
+
+------------------------------------------------------------------------
+-- AtF
+
+-- | Parameterized generalization of the lens @At@ class.
+class IxedF k m => AtF k m where
+  -- | Given an index into a container, build a lens that points into
+  --   the given position in the container, whether or not it currently
+  --   exists.  Setting values of @atF@ to a @Just@ value will insert
+  --   the value if it does not already exist.
+  atF :: forall (x :: k). IndexF m x -> Lens' m (Maybe (IxValueF m x))
+
 
 ------------------------------------------------------------------------
 -- HashableF

@@ -19,6 +19,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -82,7 +83,6 @@ import Data.Parameterized.Context.Safe
 #endif
 
 import Data.Parameterized.TraversableFC
-
 
 -- | Create a single element context.
 singleton :: f tp -> Assignment f (EmptyCtx ::> tp)
