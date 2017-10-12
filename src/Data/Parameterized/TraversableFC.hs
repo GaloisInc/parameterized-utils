@@ -10,8 +10,11 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.TraversableFC
-  ( FunctorFC(..)
+  ( TestEqualityFC(..)
+  , OrdFC(..)
+  , FunctorFC(..)
   , FoldableFC(..)
   , TraversableFC(..)
   , traverseFC_
@@ -27,10 +30,21 @@ import Control.Monad.Identity ( Identity (..) )
 import Data.Coerce
 import Data.Monoid
 import GHC.Exts (build)
+import Data.Type.Equality
+
+import Data.Parameterized.Classes
 
 -- | A parameterized type that is a function on all instances.
 class FunctorFC m where
   fmapFC :: (forall x . f x -> g x) -> m f tp -> m g tp
+
+class TestEqualityFC (t :: (k -> *) -> l -> *) where
+  testEqualityFC :: forall f. (forall x y. f x -> f y -> (Maybe (x :~: y))) ->
+                    forall x y. t f x -> t f y -> (Maybe (x :~: y))
+
+class TestEqualityFC t => OrdFC (t :: (k -> *) -> l -> *) where
+  compareFC :: forall f. (forall x y. f x -> f y -> OrderingF x y) ->
+               forall x y. t f x -> t f y -> OrderingF x y
 
 ------------------------------------------------------------------------
 -- FoldableF

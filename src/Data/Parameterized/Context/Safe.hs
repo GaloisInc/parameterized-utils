@@ -428,44 +428,48 @@ a !! i = a ! extendIndex i
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
 
-testEq :: TestEquality f => Assignment f cxt1 -> Assignment f cxt2 -> Maybe (cxt1 :~: cxt2)
-testEq AssignmentEmpty AssignmentEmpty = Just Refl
-testEq (AssignmentExtend ctx1 x1) (AssignmentExtend ctx2 x2) =
-     case testEq ctx1 ctx2 of
+testEq :: (forall x y. f x -> f y -> Maybe (x :~: y))
+       -> Assignment f cxt1 -> Assignment f cxt2 -> Maybe (cxt1 :~: cxt2)
+testEq _ AssignmentEmpty AssignmentEmpty = Just Refl
+testEq test (AssignmentExtend ctx1 x1) (AssignmentExtend ctx2 x2) =
+     case testEq test ctx1 ctx2 of
        Nothing -> Nothing
        Just Refl ->
-          case testEquality x1 x2 of
+          case test x1 x2 of
              Nothing -> Nothing
              Just Refl -> Just Refl
-testEq AssignmentEmpty (AssignmentExtend _ctx2 _x2) = Nothing
-testEq (AssignmentExtend _ctx1 _x1) AssignmentEmpty = Nothing
+testEq _ AssignmentEmpty AssignmentExtend{} = Nothing
+testEq _ AssignmentExtend{} AssignmentEmpty = Nothing
 
-
+instance TestEqualityFC Assignment where
+   testEqualityFC = testEq
 instance TestEquality f => TestEquality (Assignment f) where
-   testEquality x y = testEq x y
-
+   testEquality x y = testEq testEquality x y
 instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
   polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
 
-compareAsgn :: OrdF f => Assignment f ctx1 -> Assignment f ctx2 -> OrderingF ctx1 ctx2
-compareAsgn AssignmentEmpty AssignmentEmpty = EQF
-compareAsgn AssignmentEmpty _ = GTF
-compareAsgn _ AssignmentEmpty = LTF
-compareAsgn (AssignmentExtend ctx1 x) (AssignmentExtend ctx2 y) =
-  case compareAsgn ctx1 ctx2 of
+compareAsgn :: (forall x y. f x -> f y -> OrderingF x y)
+            -> Assignment f ctx1 -> Assignment f ctx2 -> OrderingF ctx1 ctx2
+compareAsgn _ AssignmentEmpty AssignmentEmpty = EQF
+compareAsgn _ AssignmentEmpty _ = GTF
+compareAsgn _ _ AssignmentEmpty = LTF
+compareAsgn test (AssignmentExtend ctx1 x) (AssignmentExtend ctx2 y) =
+  case compareAsgn test ctx1 ctx2 of
     LTF -> LTF
     GTF -> GTF
-    EQF -> case compareF x y of
+    EQF -> case test x y of
               LTF -> LTF
               GTF -> GTF
               EQF -> EQF
 
+instance OrdFC Assignment where
+  compareFC = compareAsgn
+
 instance OrdF f => OrdF (Assignment f) where
-  compareF = compareAsgn
+  compareF = compareAsgn compareF
 
 instance OrdF f => Ord (Assignment f ctx) where
   compare x y = toOrdering (compareF x y)
-
 
 
 instance Hashable (Index ctx tp) where

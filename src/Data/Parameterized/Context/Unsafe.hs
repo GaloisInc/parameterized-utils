@@ -329,28 +329,29 @@ bal_size :: BalancedTree h f p -> Int
 bal_size (BalLeaf _) = 1
 bal_size (BalPair x y) = bal_size x + bal_size y
 
-instance TestEquality f => TestEquality (BalancedTree h f) where
-  testEquality (BalLeaf x) (BalLeaf y) = do
-    Refl <- testEquality x y
+
+instance TestEqualityFC (BalancedTree h) where
+  testEqualityFC test (BalLeaf x) (BalLeaf y) = do
+    Refl <- test x y
     return Refl
-  testEquality (BalPair x1 x2) (BalPair y1 y2) = do
-    Refl <- testEquality x1 y1
-    Refl <- testEquality x2 y2
+  testEqualityFC test (BalPair x1 x2) (BalPair y1 y2) = do
+    Refl <- testEqualityFC test x1 y1
+    Refl <- testEqualityFC test x2 y2
     return Refl
 #if !MIN_VERSION_base(4,9,0)
-  testEquality _ _ = Nothing
+  testEqualityFC _ _ _ = Nothing
 #endif
 
-instance OrdF f => OrdF (BalancedTree h f) where
-  compareF (BalLeaf x) (BalLeaf y) =
-    lexCompareF x y $ EQF
+instance OrdFC (BalancedTree h) where
+  compareFC test (BalLeaf x) (BalLeaf y) =
+    joinOrderingF (test x y) $ EQF
 #if !MIN_VERSION_base(4,9,0)
-  compareF BalLeaf{} _ = LTF
-  compareF _ BalLeaf{} = GTF
+  compareFC _ BalLeaf{} _ = LTF
+  compareFC _ _ BalLeaf{} = GTF
 #endif
-  compareF (BalPair x1 x2) (BalPair y1 y2) =
-    lexCompareF x1 y1 $
-    lexCompareF x2 y2 $
+  compareFC test (BalPair x1 x2) (BalPair y1 y2) =
+    joinOrderingF (compareFC test x1 y1) $
+    joinOrderingF (compareFC test x2 y2) $
     EQF
 
 instance HashableF f => HashableF (BalancedTree h f) where
@@ -505,29 +506,30 @@ append (PlusOne _ t x) y =
        in PlusZero (tsize t') t'
 append (PlusZero s t) x = PlusOne s t x
 
-instance TestEquality f => TestEquality (BinomialTree h f) where
-  testEquality Empty Empty = return Refl
-  testEquality (PlusZero _ x1) (PlusZero _ y1) = do
-    Refl <- testEquality x1 y1
+instance TestEqualityFC (BinomialTree h) where
+  testEqualityFC _ Empty Empty = return Refl
+  testEqualityFC test (PlusZero _ x1) (PlusZero _ y1) = do
+    Refl <- testEqualityFC test x1 y1
     return Refl
-  testEquality (PlusOne _ x1 x2) (PlusOne _ y1 y2) = do
-    Refl <- testEquality x1 y1
-    Refl <- testEquality x2 y2
+  testEqualityFC test (PlusOne _ x1 x2) (PlusOne _ y1 y2) = do
+    Refl <- testEqualityFC test x1 y1
+    Refl <- testEqualityFC test x2 y2
     return Refl
-  testEquality _ _ = Nothing
+  testEqualityFC _ _ _ = Nothing
 
-instance OrdF f => OrdF (BinomialTree h f) where
-  compareF Empty Empty = EQF
-  compareF Empty _ = LTF
-  compareF _ Empty = GTF
+instance OrdFC (BinomialTree h) where
+  compareFC _ Empty Empty = EQF
+  compareFC _ Empty _ = LTF
+  compareFC _ _ Empty = GTF
 
-  compareF (PlusZero _ x1) (PlusZero _ y1) = lexCompareF x1 y1 $ EQF
-  compareF PlusZero{} _ = LTF
-  compareF _ PlusZero{} = GTF
+  compareFC test (PlusZero _ x1) (PlusZero _ y1) =
+    joinOrderingF (compareFC test x1 y1) $ EQF
+  compareFC _ PlusZero{} _ = LTF
+  compareFC _ _ PlusZero{} = GTF
 
-  compareF (PlusOne _ x1 x2) (PlusOne _ y1 y2) =
-    lexCompareF x1 y1 $
-    lexCompareF x2 y2 $
+  compareFC test (PlusOne _ x1 x2) (PlusOne _ y1 y2) =
+    joinOrderingF (compareFC test x1 y1) $
+    joinOrderingF (compareFC test x2 y2) $
     EQF
 
 instance HashableF f => HashableF (BinomialTree h f) where
@@ -778,30 +780,38 @@ a ! Index i = assert (0 <= i && i < sizeInt (size a)) $
 (!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
 a !! i = a ! extendIndex i
 
+instance TestEqualityFC Assignment where
+   testEqualityFC test (Assignment x) (Assignment y) = do
+     Refl <- testEqualityFC test x y
+     return Refl
+
+instance TestEquality f => TestEquality (Assignment f) where
+  testEquality = testEqualityFC testEquality
+
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
 
-instance TestEquality f => TestEquality (Assignment f) where
-   testEquality (Assignment x) (Assignment y) = do
-     Refl <- testEquality x y
-     return Refl
+instance OrdFC Assignment where
+  compareFC test (Assignment x) (Assignment y) =
+     joinOrderingF (compareFC test x y) $ EQF
 
 instance OrdF f => OrdF (Assignment f) where
-  compareF (Assignment x) (Assignment y) = lexCompareF x y $ EQF
+  compareF = compareFC compareF
 
 instance OrdF f => Ord (Assignment f ctx) where
   compare x y = toOrdering (compareF x y)
 
-instance Hashable (Index ctx tp) where
-  hashWithSalt = hashWithSaltF
 instance HashableF (Index ctx) where
   hashWithSaltF s i = hashWithSalt s (indexVal i)
 
-instance HashableF f => HashableF (Assignment f) where
-  hashWithSaltF = hashWithSalt
+instance Hashable (Index ctx tp) where
+  hashWithSalt = hashWithSaltF
 
 instance HashableF f => Hashable (Assignment f ctx) where
   hashWithSalt s (Assignment a) = hashWithSaltF s a
+
+instance HashableF f => HashableF (Assignment f) where
+  hashWithSaltF = hashWithSalt
 
 instance ShowF f => Show (Assignment f ctx) where
   show a = "[" Prelude.++ intercalate ", " (toListFC showF a) Prelude.++ "]"
