@@ -14,6 +14,8 @@
 module Data.Parameterized.TraversableFC
   ( TestEqualityFC(..)
   , OrdFC(..)
+  , ShowFC(..)
+  , HashableFC(..)
   , FunctorFC(..)
   , FoldableFC(..)
   , TraversableFC(..)
@@ -36,15 +38,40 @@ import Data.Parameterized.Classes
 
 -- | A parameterized type that is a function on all instances.
 class FunctorFC m where
-  fmapFC :: (forall x . f x -> g x) -> m f tp -> m g tp
+  fmapFC :: forall f g. (forall x . f x -> g x) ->
+                        (forall x . m f x -> m g x)
 
+-- | A parameterized class for types which can be shown, when given
+--   functions to show parameterized subterms.
+class ShowFC (t :: (k -> *) -> l -> *) where
+  {-# MINIMAL showFC | showsPrecFC #-}
+
+  showFC :: forall f. (forall x. f x -> String) ->
+                      (forall x. t f x -> String)
+  showFC sh x = showsPrecFC (\_prec z rest -> sh z ++ rest) 0 x []
+
+  showsPrecFC :: forall f. (forall x. Int -> f x -> ShowS) ->
+                           (forall x. Int -> t f x -> ShowS)
+  showsPrecFC sh _prec x rest = showFC (\z -> sh 0 z []) x ++ rest
+
+
+-- | A parameterized class for types which can be hashed, when given
+--   functions to hash parameterized subterms.
+class HashableFC (t :: (k -> *) -> l -> *) where
+  hashWithSaltFC :: forall f. (forall x. Int -> f x -> Int) ->
+                              (forall x. Int -> t f x -> Int)
+
+-- | A parameterized class for types which can be tested for parameterized equality,
+--   when given an equality test for subterms.
 class TestEqualityFC (t :: (k -> *) -> l -> *) where
   testEqualityFC :: forall f. (forall x y. f x -> f y -> (Maybe (x :~: y))) ->
-                    forall x y. t f x -> t f y -> (Maybe (x :~: y))
+                              (forall x y. t f x -> t f y -> (Maybe (x :~: y)))
 
+-- | A parameterized class for types which can be tested for parameterized ordering,
+--   when given an comparison test for subterms.
 class TestEqualityFC t => OrdFC (t :: (k -> *) -> l -> *) where
   compareFC :: forall f. (forall x y. f x -> f y -> OrderingF x y) ->
-               forall x y. t f x -> t f y -> OrderingF x y
+                         (forall x y. t f x -> t f y -> OrderingF x y)
 
 ------------------------------------------------------------------------
 -- FoldableF
