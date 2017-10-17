@@ -9,7 +9,6 @@
 -- "Data.Functor.Classes" types as they work with any kind @k@, and are
 -- not restricted to '*'.
 ------------------------------------------------------------------------
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -47,8 +46,8 @@ module Data.Parameterized.Classes
     -- * Optics generalizations
   , IndexF
   , IxValueF
-  , IxConstraint
   , IxedF(..)
+  , IxedF'(..)
   , AtF(..)
     -- * KnownRepr
   , KnownRepr(..)
@@ -56,9 +55,8 @@ module Data.Parameterized.Classes
   , Data.Maybe.isJust
   ) where
 
-import Control.Lens (Lens', LensLike') --, Traversal')
+import Control.Lens (Lens', Traversal')
 import Data.Maybe (isJust)
-import Data.Kind
 import Data.Proxy
 import Data.Type.Equality as Equality
 
@@ -210,13 +208,19 @@ class ShowF (f :: k -> *) where
 
 type family IndexF       (m :: *) :: k -> *
 type family IxValueF     (m :: *) :: k -> *
-type family IxConstraint (m :: *) :: (* -> *) -> Constraint
 
 -- | Parameterized generalization of the lens @Ixed@ class.
 class IxedF k m where
   -- | Given an index into a container, build a traversal that visits
   --   the given element in the container, if it exists.
-  ixF :: forall (x :: k) f. IxConstraint m f => IndexF m x -> LensLike' f m (IxValueF m x)
+  ixF :: forall (x :: k). IndexF m x -> Traversal' m (IxValueF m x)
+
+-- | Parameterized generalization of the lens @Ixed@ class,
+--   but with the guarantee that indexes exist in the container.
+class IxedF k m => IxedF' k m where
+  -- | Given an index into a container, build a lens that
+  --   points into the given element in the container.
+  ixF' :: forall (x :: k). IndexF m x -> Lens' m (IxValueF m x)
 
 ------------------------------------------------------------------------
 -- AtF
@@ -228,7 +232,6 @@ class IxedF k m => AtF k m where
   --   exists.  Setting values of @atF@ to a @Just@ value will insert
   --   the value if it does not already exist.
   atF :: forall (x :: k). IndexF m x -> Lens' m (Maybe (IxValueF m x))
-
 
 ------------------------------------------------------------------------
 -- HashableF

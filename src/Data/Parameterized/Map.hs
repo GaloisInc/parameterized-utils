@@ -203,7 +203,6 @@ traverseWithKey_ f (Bin _ kx x l r) = f kx x *> traverseWithKey_ f l *> traverse
 
 type instance IndexF   (MapF k v) = k
 type instance IxValueF (MapF k v) = v
-type instance IxConstraint (MapF k v) = Applicative
 
 -- | Turn a map key into a traversal that visits the indicated element in the map, if it exists.
 instance forall (k:: a -> *) v. OrdF k => IxedF a (MapF k v) where

@@ -829,11 +829,14 @@ adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
 
 type instance IndexF       (Assignment f ctx) = Index ctx
 type instance IxValueF     (Assignment f ctx) = f
-type instance IxConstraint (Assignment f ctx) = Functor
 
 instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
   ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF idx f = adjustM f idx
+
+instance forall (f :: k -> *) ctx. IxedF' k (Assignment f ctx) where
+  ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
+  ixF' idx f = adjustM f idx
 
 
 -- | Modify the value of an assignment at a particular index.
