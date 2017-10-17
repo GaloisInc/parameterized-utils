@@ -19,6 +19,7 @@ module Data.Parameterized.Context.Unsafe
   , sizeInt
   , zeroSize
   , incSize
+  , decSize
   , extSize
   , addSize
   , SizeView(..)
@@ -113,6 +114,9 @@ zeroSize = Size 0
 -- | Increment the size to the next value.
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize (Size n) = Size (n+1)
+
+decSize :: Size (ctx '::> tp) -> Size ctx
+decSize (Size n) = assert (n > 0) (Size (n-1))
 
 -- | Allows interpreting a size.
 data SizeView (ctx :: Ctx k) where

@@ -46,6 +46,7 @@ module Data.Parameterized.Context.Safe
   , sizeInt
   , zeroSize
   , incSize
+  , decSize
   , extSize
   , addSize
   , SizeView(..)
@@ -133,6 +134,9 @@ zeroSize = SizeZero
 -- | Increment the size to the next value.
 incSize :: Size ctx -> Size (ctx '::> tp)
 incSize sz = SizeSucc sz
+
+decSize :: Size (ctx '::> tp) -> Size ctx
+decSize (SizeSucc sz) = sz
 
 -- | The total size of two concatenated contexts.
 addSize :: Size x -> Size y -> Size (x <+> y)
