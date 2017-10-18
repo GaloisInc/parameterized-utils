@@ -55,7 +55,8 @@ module Data.Parameterized.Classes
   , Data.Maybe.isJust
   ) where
 
-import Control.Lens (Lens', Traversal')
+import Control.Lens.Lens (Lens')
+import Control.Lens.Traversal (Traversal')
 import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
