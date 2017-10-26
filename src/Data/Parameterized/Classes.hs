@@ -57,6 +57,8 @@ module Data.Parameterized.Classes
 
 import Control.Lens.Lens (Lens')
 import Control.Lens.Traversal (Traversal')
+import Data.Functor.Const
+import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
@@ -84,6 +86,9 @@ class CoercibleF (rtp :: k -> *) where
 -- type arguments are equal.
 class EqF (f :: k -> *) where
   eqF :: f a -> f a -> Bool
+
+instance Eq a => EqF (Const a) where
+  eqF (Const x) (Const y) = x == y
 
 ------------------------------------------------------------------------
 -- PolyEq
@@ -204,6 +209,9 @@ class ShowF (f :: k -> *) where
   showsF :: forall tp . f tp -> String -> String
   showsF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (shows x)
 
+instance Show x => ShowF (Const x) where
+  showF (Const x) = show x
+
 ------------------------------------------------------------------------
 -- IxedF
 
@@ -253,6 +261,9 @@ class HashableF (f :: k -> *) where
   -- | Hash with default salt.
   hashF :: f tp -> Int
   hashF = hashWithSaltF defaultSalt
+
+instance Hashable a => HashableF (Const a) where
+  hashWithSaltF s (Const x) = hashWithSalt s x
 
 ------------------------------------------------------------------------
 -- KnownRepr
