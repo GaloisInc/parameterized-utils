@@ -51,13 +51,17 @@ module Data.Parameterized.Classes
   , Data.Maybe.isJust
   ) where
 
-import Control.Lens.Lens (Lens')
-import Control.Lens.Traversal (Traversal')
 import Data.Functor.Const
 import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
+
+-- We define these type alias here to avoid importing Control.Lens
+-- modules, as this apparently causes problems with the safe Hasekll
+-- checking.
+type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
+type Traversal' s a = forall f. Applicative f => (a -> f a) -> s -> f s
 
 ------------------------------------------------------------------------
 -- CoercibleF
