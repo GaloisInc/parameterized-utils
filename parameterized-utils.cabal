@@ -46,6 +46,7 @@ library
     Data.Parameterized.Ctx.Proofs
     Data.Parameterized.FreeParamF
     Data.Parameterized.HashTable
+    Data.Parameterized.List
     Data.Parameterized.Map
     Data.Parameterized.NatRepr
     Data.Parameterized.Nonce

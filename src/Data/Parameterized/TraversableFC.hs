@@ -25,6 +25,7 @@ module Data.Parameterized.TraversableFC
   , foldMapFCDefault
   , allFC
   , anyFC
+  , lengthFC
   ) where
 
 import Control.Applicative (Const(..) )
@@ -46,8 +47,8 @@ class FunctorFC m where
 class ShowFC (t :: (k -> *) -> l -> *) where
   {-# MINIMAL showFC | showsPrecFC #-}
 
-  showFC :: forall f. (forall x. f x -> String) ->
-                      (forall x. t f x -> String)
+  showFC :: forall f. (forall x. f x -> String)
+         -> (forall x. t f x -> String)
   showFC sh x = showsPrecFC (\_prec z rest -> sh z ++ rest) 0 x []
 
   showsPrecFC :: forall f. (forall x. Int -> f x -> ShowS) ->
@@ -122,6 +123,10 @@ allFC p = getAll #. foldMapFC (All #. p)
 -- | Return 'True' if any values satisfy predicate.
 anyFC :: FoldableFC t => (forall tp . f tp -> Bool) -> t f c -> Bool
 anyFC p = getAny #. foldMapFC (Any #. p)
+
+-- | Return number of elements in list.
+lengthFC :: FoldableFC t => t e c -> Int
+lengthFC = foldrFC (const (+1)) 0
 
 ------------------------------------------------------------------------
 -- TraversableF

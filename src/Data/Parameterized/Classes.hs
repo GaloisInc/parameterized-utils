@@ -1,14 +1,12 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.Classes
--- Copyright        : (c) Galois, Inc 2014-2015
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
---
--- This module declares classes for working with types with the kind
--- @k -> *@ for any kind @k@.  These are generalizations of the
--- "Data.Functor.Classes" types as they work with any kind @k@, and are
--- not restricted to '*'.
-------------------------------------------------------------------------
+{-|
+Copyright        : (c) Galois, Inc 2014-2015
+Maintainer       : Joe Hendrix <jhendrix@galois.com>
+
+This module declares classes for working with types with the kind
+@k -> *@ for any kind @k@.  These are generalizations of the
+"Data.Functor.Classes" types as they work with any kind @k@, and are
+not restricted to '*'.
+-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
