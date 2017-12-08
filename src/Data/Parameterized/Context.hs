@@ -170,22 +170,21 @@ extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (c
     updated = extendEmbeddingRight ctxe
 
 -- | Pattern synonym for the empty assignment
-pattern Empty :: Assignment f EmptyCtx
-pattern Empty <- (null -> True)
-  where
-  Empty = empty
+pattern Empty :: () => ctx ~ EmptyCtx => Assignment f ctx
+pattern Empty <- (view -> AssignEmpty)
+  where Empty = empty
 
 infixl :>
 
 -- | Pattern synonym for extending an assignment on the right
-pattern (:>) :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
-pattern (:>) a v <- (decompose -> (a,v))
-  where
-  a :> v = extend a v
+pattern (:>) :: () => ctx' ~ (ctx ::> tp) => Assignment f ctx -> f tp -> Assignment f ctx'
+pattern (:>) a v <- (view -> AssignExtend a v)
+  where a :> v = extend a v
 
--- GHC < 8.2 doesn't have the COMPLETE pragma yet...
--- {-# COMPLETE (:>) -}
--- {-# COMPLETE Empty -}
+-- The COMPLETE pragma was not defined until ghc 8.2.*
+#if MIN_VERSION_base(4,10,0)
+{-# COMPLETE (:>), Empty :: Assignment  #-}
+#endif
 
 --------------------------------------------------------------------------------
 -- Static indexing based on type-level naturals
