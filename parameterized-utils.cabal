@@ -38,13 +38,13 @@ library
   hs-source-dirs: src
 
   exposed-modules:
+    Data.Parameterized
     Data.Parameterized.Classes
     Data.Parameterized.Context
     Data.Parameterized.Context.Safe
     Data.Parameterized.Context.Unsafe
     Data.Parameterized.Ctx
     Data.Parameterized.Ctx.Proofs
-    Data.Parameterized.FreeParamF
     Data.Parameterized.HashTable
     Data.Parameterized.List
     Data.Parameterized.Map
