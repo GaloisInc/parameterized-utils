@@ -39,7 +39,6 @@ module Data.Parameterized.Context
 #endif
  , singleton
  , toVector
- , (%>)
  , pattern (:>)
  , pattern Empty
    -- * Context extension and embedding utilities
@@ -169,10 +168,6 @@ extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (c
   where
     updated :: CtxEmbedding ctx (ctx' ::> tp)
     updated = extendEmbeddingRight ctxe
-
--- | Extend an assignment on the right
-(%>) :: Assignment f x -> f tp -> Assignment f (x ::> tp)
-(%>) = extend
 
 -- | Pattern synonym for the empty assignment
 pattern Empty :: Assignment f EmptyCtx

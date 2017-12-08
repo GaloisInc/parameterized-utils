@@ -72,10 +72,10 @@ module Data.Parameterized.Context.Unsafe
   , decompose
   , fromList
   , (!)
-  , (!!)
+  , (!^)
   , zipWith
   , zipWithM
-  , (++)
+  , (<++>)
   , traverseWithIndex
   ) where
 
@@ -92,7 +92,7 @@ import           Data.List (intercalate)
 import           Data.Proxy
 import           Unsafe.Coerce
 
-import           Prelude hiding (init, last, map, null, replicate, succ, zipWith, (!!), (++))
+import           Prelude hiding (init, last, map, null, replicate, succ, zipWith, (++))
 import qualified Prelude
 
 import           Data.Parameterized.Classes
@@ -780,9 +780,10 @@ unsafeIndex _ idx (Assignment t) = seq t $ unsafe_bin_index t idx 0
 a ! Index i = assert (0 <= i && i < sizeInt (size a)) $
               unsafeIndex Proxy i a
 
--- | Return value of assignment.
-(!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
-a !! i = a ! extendIndex i
+-- | Return value of assignment, where the index is into an
+--   initial sequence of the assignment.
+(!^) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
+a !^ i = a ! extendIndex i
 
 instance TestEqualityFC Assignment where
    testEqualityFC test (Assignment x) (Assignment y) = do
@@ -936,8 +937,8 @@ appendBin x (PlusOne _ y z) =
     Refl -> x `appendBin` y `appendBal` z
 appendBin x (PlusZero _ y) = x `appendBin` y
 
-(++) :: Assignment f x -> Assignment f y -> Assignment f (x <+> y)
-x ++ Assignment y = x `appendBin` y
+(<++>) :: Assignment f x -> Assignment f y -> Assignment f (x <+> y)
+x <++> Assignment y = x `appendBin` y
 
 ------------------------------------------------------------------------
 -- KnownRepr instances

@@ -87,10 +87,11 @@ module Data.Parameterized.Context.Safe
   , view
   , decompose
   , (!)
-  , (!!)
+  , (!^)
   , toList
   , zipWith
   , zipWithM
+  , (<++>)
   , traverseWithIndex
   ) where
 
@@ -102,7 +103,7 @@ import Data.Hashable
 import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Data.Type.Equality
-import Prelude hiding (init, map, null, replicate, succ, zipWith, (!!))
+import Prelude hiding (init, map, null, replicate, succ, zipWith)
 
 #if !MIN_VERSION_base(4,8,0)
 import Data.Functor
@@ -428,9 +429,10 @@ idxlookup _ AssignmentEmpty _ = error "Data.Parameterized.Context.Safe.lookup: i
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
 (!) asgn idx = idxlookup id asgn idx
 
--- | Return value of assignment.
-(!!) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
-a !! i = a ! extendIndex i
+-- | Return value of assignment, where the index is into an
+--   initial sequence of the assignment.
+(!^) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
+a !^ i = a ! extendIndex i
 
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
@@ -545,6 +547,10 @@ traverseWithIndex :: Applicative m
                   -> Assignment f ctx
                   -> m (Assignment g ctx)
 traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
+
+(<++>) :: Assignment f x -> Assignment f y -> Assignment f (x <+> y)
+x <++> AssignmentEmpty = x
+x <++> AssignmentExtend y t = AssignmentExtend (x <++> y) t
 
 ------------------------------------------------------------------------
 -- KnownRepr instances
