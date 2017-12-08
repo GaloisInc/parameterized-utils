@@ -46,31 +46,31 @@ import Data.Parameterized.TraversableFC
 -- | Parameterized list of elements.
 data List :: (k -> *) -> [k] -> * where
   Nil  :: List f '[]
-  (:>) :: f tp -> List f tps -> List f (tp : tps)
+  (:<) :: f tp -> List f tps -> List f (tp : tps)
 
-infixr 5 :>
+infixr 5 :<
 
 instance ShowF f => Show (List f sh) where
   show Nil = "Nil"
-  show (elt :> rest) = showF elt ++ " :> " ++ show rest
+  show (elt :< rest) = showF elt ++ " :< " ++ show rest
 
 instance ShowF f => ShowF (List f)
 
 instance FunctorFC List where
   fmapFC _ Nil = Nil
-  fmapFC f (x :> xs) = f x :> fmapFC f xs
+  fmapFC f (x :< xs) = f x :< fmapFC f xs
 
 instance FoldableFC List where
   foldrFC _ z Nil = z
-  foldrFC f z (x :> xs) = f x (foldrFC f z xs)
+  foldrFC f z (x :< xs) = f x (foldrFC f z xs)
 
 instance TraversableFC List where
   traverseFC _ Nil = pure Nil
-  traverseFC f (h :> r) = (:>) <$> f h <*> traverseFC f r
+  traverseFC f (h :< r) = (:<) <$> f h <*> traverseFC f r
 
 instance TestEquality f => TestEquality (List f) where
   testEquality Nil Nil = Just Refl
-  testEquality (xh :> xl) (yh :> yl) = do
+  testEquality (xh :< xl) (yh :< yl) = do
     Refl <- testEquality xh yh
     Refl <- testEquality xl yl
     pure Refl
@@ -80,7 +80,7 @@ instance OrdF f => OrdF (List f) where
   compareF Nil Nil = EQF
   compareF Nil _ = LTF
   compareF _ Nil = GTF
-  compareF (xh :> xl) (yh :> yl) =
+  compareF (xh :< xl) (yh :< yl) =
     lexCompareF xh yh $
     lexCompareF xl yl $
     EQF
@@ -90,7 +90,7 @@ instance KnownRepr (List f) '[] where
   knownRepr = Nil
 
 instance (KnownRepr f s, KnownRepr (List f) sh) => KnownRepr (List f) (s ': sh) where
-  knownRepr = knownRepr :> knownRepr
+  knownRepr = knownRepr :< knownRepr
 
 --------------------------------------------------------------------------------
 -- Indexed operations
@@ -148,24 +148,24 @@ index3 = IndexThere index2
 (!!) :: List f l -> Index l x -> f x
 l !! (IndexThere i) =
   case l of
-    _ :> r -> r !! i
+    _ :< r -> r !! i
 l !! IndexHere =
   case l of
-    (h :> _) -> h
+    (h :< _) -> h
 
 -- | Update the 'List' at an index
 update :: List f l -> Index l s -> (f s -> f s) -> List f l
 update vals IndexHere upd =
   case vals of
-    x :> rest -> upd x :> rest
+    x :< rest -> upd x :< rest
 update vals (IndexThere th) upd =
   case vals of
-    x :> rest -> x :> update rest th upd
+    x :< rest -> x :< update rest th upd
 
 -- | Provides a lens for manipulating the element at the given index.
 indexed :: Index l x -> Lens.Simple Lens.Lens (List f l) (f x)
-indexed IndexHere      f (x :> rest) = (:> rest) <$> f x
-indexed (IndexThere i) f (x :> rest) = (x :>) <$> indexed i f rest
+indexed IndexHere      f (x :< rest) = (:< rest) <$> f x
+indexed (IndexThere i) f (x :< rest) = (x :<) <$> indexed i f rest
 
 --------------------------------------------------------------------------------
 -- Indexed operations
@@ -185,7 +185,7 @@ imap f = go id
     go g l =
       case l of
         Nil -> Nil
-        e :> rest -> f (g IndexHere) e :> go (g . IndexThere) rest
+        e :< rest -> f (g IndexHere) e :< go (g . IndexThere) rest
 
 -- | Right-fold with an additional index.
 ifoldr :: forall sh a b . (forall tp . Index sh tp -> a tp -> b -> b) -> b -> List a sh -> b
@@ -199,7 +199,7 @@ ifoldr f seed0 l = go id l seed0
     go g ops b =
       case ops of
         Nil -> b
-        a :> rest -> f (g IndexHere) a (go (\ix -> g (IndexThere ix)) rest b)
+        a :< rest -> f (g IndexHere) a (go (\ix -> g (IndexThere ix)) rest b)
 
 -- | Traverse with an additional index.
 itraverse :: forall a b sh t
@@ -215,4 +215,4 @@ itraverse f = go id
     go g l =
       case l of
         Nil -> pure Nil
-        e :> rest -> (:>) <$> f (g IndexHere) e <*> go (\ix -> g (IndexThere ix)) rest
+        e :< rest -> (:<) <$> f (g IndexHere) e <*> go (\ix -> g (IndexThere ix)) rest
