@@ -232,7 +232,7 @@ structuralTypeOrd tpq l = do
 
   if null (datatypeCons d)
     then [| \x -> case x of {} |]
-    else [| \x y -> $(withNumber [| y |] $ \mbYn -> caseE [| x |] (outerOrdMatches d mbYn)) |]
+    else [| \x y -> $(withNumber [|y|] $ \mbYn -> caseE [| x |] (outerOrdMatches d [|y|] mbYn)) |]
   where
     constructorNumberMatches :: [ConstructorInfo] -> [MatchQ]
     constructorNumberMatches cons =
@@ -241,12 +241,12 @@ structuralTypeOrd tpq l = do
               []
       | (i,con) <- zip [0..] cons ]
 
-    outerOrdMatches :: DatatypeInfo -> Maybe ExpQ -> [MatchQ]
-    outerOrdMatches d mbYn =
+    outerOrdMatches :: DatatypeInfo -> ExpQ -> Maybe ExpQ -> [MatchQ]
+    outerOrdMatches d yExp mbYn =
       [ do (pat,xv) <- conPat con "x"
            match (pure pat)
                  (normalB (do xs <- mkOrdF d l con i mbYn xv
-                              caseE [| y |] xs))
+                              caseE yExp xs))
                  []
       | (i,con) <- zip [0..] (datatypeCons d) ]
 
