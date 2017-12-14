@@ -106,6 +106,8 @@ data Index :: [k] -> k -> *  where
 deriving instance Eq (Index l x)
 deriving instance Show  (Index l x)
 
+instance ShowF (Index l)
+
 instance TestEquality (Index l) where
   testEquality IndexHere IndexHere = Just Refl
   testEquality (IndexThere x) (IndexThere y) = testEquality x y
