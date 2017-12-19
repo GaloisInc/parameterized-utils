@@ -177,6 +177,7 @@ knownNat = NatRepr (natVal (Proxy :: Proxy n))
 instance (KnownNat n) => KnownRepr NatRepr n where
   knownRepr = knownNat
 
+{-# DEPRECATED withKnownNat "This function is potentially unsafe and is schedueled to be removed." #-}
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =
   case someNatVal nVal of

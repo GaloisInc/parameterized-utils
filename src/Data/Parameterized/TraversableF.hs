@@ -24,6 +24,7 @@ module Data.Parameterized.TraversableF
 import Control.Applicative
 import Control.Monad.Identity
 import Data.Coerce
+import Data.Const
 import Data.Monoid
 import GHC.Exts (build)
 
@@ -31,6 +32,8 @@ import GHC.Exts (build)
 class FunctorF m where
   fmapF :: (forall x . f x -> g x) -> m f -> m g
 
+instance FunctorF (Const x) where
+  fmapF _ = coerce
 
 ------------------------------------------------------------------------
 -- FoldableF
@@ -82,6 +85,9 @@ allF p = getAll #. foldMapF (All #. p)
 anyF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 anyF p = getAny #. foldMapF (Any #. p)
 
+instance FoldableF (Const x) where
+  foldMapF _ _ = mempty
+
 ------------------------------------------------------------------------
 -- TraversableF
 
@@ -90,6 +96,9 @@ class (FunctorF t, FoldableF t) => TraversableF t where
             => (forall s . e s -> m (f s))
             -> t e
             -> m (t f)
+
+instance TraversableF (Const x) where
+  traverseF _ (Const x) = pure (Const x)
 
 -- | This function may be used as a value for `fmapF` in a `FunctorF`
 -- instance.

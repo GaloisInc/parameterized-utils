@@ -75,6 +75,9 @@ type Traversal' s a = forall f. Applicative f => (a -> f a) -> s -> f s
 class CoercibleF (rtp :: k -> *) where
   coerceF :: rtp a -> rtp b
 
+instance CoercibleF (Const x) where
+  coerceF (Const x) = Const x
+
 ------------------------------------------------------------------------
 -- EqF
 
@@ -211,8 +214,7 @@ class ShowF (f :: k -> *) where
   showsF :: forall tp . f tp -> String -> String
   showsF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (shows x)
 
-instance Show x => ShowF (Const x) where
-  showF (Const x) = show x
+instance Show x => ShowF (Const x)
 
 ------------------------------------------------------------------------
 -- IxedF
