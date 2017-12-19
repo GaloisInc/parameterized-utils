@@ -5,11 +5,15 @@ Maintainer:    jhendrix@galois.com
 Build-type:    Simple
 Cabal-version: >= 1.9.2
 license: BSD3
+license-file: LICENSE
+category: Data Structures, Dependent Types
+Synopsis: Classes and data structures for working with data-kind indexed types
 Description:
   This packages contains collection classes and type representations
   used for working with values that have a single parameter.  It's
   intended for things like expression libraries where one wishes
-  to leverage the Haskell type-checker to improve type-safety.
+  to leverage the Haskell type-checker to improve type-safety by encoding
+  the object language type system into data kinds.
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set
@@ -22,7 +26,7 @@ flag unsafe-operations
 
 library
   build-depends:
-    base >= 4.7,
+    base >= 4.7 && < 4.11,
     th-abstraction >=0.1 && <0.3,
     containers,
     deepseq,
@@ -60,8 +64,7 @@ library
     Data.Parameterized.TraversableFC
     Data.Parameterized.Utils.BinTree
 
-  ghc-options: -O2 -Wall -Werror
-  ghc-prof-options: -O2 -fprof-auto-top
+  ghc-options: -Wall
 
   if flag(unsafe-operations)
     cpp-options: -DUNSAFE_OPS
