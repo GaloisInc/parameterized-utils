@@ -24,6 +24,10 @@ flag unsafe-operations
   Description: Use unsafe operations to improve performance
   Default: True
 
+source-repository head
+  type: git
+  location: https://github.com/GaloisInc/parameterized-utils
+
 library
   build-depends:
     base >= 4.7 && < 4.11,
