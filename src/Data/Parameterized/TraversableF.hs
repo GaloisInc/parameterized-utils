@@ -24,7 +24,6 @@ module Data.Parameterized.TraversableF
 import Control.Applicative
 import Control.Monad.Identity
 import Data.Coerce
-import Data.Functor.Const
 import Data.Monoid
 import GHC.Exts (build)
 

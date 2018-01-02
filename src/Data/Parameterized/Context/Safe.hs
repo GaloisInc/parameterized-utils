@@ -24,6 +24,7 @@
 -- 'Data.Coerce.coerce' to understand indexes in a new context without
 -- actually breaking things.
 --------------------------------------------------------------------------
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -42,6 +43,7 @@
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
+    -- * Size
   , Size
   , sizeInt
   , zeroSize
@@ -56,39 +58,34 @@ module Data.Parameterized.Context.Safe
   , Diff
   , noDiff
   , extendRight
-  , KnownDiff(..)
   , DiffView(..)
   , viewDiff
+  , KnownDiff(..)
     -- * Indexing
   , Index
   , indexVal
-  , base
-  , skip
+  , baseIndex
+  , skipIndex
   , lastIndex
   , nextIndex
   , extendIndex
   , extendIndex'
   , forIndex
+  , forIndexRange
   , intIndex
     -- * Assignments
   , Assignment
   , size
-  , replicate
+  , Data.Parameterized.Context.Safe.replicate
   , generate
   , generateM
   , empty
-  , null
   , extend
-  , update
-  , adjust
   , adjustM
-  , init
   , AssignView(..)
-  , view
-  , decompose
+  , viewAssign
   , (!)
   , (!^)
-  , toList
   , zipWith
   , zipWithM
   , (<++>)
@@ -118,10 +115,10 @@ import Data.Parameterized.TraversableFC
 ------------------------------------------------------------------------
 -- Size
 
--- | An indexed singleton type representing the size of a context.
+-- | A  indexed singleton type representing the size of a context.
 data Size (ctx :: Ctx k) where
   SizeZero :: Size 'EmptyCtx
-  SizeSucc :: Size ctx -> Size (ctx '::> tp)
+  SizeSucc :: !(Size ctx) -> Size (ctx '::> tp)
 
 -- | Convert a context size to an 'Int'.
 sizeInt :: Size ctx -> Int
@@ -225,7 +222,7 @@ instance KnownDiff l r => KnownDiff l (r '::> tp) where
 -- context.
 data Index (ctx :: Ctx k) (tp :: k) where
   IndexHere :: Size ctx -> Index (ctx '::> tp) tp
-  IndexThere :: Index ctx tp -> Index (ctx '::> tp') tp
+  IndexThere :: !(Index ctx tp) -> Index (ctx '::> tp') tp
 
 -- | Convert an index to an 'Int', where the index of the left-most type in the context is 0.
 indexVal :: Index ctx tp -> Int
@@ -254,12 +251,12 @@ instance OrdF (Index ctx) where
   compareF (IndexThere idx1) (IndexThere idx2) = lexCompareF idx1 idx2 $ EQF
 
 -- | Index for first element in context.
-base :: Index ('EmptyCtx '::> tp) tp
-base = IndexHere SizeZero
+baseIndex :: Index ('EmptyCtx '::> tp) tp
+baseIndex = IndexHere SizeZero
 
 -- | Increase context while staying at same index.
-skip :: Index ctx x -> Index (ctx '::> y) x
-skip idx = IndexThere idx
+skipIndex :: Index ctx x -> Index (ctx '::> y) x
+skipIndex idx = IndexThere idx
 
 -- | Return the index of an element one past the size.
 nextIndex :: Size ctx -> Index (ctx '::> tp) tp
@@ -291,6 +288,43 @@ forIndex sz_top f = go id sz_top
        go _ SizeZero = id
        go g (SizeSucc sz) = \r -> go (\i -> g (IndexThere i)) sz  $ f r (g (IndexHere sz))
 
+data LDiff (l :: Ctx k) (r :: Ctx k) where
+ LDiffHere :: LDiff a a
+ LDiffThere :: !(LDiff (a::>x) b) -> LDiff a b
+
+ldiffIndex :: Index a tp -> LDiff a b -> Index b tp
+ldiffIndex i LDiffHere = i
+ldiffIndex i (LDiffThere d) = ldiffIndex (IndexThere i) d
+
+forIndexLDiff :: Size a
+              -> LDiff a b
+              -> (forall tp . Index b tp -> r -> r)
+              -> r
+              -> r
+forIndexLDiff _ LDiffHere _ r = r
+forIndexLDiff sz (LDiffThere d) f r =
+  forIndexLDiff (SizeSucc sz) d f (f (ldiffIndex (IndexHere sz) d) r)
+
+forIndexRangeImpl :: Int
+                  -> Size a
+                  -> LDiff a b
+                  -> (forall tp . Index b tp -> r -> r)
+                  -> r
+                  -> r
+forIndexRangeImpl 0 sz d f r = forIndexLDiff sz d f r
+forIndexRangeImpl _ SizeZero _ _ r = r
+forIndexRangeImpl i (SizeSucc sz) d f r =
+  forIndexRangeImpl (i-1) sz (LDiffThere d) f r
+
+-- | Given an index 'i', size 'n', a function 'f', value 'v', and a function 'f',
+-- 'forIndex i n f v' is equivalent to 'v' when 'i >= sizeInt n', and
+-- 'f i (forIndexRange (i+1) n v0)' otherwise.
+forIndexRange :: Int
+              -> Size ctx
+              -> (forall tp . Index ctx tp -> r -> r)
+              -> r
+              -> r
+forIndexRange i sz f r = forIndexRangeImpl i sz LDiffHere f r
 
 indexList :: forall ctx. Size ctx -> [Some (Index ctx)]
 indexList sz_top = go id [] sz_top
@@ -324,12 +358,9 @@ data AssignView (f :: k -> *) (ctx :: Ctx k) where
   AssignEmpty :: AssignView f EmptyCtx
   AssignExtend :: Assignment f ctx -> f tp -> AssignView f (ctx::>tp)
 
-view :: forall f ctx . Assignment f ctx -> AssignView f ctx
-view AssignmentEmpty = AssignEmpty
-view (AssignmentExtend asgn x) = AssignExtend asgn x
-
-decompose :: Assignment f (ctx ::> tp) -> (Assignment f ctx, f tp)
-decompose (AssignmentExtend a v) = (a,v)
+viewAssign :: forall f ctx . Assignment f ctx -> AssignView f ctx
+viewAssign AssignmentEmpty = AssignEmpty
+viewAssign (AssignmentExtend asgn x) = AssignExtend asgn x
 
 instance NFData (Assignment f ctx) where
   rnf AssignmentEmpty = ()
@@ -377,19 +408,8 @@ replicate n c = generate n (\_ -> c)
 empty :: Assignment f 'EmptyCtx
 empty = AssignmentEmpty
 
--- | Return true if assignment is empty.
-null :: Assignment f ctx -> Bool
-null AssignmentEmpty = True
-null _ = False
-
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
 extend asgn e = AssignmentExtend asgn e
-
-update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
-update idx e asgn = adjust (\_ -> e) idx asgn
-
-adjust :: forall f ctx tp. (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
-adjust f idx m = runIdentity (adjustM (Identity . f) idx m)
 
 adjustM :: forall m f ctx tp. Functor m => (f tp -> m (f tp)) -> Index ctx tp -> Assignment f ctx -> m (Assignment f ctx)
 adjustM f = go (\x -> x)
@@ -414,11 +434,6 @@ instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
 instance forall (f :: k -> *) ctx. IxedF' k (Assignment f ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
-
-
--- | Return assignment with all but the last block.
-init :: Assignment f (ctx '::> tp) -> Assignment f ctx
-init (AssignmentExtend asgn _) = asgn
 
 idxlookup :: (forall tp. a tp -> b tp) -> Assignment a ctx -> forall tp. Index ctx tp -> b tp
 idxlookup f (AssignmentExtend _   x) (IndexHere _) = f x

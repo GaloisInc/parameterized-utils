@@ -15,6 +15,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
+  , KnownContext(..)
+    -- * Size
   , Size
   , sizeInt
   , zeroSize
@@ -24,26 +26,24 @@ module Data.Parameterized.Context.Unsafe
   , addSize
   , SizeView(..)
   , viewSize
-  , KnownContext(..)
     -- * Diff
   , Diff
   , noDiff
   , extendRight
-  , KnownDiff(..)
   , DiffView(..)
   , viewDiff
+  , KnownDiff(..)
     -- * Indexing
   , Index
   , indexVal
-  , base
-  , skip
+  , baseIndex
+  , skipIndex
   , lastIndex
   , nextIndex
   , extendIndex
   , extendIndex'
   , forIndex
   , forIndexRange
-  , forIndexM
   , intIndex
     -- ** IndexRange
   , IndexRange
@@ -54,32 +54,22 @@ module Data.Parameterized.Context.Unsafe
     -- * Assignments
   , Assignment
   , size
-  , replicate
+  , Data.Parameterized.Context.Unsafe.replicate
   , generate
   , generateM
-  , generateSome
-  , generateSomeM
   , empty
-  , null
   , extend
-  , update
-  , adjust
   , adjustM
-  , init
-  , last
   , AssignView(..)
-  , view
-  , decompose
-  , fromList
+  , viewAssign
   , (!)
   , (!^)
-  , zipWith
+  , Data.Parameterized.Context.Unsafe.zipWith
   , zipWithM
   , (<++>)
   , traverseWithIndex
   ) where
 
-import           Control.Applicative hiding (empty)
 import qualified Control.Category as Cat
 import           Control.DeepSeq
 import           Control.Exception
@@ -92,9 +82,6 @@ import           Data.List (intercalate)
 import           Data.Proxy
 import           Unsafe.Coerce
 
-import           Prelude hiding (init, last, map, null, replicate, succ, zipWith, (++))
-import qualified Prelude
-
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Ctx
 import           Data.Parameterized.Ctx.Proofs
@@ -106,6 +93,8 @@ import           Data.Parameterized.TraversableFC
 
 -- | Represents the size of a context.
 newtype Size (ctx :: Ctx k) = Size { sizeInt :: Int }
+
+type role Size nominal
 
 -- | The size of an empty context.
 zeroSize :: Size 'EmptyCtx
@@ -199,6 +188,8 @@ instance {-# INCOHERENT #-} KnownDiff l r => KnownDiff l (r '::> tp) where
 -- context.
 newtype Index (ctx :: Ctx k) (tp :: k) = Index { indexVal :: Int }
 
+type role Index nominal nominal
+
 instance Eq (Index ctx tp) where
   Index i == Index j = i == j
 
@@ -217,12 +208,12 @@ instance OrdF (Index ctx) where
     | otherwise = GTF
 
 -- | Index for first element in context.
-base :: Index ('EmptyCtx '::> tp) tp
-base = Index 0
+baseIndex :: Index ('EmptyCtx '::> tp) tp
+baseIndex = Index 0
 
 -- | Increase context while staying at same index.
-skip :: Index ctx x -> Index (ctx '::> y) x
-skip (Index i) = Index i
+skipIndex :: Index ctx x -> Index (ctx '::> y) x
+skipIndex (Index i) = Index i
 
 -- | Return the index of a element one past the size.
 nextIndex :: Size ctx -> Index (ctx ::> tp) tp
@@ -264,14 +255,6 @@ forIndexRange :: forall ctx r
 forIndexRange i (Size n) f r
   | i >= n = r
   | otherwise = f (Index i) (forIndexRange (i+1) (Size n) f r)
-
--- |'forIndexM sz f' calls 'f' on indices '[0..sz-1]'.
-forIndexM :: forall ctx m
-           . Applicative m
-          => Size ctx
-          -> (forall tp . Index ctx tp -> m ())
-          -> m ()
-forIndexM sz f = forIndexRange 0 sz (\i r -> f i *> r) (pure ())
 
 -- | Return index at given integer or nothing if integer is out of bounds.
 intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
@@ -607,18 +590,11 @@ unsafe_bin_generateM sz h f
 ------------------------------------------------------------------------
 -- Dropping
 
-type family InitCtx (x :: Ctx k) :: Ctx k
-type instance InitCtx (x ::> y) = x
-
-type family LastCtx (x :: Ctx k) :: k
-type instance LastCtx (x ::> y) = y
-
---
 data DropResult f (ctx :: Ctx k) where
   DropEmpty :: DropResult f EmptyCtx
-  DropExt   :: BinomialTree 'Zero f (InitCtx ctx)
-            -> f (LastCtx ctx)
-            -> DropResult f ctx
+  DropExt   :: BinomialTree 'Zero f x
+            -> f y
+            -> DropResult f (x ::> y)
 
 -- | 'bal_drop x y' returns the tree formed 'append x (init y)'
 bal_drop :: forall h f x y
@@ -703,12 +679,16 @@ tree_zipWithM _ _ _ = error "ilegal args to tree_zipWithM"
 ------------------------------------------------------------------------
 -- Assignment
 
-type role Assignment representational nominal
-
 -- | An assignment is a sequence that maps each index with type 'tp' to
 -- a value of type 'f tp'.
+--
+-- This assignment implementation uses a binomial tree implementation
+-- that offers lookups and updates in time and space logarithmic with
+-- respect to the number of elements in the context.
 newtype Assignment (f :: k -> *) (ctx :: Ctx k)
       = Assignment (BinomialTree 'Zero f ctx)
+
+type role Assignment nominal nominal
 
 instance NFData (Assignment f ctx) where
   rnf a = seq a ()
@@ -716,27 +696,6 @@ instance NFData (Assignment f ctx) where
 -- | Return number of elements in assignment.
 size :: Assignment f ctx -> Size ctx
 size (Assignment t) = Size (tsize t)
-
--- | Generate an assignment with some context type that is not known.
-generateSome :: forall f
-              . Int
-             -> (Int -> Some f)
-             -> Some (Assignment f)
-generateSome n f = go n
-  where go :: Int -> Some (Assignment f)
-        go 0 = Some empty
-        go i = (\(Some a) (Some e) -> Some (a `extend` e)) (go (i-1)) (f (i-1))
-
--- | Generate an assignment with some context type that is not known.
-generateSomeM :: forall m f
-              .  Applicative m
-              => Int
-              -> (Int -> m (Some f))
-              -> m (Some (Assignment f))
-generateSomeM n f = go n
-  where go :: Int -> m (Some (Assignment f))
-        go 0 = pure (Some empty)
-        go i = (\(Some a) (Some e) -> Some (a `extend` e)) <$> go (i-1) <*> f (i-1)
 
 -- | @replicate n@ make a context with different copies of the same
 -- polymorphic value.
@@ -762,11 +721,6 @@ generateM n f = Assignment <$> unsafe_bin_generateM (sizeInt n) 0 f
 -- | Return empty assignment
 empty :: Assignment f EmptyCtx
 empty = Assignment Empty
-
--- | Return true if assignment is empty.
-null :: Assignment f ctx -> Bool
-null (Assignment Empty) = True
-null (Assignment _) = False
 
 extend :: Assignment f ctx -> f x -> Assignment f (ctx ::> x)
 extend (Assignment x) y = Assignment $ append x (BalLeaf y)
@@ -831,22 +785,12 @@ adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
 type instance IndexF       (Assignment f ctx) = Index ctx
 type instance IxValueF     (Assignment f ctx) = f
 
-instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
-  ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
-  ixF idx f = adjustM f idx
-
 instance forall (f :: k -> *) ctx. IxedF' k (Assignment f ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
-
--- | Modify the value of an assignment at a particular index.
-adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
-adjust f idx asgn = runIdentity (adjustM (Identity . f) idx asgn)
-
--- | Update the assignment at a particular index.
-update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
-update i v a = adjust (\_ -> v) i a
+instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
+  ixF = ixF'
 
 -- This is an unsafe version of update that changes the type of the expression.
 unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
@@ -860,26 +804,11 @@ data AssignView f ctx where
                -> AssignView f (ctx::>tp)
 
 -- | View an assignment as either empty or an assignment with one appended.
-view :: forall f ctx . Assignment f ctx -> AssignView f ctx
-view (Assignment x) =
+viewAssign :: forall f ctx . Assignment f ctx -> AssignView f ctx
+viewAssign (Assignment x) =
   case bin_drop x of
     DropEmpty -> AssignEmpty
-    DropExt t v -> unsafeCoerce $ AssignExtend (Assignment (unsafeCoerce t)) v
-
--- | Return assignment with all but the last block.
-init :: Assignment f (ctx '::> tp) -> Assignment f ctx
-init (Assignment x) =
-  case bin_drop x of
-    DropExt t _ -> Assignment t
-
--- | Return the last element in the assignment.
-last :: Assignment f (ctx '::> tp) -> f tp
-last x =
-  case view x of
-    AssignExtend _ e -> e
-
-decompose :: Assignment f (ctx ::> tp) -> (Assignment f ctx, f tp)
-decompose x = case view x of AssignExtend a v -> (a,v)
+    DropExt t v -> AssignExtend (Assignment t) v
 
 zipWith :: (forall x . f x -> g x -> h x)
         -> Assignment f a
@@ -913,13 +842,6 @@ traverseWithIndex :: Applicative m
                   -> Assignment f ctx
                   -> m (Assignment g ctx)
 traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
-
--- | Create an assignment from a list of values.
-fromList :: [Some f] -> Some (Assignment f)
-fromList = go empty
-  where go :: Assignment f ctx -> [Some f] -> Some (Assignment f)
-        go prev [] = Some prev
-        go prev (Some g:next) = (go $! prev `extend` g) next
 
 ------------------------------------------------------------------------
 -- Appending

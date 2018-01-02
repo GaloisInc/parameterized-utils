@@ -41,6 +41,15 @@ module Data.Parameterized.Context
  , toVector
  , pattern (:>)
  , pattern Empty
+ , decompose
+ , Data.Parameterized.Context.null
+ , Data.Parameterized.Context.init
+ , Data.Parameterized.Context.last
+ , Data.Parameterized.Context.view
+ , forIndexM
+ , generateSome
+ , generateSomeM
+ , fromList
    -- * Context extension and embedding utilities
  , CtxEmbedding(..)
  , ExtendContext(..)
@@ -56,36 +65,62 @@ module Data.Parameterized.Context
 
    -- * Static indexing and lenses for assignments
  , Idx
- , getCtx
- , setCtx
  , field
  , natIndex
  , natIndexProxy
-
    -- * Currying and uncurrying for assignments
  , CurryAssignment
  , CurryAssignmentClass(..)
  ) where
 
-import Prelude hiding (null)
-
-import GHC.TypeLits (Nat, type (-))
-
-import Control.Lens hiding (Index, view, (:>), Empty)
+import           Control.Lens hiding (Index, (:>), Empty)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
+import           GHC.TypeLits (Nat, type (-))
+
+import           Data.Parameterized.Classes
+import           Data.Parameterized.Some
+import           Data.Parameterized.TraversableFC
 
 #ifdef UNSAFE_OPS
-import Data.Parameterized.Context.Unsafe
+import           Data.Parameterized.Context.Unsafe
 #else
-import Data.Parameterized.Context.Safe
+import           Data.Parameterized.Context.Safe
 #endif
 
-import Data.Parameterized.TraversableFC
 
 -- | Create a single element context.
 singleton :: f tp -> Assignment f (EmptyCtx ::> tp)
 singleton = (empty :>)
+
+-- |'forIndexM sz f' calls 'f' on indices '[0..sz-1]'.
+forIndexM :: forall ctx m
+           . Applicative m
+          => Size ctx
+          -> (forall tp . Index ctx tp -> m ())
+          -> m ()
+forIndexM sz f = forIndexRange 0 sz (\i r -> f i *> r) (pure ())
+
+-- | Generate an assignment with some context type that is not known.
+generateSome :: forall f
+              . Int
+             -> (Int -> Some f)
+             -> Some (Assignment f)
+generateSome n f = go n
+  where go :: Int -> Some (Assignment f)
+        go 0 = Some empty
+        go i = (\(Some a) (Some e) -> Some (a `extend` e)) (go (i-1)) (f (i-1))
+
+-- | Generate an assignment with some context type that is not known.
+generateSomeM :: forall m f
+              .  Applicative m
+              => Int
+              -> (Int -> m (Some f))
+              -> m (Some (Assignment f))
+generateSomeM n f = go n
+  where go :: Int -> m (Some (Assignment f))
+        go 0 = pure (Some empty)
+        go i = (\(Some a) (Some e) -> Some (a `extend` e)) <$> go (i-1) <*> f (i-1)
 
 -- | Convert the assignment to a vector.
 toVector :: Assignment f tps -> (forall tp . f tp -> e) -> V.Vector e
@@ -95,6 +130,56 @@ toVector a f = V.create $ do
     MV.write vm (indexVal i) (f (a ! i))
   return vm
 {-# INLINABLE toVector #-}
+
+--------------------------------------------------------------------------------
+-- Patterns
+
+-- | Pattern synonym for the empty assignment
+pattern Empty :: () => ctx ~ EmptyCtx => Assignment f ctx
+pattern Empty <- (viewAssign -> AssignEmpty)
+  where Empty = empty
+
+infixl :>
+
+-- | Pattern synonym for extending an assignment on the right
+pattern (:>) :: () => ctx' ~ (ctx ::> tp) => Assignment f ctx -> f tp -> Assignment f ctx'
+pattern (:>) a v <- (viewAssign -> AssignExtend a v)
+  where a :> v = extend a v
+
+-- The COMPLETE pragma was not defined until ghc 8.2.*
+#if MIN_VERSION_base(4,10,0)
+{-# COMPLETE (:>), Empty :: Assignment  #-}
+#endif
+
+--------------------------------------------------------------------------------
+-- | Views
+
+-- | Return true if assignment is empty.
+null :: Assignment f ctx -> Bool
+null a =
+  case viewAssign a of
+    AssignEmpty -> True
+    AssignExtend{} -> False
+
+decompose :: Assignment f (ctx ::> tp) -> (Assignment f ctx, f tp)
+decompose x = (Data.Parameterized.Context.init x, Data.Parameterized.Context.last x)
+
+-- | Return assignment with all but the last block.
+init :: Assignment f (ctx '::> tp) -> Assignment f ctx
+init x =
+  case viewAssign x of
+    AssignExtend t _ -> t
+
+-- | Return the last element in the assignment.
+last :: Assignment f (ctx '::> tp) -> f tp
+last x =
+  case viewAssign x of
+    AssignExtend _ e -> e
+
+{-# DEPRECATED view "Use viewAssign or the Empty and :> patterns instead." #-}
+-- | View an assignment as either empty or an assignment with one appended.
+view :: forall f ctx . Assignment f ctx -> AssignView f ctx
+view = viewAssign
 
 --------------------------------------------------------------------------------
 -- | Context embedding.
@@ -169,38 +254,13 @@ extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (c
     updated :: CtxEmbedding ctx (ctx' ::> tp)
     updated = extendEmbeddingRight ctxe
 
--- | Pattern synonym for the empty assignment
-pattern Empty :: () => ctx ~ EmptyCtx => Assignment f ctx
-pattern Empty <- (view -> AssignEmpty)
-  where Empty = empty
-
-infixl :>
-
--- | Pattern synonym for extending an assignment on the right
-pattern (:>) :: () => ctx' ~ (ctx ::> tp) => Assignment f ctx -> f tp -> Assignment f ctx'
-pattern (:>) a v <- (view -> AssignExtend a v)
-  where a :> v = extend a v
-
--- The COMPLETE pragma was not defined until ghc 8.2.*
-#if MIN_VERSION_base(4,10,0)
-{-# COMPLETE (:>), Empty :: Assignment  #-}
-#endif
-
 --------------------------------------------------------------------------------
 -- Static indexing based on type-level naturals
-
--- | Get an element from an 'Assignment' by zero-based, left-to-right position.
--- The position must be specified using @TypeApplications@ for the @n@ parameter.
-getCtx :: forall n ctx f r. Idx n ctx r => Assignment f ctx -> f r
-getCtx asgn = asgn ! natIndex @n
-
-setCtx :: forall n ctx f r. Idx n ctx r => f r -> Assignment f ctx -> Assignment f ctx
-setCtx = update (natIndex @n)
 
 -- | Get a lens for an position in an 'Assignment' by zero-based, left-to-right position.
 -- The position must be specified using @TypeApplications@ for the @n@ parameter.
 field :: forall n ctx f r. Idx n ctx r => Lens' (Assignment f ctx) (f r)
-field f = adjustM f (natIndex @n)
+field = ixF' (natIndex @n)
 
 -- | Constraint synonym used for getting an 'Index' into a 'Ctx'.
 -- @n@ is the zero-based, left-counted index into the list of types
@@ -234,7 +294,7 @@ instance KnownContext xs => Idx' 0 (xs '::> x) x where
 instance {-# Overlaps #-} (KnownContext xs, Idx' (n-1) xs r) =>
   Idx' n (xs '::> x) r where
 
-  natIndex' = skip (natIndex' @_ @(n-1))
+  natIndex' = skipIndex (natIndex' @_ @(n-1))
 
 
 --------------------------------------------------------------------------------
@@ -270,5 +330,12 @@ instance CurryAssignmentClass EmptyCtx where
 instance CurryAssignmentClass ctx => CurryAssignmentClass (ctx ::> a) where
   curryAssignment k = curryAssignment (\asgn a -> k (asgn :> a))
   uncurryAssignment k asgn =
-    case view asgn of
+    case viewAssign asgn of
       AssignExtend asgn' x -> uncurryAssignment k asgn' x
+
+-- | Create an assignment from a list of values.
+fromList :: [Some f] -> Some (Assignment f)
+fromList = go empty
+  where go :: Assignment f ctx -> [Some f] -> Some (Assignment f)
+        go prev [] = Some prev
+        go prev (Some g:next) = (go $! prev `extend` g) next
