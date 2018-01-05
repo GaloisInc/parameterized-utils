@@ -63,10 +63,10 @@ instance Arbitrary (Some UAsgn) where
 instance Arbitrary (Some SAsgn) where
   arbitrary = mkSAsgn <$> arbitrary
 
-twiddle :: Payload a -> Payload a
-twiddle (IntPayload n) = IntPayload (n+1)
-twiddle (StringPayload str) = StringPayload (str++"asdf")
-twiddle (BoolPayload b) = BoolPayload (not b)
+twiddle :: Monad m => Payload a -> m (Payload a)
+twiddle (IntPayload n) = return $ IntPayload (n+1)
+twiddle (StringPayload str) = return $ StringPayload (str++"asdf")
+twiddle (BoolPayload b) = return $ BoolPayload (not b)
 
 contextTests :: IO TestTree
 contextTests = testGroup "Context" <$> return
@@ -99,8 +99,8 @@ contextTests = testGroup "Context" <$> return
          Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
          Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-         let x' = U.adjust twiddle idx_x x
-         let y' = S.adjust twiddle idx_y y
+         x' <- U.adjustM twiddle idx_x x
+         y' <- S.adjustM twiddle idx_y y
 
          return (toListFC Some x' == toListFC Some y')
    , testProperty "safe_eq" $ \vals1 vals2 -> ioProperty $ do
