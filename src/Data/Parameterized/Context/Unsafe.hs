@@ -59,6 +59,8 @@ module Data.Parameterized.Context.Unsafe
   , generateM
   , empty
   , extend
+  , adjust
+  , update
   , adjustM
   , AssignView(..)
   , viewAssign
@@ -776,6 +778,14 @@ instance ShowF f => Show (Assignment f ctx) where
   show a = "[" Prelude.++ intercalate ", " (toListFC showF a) Prelude.++ "]"
 
 instance ShowF f => ShowF (Assignment f)
+
+{-# DEPRECATED adjust "Replace 'adjust f i asgn' with 'Lens.over (ixF i) f asgn' instead." #-}
+adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
+adjust f idx asgn = runIdentity (adjustM (Identity . f) idx asgn)
+
+{-# DEPRECATED update "Replace 'update idx val asgn' with 'Lens.set (ixF idx) val asgn' instead." #-}
+update :: Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
+update i v a = adjust (\_ -> v) i a
 
 -- | Modify the value of an assignment at a particular index.
 adjustM :: Functor m => (f tp -> m (f tp)) -> Index ctx tp -> Assignment f ctx -> m (Assignment f ctx)

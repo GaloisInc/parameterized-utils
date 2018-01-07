@@ -81,6 +81,8 @@ module Data.Parameterized.Context.Safe
   , generateM
   , empty
   , extend
+  , adjust
+  , update
   , adjustM
   , AssignView(..)
   , viewAssign
@@ -410,6 +412,14 @@ empty = AssignmentEmpty
 
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
 extend asgn e = AssignmentExtend asgn e
+
+{-# DEPRECATED adjust "Replace 'adjust f i asgn' with 'Lens.over (ixF i) f asgn' instead." #-}
+adjust :: forall f ctx tp. (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx
+adjust f idx asgn = runIdentity (adjustM (Identity . f) idx asgn)
+
+{-# DEPRECATED update "Replace 'update idx val asgn' with 'Lens.set (ixF idx) val asgn' instead." #-}
+update :: forall f ctx tp. Index ctx tp -> f tp -> Assignment f ctx -> Assignment f ctx
+update i v a = adjust (\_ -> v) i a
 
 adjustM :: forall m f ctx tp. Functor m => (f tp -> m (f tp)) -> Index ctx tp -> Assignment f ctx -> m (Assignment f ctx)
 adjustM f = go (\x -> x)

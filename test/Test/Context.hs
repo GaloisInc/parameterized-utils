@@ -11,6 +11,7 @@ import Test.Tasty
 import Test.QuickCheck
 import Test.Tasty.QuickCheck
 
+import Control.Lens
 import Data.Parameterized.Classes
 import Data.Parameterized.TraversableFC
 import Data.Parameterized.Some
@@ -63,10 +64,10 @@ instance Arbitrary (Some UAsgn) where
 instance Arbitrary (Some SAsgn) where
   arbitrary = mkSAsgn <$> arbitrary
 
-twiddle :: Monad m => Payload a -> m (Payload a)
-twiddle (IntPayload n) = return $ IntPayload (n+1)
-twiddle (StringPayload str) = return $ StringPayload (str++"asdf")
-twiddle (BoolPayload b) = return $ BoolPayload (not b)
+twiddle :: Payload a -> Payload a
+twiddle (IntPayload n) = IntPayload (n+1)
+twiddle (StringPayload str) = StringPayload (str++"asdf")
+twiddle (BoolPayload b) = BoolPayload (not b)
 
 contextTests :: IO TestTree
 contextTests = testGroup "Context" <$> return
@@ -90,8 +91,8 @@ contextTests = testGroup "Context" <$> return
          Some a <- return $ mkUAsgn vals
          let vals' = toListFC Some a
          return (vals == vals')
-   , testProperty "adjust_test" $ \v vs i -> ioProperty $ do
-         let vals = v:vs
+   , testProperty "adjust test monadic" $ \v vs i -> ioProperty $ do
+         let vals = v:vs  -- ensures vals is not an empty array
          Some x <- return $ mkUAsgn vals
          Some y <- return $ mkSAsgn vals
          let i' = min (max 0 i) (length vals - 1)
@@ -99,10 +100,61 @@ contextTests = testGroup "Context" <$> return
          Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
          Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-         x' <- U.adjustM twiddle idx_x x
-         y' <- S.adjustM twiddle idx_y y
+         x' <- U.adjustM (return . twiddle) idx_x x
+         y' <- S.adjustM (return . twiddle) idx_y y
 
          return (toListFC Some x' == toListFC Some y')
+
+   , testProperty "adjust test" $ \v vs i -> ioProperty $ do
+         let vals = v:vs  -- ensures vals is not an empty array
+         Some x <- return $ mkUAsgn vals
+         Some y <- return $ mkSAsgn vals
+         let i' = min (max 0 i) (length vals - 1)
+
+         Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+         Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+
+         let x' = over (ixF idx_x) twiddle x
+             y' = (ixF idx_y) %~ twiddle $ y
+             x'' = U.adjust twiddle idx_x x
+             y'' = S.adjust twiddle idx_y y
+
+         return (toListFC Some x' == toListFC Some y' &&
+                 -- adjust actually modified the entry
+                 toListFC Some x /= toListFC Some x' &&
+                 toListFC Some y /= toListFC Some y' &&
+                 -- verify new version is equivalent to older deprecated version
+                 toListFC Some x'' == toListFC Some x' &&
+                 toListFC Some y'' == toListFC Some y')
+
+   , testProperty "update test" $ \v vs i -> ioProperty $ do
+         let vals = v:vs  -- ensures vals is not an empty array
+         Some x <- return $ mkUAsgn vals
+         Some y <- return $ mkSAsgn vals
+         let i' = min (max 0 i) (length vals - 1)
+
+         Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+         Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+
+         let x' = over (ixF idx_x) twiddle x
+             y' = (ixF idx_y) %~ twiddle $ y
+             updX = set (ixF idx_x) (x' U.! idx_x) x
+             updY = (ixF idx_y) .~  (y' S.! idx_y) $ y
+             updX' = U.update idx_x (x' U.! idx_x) x
+             updY' = S.update idx_y (y' S.! idx_y) y
+
+         return (toListFC Some updX == toListFC Some updY &&
+                 -- update actually modified the entry
+                 toListFC Some x /= toListFC Some updX &&
+                 toListFC Some y /= toListFC Some updY &&
+                 -- update modified the expected entry
+                 toListFC Some x' == toListFC Some updX &&
+                 toListFC Some y' == toListFC Some updY &&
+                 -- verify new version is equivalent to older deprecated version
+                 toListFC Some updX == toListFC Some updX' &&
+                 toListFC Some updY == toListFC Some updY'
+                )
+
    , testProperty "safe_eq" $ \vals1 vals2 -> ioProperty $ do
          Some x <- return $ mkSAsgn vals1
          Some y <- return $ mkSAsgn vals2
