@@ -43,6 +43,7 @@ module Data.Parameterized.NatRepr
   , incNat
   , addNat
   , subNat
+  , divNat
   , halfNat
   , withDivModNat
   , natMultiply
@@ -78,16 +79,19 @@ module Data.Parameterized.NatRepr
   , leqAdd
   , leqSub
   , leqMulPos
+  , leqAddPos
   , addIsLeq
   , withAddLeq
   , addPrefixIsLeq
   , withAddPrefixLeq
   , addIsLeqLeft1
   , dblPosIsPos
+  , leqMulMono
     -- * Arithmetic proof
   , plusComm
   , plusMinusCancel
   , withAddMulDistribRight
+  , withSubMulDistribRight
     -- * Re-exports typelists basics
 --  , NatK
   , type (+)
@@ -215,6 +219,9 @@ addNat (NatRepr m) (NatRepr n) = NatRepr (m+n)
 subNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m-n)
 subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
+divNat :: (1 <= n) => NatRepr (m * n) -> NatRepr n -> NatRepr m
+divNat (NatRepr x) (NatRepr y) = NatRepr (div x y)
+
 withDivModNat :: forall n m a.
                  NatRepr n
               -> NatRepr m
@@ -309,6 +316,14 @@ withAddMulDistribRight _n _m _p f =
   case unsafeCoerce (Refl :: 0 :~: 0) of
     (Refl :: (((n * p) + (m * p)) :~: ((n + m) * p)) ) -> f
 
+withSubMulDistribRight :: forall n m p f g h a. f n -> g m -> h p
+                    -> ( (((n * p) - (m * p)) ~ ((n - m) * p)) => a) -> a
+withSubMulDistribRight _n _m _p f =
+  case unsafeCoerce (Refl :: 0 :~: 0) of
+    (Refl :: (((n * p) - (m * p)) :~: ((n - m) * p)) ) -> f
+
+
+
 ------------------------------------------------------------------------
 -- LeqProof
 
@@ -379,7 +394,7 @@ leqSub2 LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 0 0)
 -- LeqProof combinators
 
 -- | Create a leqProof using two proxies
-leqProof :: (m <= n) => f m -> f n -> LeqProof m n
+leqProof :: (m <= n) => f m -> g n -> LeqProof m n
 leqProof _ _ = LeqProof
 
 withLeqProof :: LeqProof m n -> ((m <= n) => a) -> a
@@ -406,10 +421,16 @@ leqMulPos :: forall p q x y
           -> LeqProof 1 (x*y)
 leqMulPos _ _ = leqMulCongr (LeqProof :: LeqProof 1 x) (LeqProof :: LeqProof 1 y)
 
+leqMulMono :: (1 <= x) => p x -> q y -> LeqProof y (x * y)
+leqMulMono x y = leqMulCongr (leqProof (Proxy :: Proxy 1) x) (leqRefl y)
+
 -- | Produce proof that adding a value to the larger element in an LeqProof
 -- is larger
 leqAdd :: forall f m n p . LeqProof m n -> f p -> LeqProof m (n+p)
 leqAdd x _ = leqAdd2 x (LeqProof :: LeqProof 0 p)
+
+leqAddPos :: (1 <= m, 1 <= n) => p m -> q n -> LeqProof 1 (m + n)
+leqAddPos m n = leqAdd (leqProof (Proxy :: Proxy 1) m) n
 
 -- | Produce proof that subtracting a value from the smaller element is smaller.
 leqSub :: forall m n p . LeqProof m n -> LeqProof p m -> LeqProof (m-p) n
