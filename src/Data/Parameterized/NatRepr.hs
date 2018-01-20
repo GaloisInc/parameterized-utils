@@ -271,7 +271,7 @@ toSigned w i0
   where i = i0 .&. maxUnsigned w
 
 -- | @unsignedClamp w i@ rounds @i@ to the nearest value between
--- @0@ and @2^w-i@ (inclusive).
+-- @0@ and @2^w-1@ (inclusive).
 unsignedClamp :: NatRepr w -> Integer -> Integer
 unsignedClamp w i
   | i < minUnsigned w = minUnsigned w
@@ -279,7 +279,7 @@ unsignedClamp w i
   | otherwise         = i
 
 -- | @signedClamp w i@ rounds @i@ to the nearest value between
--- @-2^(w-1)@ and @2^(w-1)-i@ (inclusive).
+-- @-2^(w-1)@ and @2^(w-1)-1@ (inclusive).
 signedClamp :: (1 <= w) => NatRepr w -> Integer -> Integer
 signedClamp w i
   | i < minSigned w = minSigned w
