@@ -316,7 +316,7 @@ withAddMulDistribRight _n _m _p f =
   case unsafeCoerce (Refl :: 0 :~: 0) of
     (Refl :: (((n * p) + (m * p)) :~: ((n + m) * p)) ) -> f
 
-withSubMulDistribRight :: forall n m p f g h a. f n -> g m -> h p
+withSubMulDistribRight :: forall n m p f g h a. (m <= n) => f n -> g m -> h p
                     -> ( (((n * p) - (m * p)) ~ ((n - m) * p)) => a) -> a
 withSubMulDistribRight _n _m _p f =
   case unsafeCoerce (Refl :: 0 :~: 0) of
