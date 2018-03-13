@@ -51,8 +51,11 @@ data List :: (k -> *) -> [k] -> * where
 infixr 5 :<
 
 instance ShowF f => Show (List f sh) where
-  show Nil = "Nil"
-  show (elt :< rest) = showF elt ++ " :< " ++ show rest
+  showsPrec _ Nil = showString "Nil"
+  showsPrec p (elt :< rest) = showParen (p > precCons) $
+    showsPrecF (precCons+1) elt . showString " :< " . showsPrec (precCons+1) rest
+    where
+      precCons = 5
 
 instance ShowF f => ShowF (List f)
 
