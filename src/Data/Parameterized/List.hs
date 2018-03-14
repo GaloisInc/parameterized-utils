@@ -53,7 +53,9 @@ infixr 5 :<
 instance ShowF f => Show (List f sh) where
   showsPrec _ Nil = showString "Nil"
   showsPrec p (elt :< rest) = showParen (p > precCons) $
-    showsPrecF (precCons+1) elt . showString " :< " . showsPrec (precCons+1) rest
+    -- Unlike a derived 'Show' instance, we don't print parens implied
+    -- by right associativity.
+    showsPrecF (precCons+1) elt . showString " :< " . showsPrec 0 rest
     where
       precCons = 5
 
