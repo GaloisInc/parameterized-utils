@@ -39,6 +39,7 @@ module Data.Parameterized.Classes
   , fromOrdering
     -- * Typeclass generalizations
   , ShowF(..)
+  , showsF
   , HashableF(..)
   , CoercibleF(..)
     -- * Optics generalizations
@@ -211,8 +212,13 @@ class ShowF (f :: k -> *) where
   showF :: forall tp . f tp -> String
   showF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (show x)
 
-  showsF :: forall tp . f tp -> String -> String
-  showsF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (shows x)
+  -- | Like 'showsPrec', the precedence argument is /one more/ than the
+  -- precedence of the enclosing context.
+  showsPrecF :: forall tp. Int -> f tp -> String -> String
+  showsPrecF p x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (showsPrec p x)
+
+showsF :: ShowF f => f tp -> String -> String
+showsF x = showsPrecF 0 x
 
 instance Show x => ShowF (Const x)
 
