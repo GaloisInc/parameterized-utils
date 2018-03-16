@@ -51,8 +51,13 @@ data List :: (k -> *) -> [k] -> * where
 infixr 5 :<
 
 instance ShowF f => Show (List f sh) where
-  show Nil = "Nil"
-  show (elt :< rest) = showF elt ++ " :< " ++ show rest
+  showsPrec _ Nil = showString "Nil"
+  showsPrec p (elt :< rest) = showParen (p > precCons) $
+    -- Unlike a derived 'Show' instance, we don't print parens implied
+    -- by right associativity.
+    showsPrecF (precCons+1) elt . showString " :< " . showsPrec 0 rest
+    where
+      precCons = 5
 
 instance ShowF f => ShowF (List f)
 

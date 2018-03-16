@@ -117,7 +117,7 @@ typeVars :: TypeSubstitution a => a -> Set Name
 typeVars = Set.fromList . freeVariables
 
 
--- | @declareStructuralEquality@ declares a structural equality predicate.
+-- | @structuralEquality@ declares a structural equality predicate.
 structuralEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralEquality tpq pats =
   [| \x y -> isJust ($(structuralTypeEquality tpq pats) x y) |]
@@ -208,7 +208,7 @@ structuralTypeEquality tpq pats = do
     then [| \x -> case x of {} |]
     else [| \x y -> $(caseE [| x |] (trueEqs [| y |])) |]
 
--- | @structuralTypeEquality f@ returns a function with the type:
+-- | @structuralTypeOrd f@ returns a function with the type:
 --   forall x y . f x -> f y -> OrderingF x y
 --
 -- This implementation avoids matching on both the first and second
