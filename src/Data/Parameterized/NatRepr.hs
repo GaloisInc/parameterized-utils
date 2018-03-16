@@ -90,6 +90,7 @@ module Data.Parameterized.NatRepr
     -- * Arithmetic proof
   , plusComm
   , plusMinusCancel
+  , minusPlusCancel
   , withAddMulDistribRight
   , withSubMulDistribRight
     -- * Re-exports typelists basics
@@ -309,6 +310,9 @@ plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
 -- | Cancel an add followed b a subtract
 plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
 plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
+
+minusPlusCancel :: forall f m g n . (n <= m) => f m -> g n -> (m - n) + n :~: m
+minusPlusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
 
 withAddMulDistribRight :: forall n m p f g h a. f n -> g m -> h p
                     -> ( (((n * p) + (m * p)) ~ ((n + m) * p)) => a) -> a
