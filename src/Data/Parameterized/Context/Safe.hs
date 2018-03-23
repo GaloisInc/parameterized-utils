@@ -40,6 +40,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
@@ -99,6 +100,7 @@ import Control.DeepSeq
 import qualified Control.Lens as Lens
 import Control.Monad.Identity (Identity(..))
 import Data.Hashable
+import Data.Kind
 import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Data.Type.Equality
