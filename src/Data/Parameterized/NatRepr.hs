@@ -93,6 +93,7 @@ module Data.Parameterized.NatRepr
   , minusPlusCancel
   , withAddMulDistribRight
   , withSubMulDistribRight
+  , mulCancelR
     -- * Re-exports typelists basics
 --  , NatK
   , type (+)
@@ -502,3 +503,7 @@ natRec n f0 ih = go n
     go n' = case isZeroNat n' of
               ZeroNat    -> f0
               NonZeroNat -> let n'' = predNat n' in ih n'' (go n'')
+
+mulCancelR ::
+  (1 <= c, (n1 * c) ~ (n2 * c)) => f1 n1 -> f2 n2 -> f3 c -> (n1 :~: n2)
+mulCancelR _ _ _ = unsafeCoerce Refl
