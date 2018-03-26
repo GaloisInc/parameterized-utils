@@ -12,6 +12,7 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
@@ -80,6 +81,7 @@ import           Control.Monad.Identity (Identity(..))
 import           Data.Bits
 import           Data.Coerce
 import           Data.Hashable
+import           Data.Kind
 import           Data.List (intercalate)
 import           Data.Proxy
 import           Unsafe.Coerce

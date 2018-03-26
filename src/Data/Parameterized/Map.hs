@@ -21,6 +21,7 @@ Some code was adapted from containers.
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
 module Data.Parameterized.Map
   ( MapF
     -- * Construction
@@ -67,6 +68,7 @@ module Data.Parameterized.Map
 import Control.Applicative hiding (empty)
 import Control.Lens (Traversal', Lens')
 import Control.Monad.Identity
+import Data.Kind
 import Data.List (intercalate, foldl')
 import Data.Maybe ()
 
