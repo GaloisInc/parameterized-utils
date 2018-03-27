@@ -26,6 +26,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeApplications #-}
 #if MIN_VERSION_base(4,9,0)
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 #endif
@@ -89,11 +90,14 @@ module Data.Parameterized.NatRepr
   , leqMulMono
     -- * Arithmetic proof
   , plusComm
+  , mulComm
   , plusMinusCancel
   , minusPlusCancel
+  , addMulDistribRight
   , withAddMulDistribRight
   , withSubMulDistribRight
   , mulCancelR
+  , mul2Plus
     -- * Re-exports typelists basics
 --  , NatK
   , type (+)
@@ -308,6 +312,14 @@ maxNat x y
 plusComm :: forall f m g n . f m -> g n -> m+n :~: n+m
 plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
 
+-- | Produce evidence that * is commutative.
+mulComm :: forall f m g n. f m -> g n -> (m * n) :~: (n * m)
+mulComm _ _ = unsafeCoerce Refl
+
+mul2Plus :: forall f n. f n -> (n + n) :~: (2 * n)
+mul2Plus n = case addMulDistribRight (Proxy @1) (Proxy @1) n of
+               Refl -> Refl
+
 -- | Cancel an add followed b a subtract
 plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
 plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
@@ -315,11 +327,17 @@ plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
 minusPlusCancel :: forall f m g n . (n <= m) => f m -> g n -> (m - n) + n :~: m
 minusPlusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
 
+addMulDistribRight :: forall n m p f g h. f n -> g m -> h p
+                    -> ((n * p) + (m * p)) :~: ((n + m) * p)
+addMulDistribRight _n _m _p = unsafeCoerce Refl
+
+
+
 withAddMulDistribRight :: forall n m p f g h a. f n -> g m -> h p
                     -> ( (((n * p) + (m * p)) ~ ((n + m) * p)) => a) -> a
-withAddMulDistribRight _n _m _p f =
-  case unsafeCoerce (Refl :: 0 :~: 0) of
-    (Refl :: (((n * p) + (m * p)) :~: ((n + m) * p)) ) -> f
+withAddMulDistribRight n m p f =
+  case addMulDistribRight n m p of
+    Refl -> f
 
 withSubMulDistribRight :: forall n m p f g h a. (m <= n) => f n -> g m -> h p
                     -> ( (((n * p) - (m * p)) ~ ((n - m) * p)) => a) -> a
