@@ -14,7 +14,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE EmptyCase #-}
 module Data.Parameterized.TH.GADT
-  ( structuralEquality
+  ( -- * Instance generators
+    -- $typePatterns
+  structuralEquality
   , structuralTypeEquality
   , structuralTypeOrd
   , structuralTraversal
@@ -71,6 +73,9 @@ conExpr = ConE . constructorName
 ------------------------------------------------------------------------
 -- TypePat
 
+-- | A type used to describe (and match) types appearing in generated pattern
+-- matches inside of the TH generators in this module ('structuralEquality',
+-- 'structuralTypeEquality', 'structuralTypeOrd', and 'structuralTraversal')
 data TypePat
    = TypeApp TypePat TypePat -- ^ The application of a type.
    | AnyType       -- ^ Match any type.
@@ -441,3 +446,48 @@ showCon p nm n = do
 
 matchShowCtor :: ExpQ -> ConstructorInfo -> MatchQ
 matchShowCtor p con = showCon p (constructorName con) (length (constructorFields con))
+
+-- $typePatterns
+--
+-- By default, the Template Haskell instance generators 'structuralEquality',
+-- 'structuralTypeEquality', 'structuralTypeOrd', and 'structuralTraversal'
+-- employ heuristics to generate valid instances in the majority of cases.
+-- There are at least two cases where the heuristics employed might not be
+-- sufficient:
+--
+-- * Performance: if the generated instance isn't efficient enough
+--
+-- * Correctness: if the generated instance doesn't type check
+--
+-- To be able to handle these cases, these functions take a list of exceptions
+-- in the form of their second parameter, which has type @[('TypePat',
+-- 'ExpQ')]@.  Each 'TypePat' is a /matcher/ that tells the TH generator to use
+-- the 'ExpQ' to process the matched sub-term.  Consider the following example:
+--
+-- > data T a b where
+-- >   C1 :: NatRepr n -> T () n
+-- >
+-- > instance TestEquality (T a) where
+-- >   testEquality = $(structuralTypeEquality [t|T|]
+-- >                    [ (ConType [t|NatRepr|] `TypeApp` AnyType, [|testEquality|])
+-- >                    ])
+--
+-- The exception list says that 'structuralTypeEquality' should use
+-- 'testEquality' to compare any sub-terms of type @'NatRepr' n@ in a value of
+-- type @T@.
+--
+-- * 'AnyType' means that the type parameter in that position can be instantiated as any type
+--
+-- * @'DataArg' n@ means that the type parameter in that position is the @n@-th
+--   type parameter of the GADT being traversed (@T@ in the example)
+--
+-- * 'TypeApp' is type application
+--
+-- * 'ConType' specifies a base type
+--
+-- The exception list could have equivalently (and more precisely) have been specified as:
+--
+-- > [(ConType [t|NatRepr|] `TypeApp` DataArg 1, [|testEquality|])]
+--
+-- The use of 'DataArg' says that the type parameter of the 'NatRepr' must
+-- be the same as the second type parameter of @T@.
