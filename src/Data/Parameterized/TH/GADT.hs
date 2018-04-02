@@ -449,20 +449,15 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 
 -- $typePatterns
 --
--- By default, the Template Haskell instance generators 'structuralEquality',
+-- The Template Haskell instance generators 'structuralEquality',
 -- 'structuralTypeEquality', 'structuralTypeOrd', and 'structuralTraversal'
--- employ heuristics to generate valid instances in the majority of cases.
--- There are at least two cases where the heuristics employed might not be
--- sufficient:
---
--- * Performance: if the generated instance isn't efficient enough
---
--- * Correctness: if the generated instance doesn't type check
---
--- To be able to handle these cases, these functions take a list of exceptions
--- in the form of their second parameter, which has type @[('TypePat',
--- 'ExpQ')]@.  Each 'TypePat' is a /matcher/ that tells the TH generator to use
--- the 'ExpQ' to process the matched sub-term.  Consider the following example:
+-- employ heuristics to generate valid instances in the majority of cases.  Most
+-- failures in the heuristics occur on sub-terms that are type indexed.  To
+-- handle cases where these functions fail to produce a valid instance, they
+-- take a list of exceptions in the form of their second parameter, which has
+-- type @[('TypePat', 'ExpQ')]@.  Each 'TypePat' is a /matcher/ that tells the
+-- TH generator to use the 'ExpQ' to process the matched sub-term.  Consider the
+-- following example:
 --
 -- > data T a b where
 -- >   C1 :: NatRepr n -> T () n
