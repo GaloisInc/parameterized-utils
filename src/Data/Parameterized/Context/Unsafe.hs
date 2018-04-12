@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeInType #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
   , KnownContext(..)
@@ -85,6 +86,7 @@ import           Data.Kind
 import           Data.List (intercalate)
 import           Data.Proxy
 import           Unsafe.Coerce
+import           Data.Kind(Type)
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Ctx
@@ -310,7 +312,7 @@ type instance Pred ('Succ h) = h
 --
 -- The first parameter is the height of the tree.
 -- The second is the parameterized value.
-data BalancedTree h (f :: k -> *) (p :: Ctx k) where
+data BalancedTree h (f :: k -> Type) (p :: Ctx k) where
   BalLeaf :: !(f x) -> BalancedTree 'Zero f (SingleCtx x)
   BalPair :: !(BalancedTree h f x)
           -> !(BalancedTree h f y)
@@ -461,7 +463,7 @@ bal_zipWithM _ _ _ = error "ilegal args to bal_zipWithM"
 ------------------------------------------------------------------------
 -- BinomialTree
 
-data BinomialTree (h::Height) (f :: k -> *) :: Ctx k -> * where
+data BinomialTree (h::Height) (f :: k -> Type) :: Ctx k -> Type where
   Empty :: BinomialTree h f EmptyCtx
 
   -- Contains size of the subtree, subtree, then element.
@@ -689,7 +691,7 @@ tree_zipWithM _ _ _ = error "ilegal args to tree_zipWithM"
 -- This assignment implementation uses a binomial tree implementation
 -- that offers lookups and updates in time and space logarithmic with
 -- respect to the number of elements in the context.
-newtype Assignment (f :: k -> *) (ctx :: Ctx k)
+newtype Assignment (f :: k -> Type) (ctx :: Ctx k)
       = Assignment (BinomialTree 'Zero f ctx)
 
 type role Assignment nominal nominal
@@ -797,11 +799,11 @@ adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
 type instance IndexF       (Assignment f ctx) = Index ctx
 type instance IxValueF     (Assignment f ctx) = f
 
-instance forall (f :: k -> *) ctx. IxedF' k (Assignment f ctx) where
+instance forall (f :: k -> Type) ctx. IxedF' k (Assignment (f :: k -> Type) ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
-instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
+instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
   ixF = ixF'
 
 -- This is an unsafe version of update that changes the type of the expression.

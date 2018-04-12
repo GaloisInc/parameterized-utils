@@ -42,6 +42,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeInType #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
     -- * Size
@@ -105,6 +106,7 @@ import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Data.Type.Equality
 import Prelude hiding (init, map, null, replicate, succ, zipWith)
+import Data.Kind(Type)
 
 #if !MIN_VERSION_base(4,8,0)
 import Data.Functor
@@ -353,12 +355,12 @@ instance ShowF (Index ctx)
 
 -- | An assignment is a sequence that maps each index with type 'tp' to
 -- a value of type 'f tp'.
-data Assignment (f :: k -> *) (ctx :: Ctx k) where
+data Assignment (f :: k -> Type) (ctx :: Ctx k) where
   AssignmentEmpty :: Assignment f EmptyCtx
   AssignmentExtend :: Assignment f ctx -> f tp -> Assignment f (ctx ::> tp)
 
 -- | View an assignment as either empty or an assignment with one appended.
-data AssignView (f :: k -> *) (ctx :: Ctx k) where
+data AssignView (f :: k -> Type) (ctx :: Ctx k) where
   AssignEmpty :: AssignView f EmptyCtx
   AssignExtend :: Assignment f ctx -> f tp -> AssignView f (ctx::>tp)
 
@@ -436,14 +438,14 @@ adjustM f = go (\x -> x)
   go _ _ _ = error "SafeTypeContext.adjustM: impossible!"
 #endif
 
-type instance IndexF   (Assignment (f :: k -> *) ctx) = Index ctx
-type instance IxValueF (Assignment (f :: k -> *) ctx) = f
+type instance IndexF   (Assignment (f :: k -> Type) ctx) = Index ctx
+type instance IxValueF (Assignment (f :: k -> Type) ctx) = f
 
-instance forall (f :: k -> *) ctx. IxedF k (Assignment f ctx) where
+instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
   ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF idx f = adjustM f idx
 
-instance forall (f :: k -> *) ctx. IxedF' k (Assignment f ctx) where
+instance forall (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
@@ -538,7 +540,7 @@ instance TraversableFC Assignment where
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
 map = fmapFC
 
-traverseF :: forall (f:: k -> *) (g::k -> *) (m:: * -> *) (c::Ctx k)
+traverseF :: forall (f:: k -> Type) (g::k -> Type) (m:: Type -> Type) (c::Ctx k)
            . Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
@@ -599,7 +601,7 @@ data MyNat where
 type MyZ = 'MyZ
 type MyS = 'MyS
 
-data MyNatRepr :: MyNat -> * where
+data MyNatRepr :: MyNat -> Type where
   MyZR :: MyNatRepr MyZ
   MySR :: MyNatRepr n -> MyNatRepr (MyS n)
 
@@ -608,7 +610,7 @@ type family StrongCtxUpdate (n::MyNat) (ctx::Ctx k) (z::k) :: Ctx k where
   StrongCtxUpdate MyZ     (ctx::>x)    z = ctx ::> z
   StrongCtxUpdate (MyS n) (ctx::>x)    z = (StrongCtxUpdate n ctx z) ::> x
 
-type family MyNatLookup (n::MyNat) (ctx::Ctx k) (f::k -> *) :: * where
+type family MyNatLookup (n::MyNat) (ctx::Ctx k) (f::k -> Type) :: Type where
   MyNatLookup n       EmptyCtx  f = ()
   MyNatLookup MyZ     (ctx::>x) f = f x
   MyNatLookup (MyS n) (ctx::>x) f = MyNatLookup n ctx f

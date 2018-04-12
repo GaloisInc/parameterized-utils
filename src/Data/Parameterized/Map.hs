@@ -68,9 +68,9 @@ module Data.Parameterized.Map
 import Control.Applicative hiding (empty)
 import Control.Lens (Traversal', Lens')
 import Control.Monad.Identity
-import Data.Kind
 import Data.List (intercalate, foldl')
 import Data.Maybe ()
+import Data.Kind(Type)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
@@ -106,8 +106,8 @@ comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
 ------------------------------------------------------------------------
 -- MapF
 
--- | A map from parameterized keys to values with the same parameter type.
-data MapF (k :: v -> *) (a :: v -> *) where
+-- | A map from parameterized keys to values with the same paramter type.
+data MapF (k :: v -> Type) (a :: v -> Type) where
   Bin :: {-# UNPACK #-}
          !Size -- Number of elements in tree.
       -> !(k x)
@@ -207,12 +207,12 @@ type instance IndexF   (MapF k v) = k
 type instance IxValueF (MapF k v) = v
 
 -- | Turn a map key into a traversal that visits the indicated element in the map, if it exists.
-instance forall (k:: a -> *) v. OrdF k => IxedF a (MapF k v) where
+instance forall (k:: a -> Type) v. OrdF k => IxedF a (MapF k v) where
   ixF :: k x -> Traversal' (MapF k v) (v x)
   ixF i f m = updatedValue <$> updateAtKey i (pure Nothing) (\x -> Set <$> f x) m
 
 -- | Turn a map key into a lens that points into the indicated position in the map.
-instance forall (k:: a -> *) v. OrdF k => AtF a (MapF k v) where
+instance forall (k:: a -> Type) v. OrdF k => AtF a (MapF k v) where
   atF :: k x -> Lens' (MapF k v) (Maybe (v x))
   atF i f m = updatedValue <$> updateAtKey i (f Nothing) (\x -> maybe Delete Set <$> f (Just x)) m
 
@@ -427,7 +427,7 @@ toList = foldrWithKey (\k x m -> Pair k x : m) []
 
 -- | Generate a map from a foldable collection of keys and a
 -- function from keys to values.
-fromKeys :: forall m (t :: * -> *) (a :: k -> *) (v :: k -> *)
+fromKeys :: forall m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
           .  (Monad m, Foldable t, OrdF a)
             => (forall tp . a tp -> m (v tp))
             -- ^ Function for evaluating a register value.
@@ -440,7 +440,7 @@ fromKeys f = foldM go empty
 
 -- | Generate a map from a foldable collection of keys and a monadic
 -- function from keys to values.
-fromKeysM :: forall m (t :: * -> *) (a :: k -> *) (v :: k -> *)
+fromKeysM :: forall m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
           .  (Monad m, Foldable t, OrdF a)
            => (forall tp . a tp -> m (v tp))
            -- ^ Function for evaluating a register value.
