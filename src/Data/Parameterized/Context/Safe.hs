@@ -101,7 +101,6 @@ import Control.DeepSeq
 import qualified Control.Lens as Lens
 import Control.Monad.Identity (Identity(..))
 import Data.Hashable
-import Data.Kind
 import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Data.Type.Equality
