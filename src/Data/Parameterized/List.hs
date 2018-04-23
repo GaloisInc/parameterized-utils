@@ -209,7 +209,7 @@ ifoldr f seed0 l = go id l seed0
         Nil -> b
         a :< rest -> f (g IndexHere) a (go (\ix -> g (IndexThere ix)) rest b)
 
--- | Zip up two lists with a zipper function.
+-- | Zip up two lists with a zipper function, which can use the index.
 izipWith :: forall a b c sh . (forall tp. Index sh tp -> a tp -> b tp -> c tp)
          -> List a sh
          -> List b sh
