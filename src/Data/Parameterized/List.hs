@@ -29,6 +29,7 @@ module Data.Parameterized.List
   , indexed
   , imap
   , ifoldr
+  , izipWith
   , itraverse
     -- * Constants
   , index0
@@ -207,6 +208,24 @@ ifoldr f seed0 l = go id l seed0
       case ops of
         Nil -> b
         a :< rest -> f (g IndexHere) a (go (\ix -> g (IndexThere ix)) rest b)
+
+-- | Zip up two lists with a zipper function, which can use the index.
+izipWith :: forall a b c sh . (forall tp. Index sh tp -> a tp -> b tp -> c tp)
+         -> List a sh
+         -> List b sh
+         -> List c sh
+izipWith f = go id
+  where
+    go :: forall sh' .
+          (forall tp . Index sh' tp -> Index sh tp)
+       -> List a sh'
+       -> List b sh'
+       -> List c sh'
+    go g as bs =
+      case (as, bs) of
+        (Nil, Nil) -> Nil
+        (a :< as', b :< bs') ->
+          f (g IndexHere) a b :< go (g . IndexThere) as' bs'
 
 -- | Traverse with an additional index.
 itraverse :: forall a b sh t
