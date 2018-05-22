@@ -27,7 +27,7 @@ import Data.Coerce
 import Data.Monoid
 import GHC.Exts (build)
 
--- | A parameterized type that is a function on all instances.
+-- | A parameterized type that is a functor on all instances.
 class FunctorF m where
   fmapF :: (forall x . f x -> g x) -> m f -> m g
 
