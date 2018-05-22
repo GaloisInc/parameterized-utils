@@ -37,7 +37,7 @@ instance FunctorF (Const x) where
 ------------------------------------------------------------------------
 -- FoldableF
 
--- | This is a coercision used to avoid overhead associated
+-- | This is a coercion used to avoid overhead associated
 -- with function composition.
 (#.) :: Coercible b c => (b -> c) -> (a -> b) -> (a -> c)
 (#.) _f = coerce
