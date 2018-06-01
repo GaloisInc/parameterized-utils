@@ -33,45 +33,45 @@
 module Data.Parameterized.Context
  (
 #ifdef UNSAFE_OPS
-   module Data.Parameterized.Context.Unsafe
+    module Data.Parameterized.Context.Unsafe
 #else
-   module Data.Parameterized.Context.Safe
+    module Data.Parameterized.Context.Safe
 #endif
- , singleton
- , toVector
- , pattern (:>)
- , pattern Empty
- , decompose
- , Data.Parameterized.Context.null
- , Data.Parameterized.Context.init
- , Data.Parameterized.Context.last
- , Data.Parameterized.Context.view
- , forIndexM
- , generateSome
- , generateSomeM
- , fromList
-   -- * Context extension and embedding utilities
- , CtxEmbedding(..)
- , ExtendContext(..)
- , ExtendContext'(..)
- , ApplyEmbedding(..)
- , ApplyEmbedding'(..)
- , identityEmbedding
- , extendEmbeddingRightDiff
- , extendEmbeddingRight
- , extendEmbeddingBoth
- , ctxeSize
- , ctxeAssignment
+  , singleton
+  , toVector
+  , pattern (:>)
+  , pattern Empty
+  , decompose
+  , Data.Parameterized.Context.null
+  , Data.Parameterized.Context.init
+  , Data.Parameterized.Context.last
+  , Data.Parameterized.Context.view
+  , forIndexM
+  , generateSome
+  , generateSomeM
+  , fromList
+    -- * Context extension and embedding utilities
+  , CtxEmbedding(..)
+  , ExtendContext(..)
+  , ExtendContext'(..)
+  , ApplyEmbedding(..)
+  , ApplyEmbedding'(..)
+  , identityEmbedding
+  , extendEmbeddingRightDiff
+  , extendEmbeddingRight
+  , extendEmbeddingBoth
+  , ctxeSize
+  , ctxeAssignment
 
-   -- * Static indexing and lenses for assignments
- , Idx
- , field
- , natIndex
- , natIndexProxy
-   -- * Currying and uncurrying for assignments
- , CurryAssignment
- , CurryAssignmentClass(..)
- ) where
+    -- * Static indexing and lenses for assignments
+  , Idx
+  , field
+  , natIndex
+  , natIndexProxy
+    -- * Currying and uncurrying for assignments
+  , CurryAssignment
+  , CurryAssignmentClass(..)
+  ) where
 
 import           Control.Lens hiding (Index, (:>), Empty)
 import qualified Data.Vector as V
