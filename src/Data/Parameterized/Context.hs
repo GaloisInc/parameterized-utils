@@ -71,6 +71,13 @@ module Data.Parameterized.Context
     -- * Currying and uncurrying for assignments
   , CurryAssignment
   , CurryAssignmentClass(..)
+    -- * Size and Index values
+  , size1, size2, size3, size4, size5, size6
+  , i1of2, i2of2
+  , i1of3, i2of3, i3of3
+  , i1of4, i2of4, i3of4, i4of4
+  , i1of5, i2of5, i3of5, i4of5, i5of5
+  , i1of6, i2of6, i3of6, i4of6, i5of6, i6of6
   ) where
 
 import           Control.Lens hiding (Index, (:>), Empty)
@@ -339,3 +346,84 @@ fromList = go empty
   where go :: Assignment f ctx -> [Some f] -> Some (Assignment f)
         go prev [] = Some prev
         go prev (Some g:next) = (go $! prev `extend` g) next
+
+--------------------------------------------------------------------------------
+-- Size and Index values
+
+size1 :: Size (EmptyCtx ::> a)
+size1 = incSize zeroSize
+
+size2 :: Size (EmptyCtx ::> a ::> b)
+size2 = incSize size1
+
+size3 :: Size (EmptyCtx ::> a ::> b ::> c)
+size3 = incSize size2
+
+size4 :: Size (EmptyCtx ::> a ::> b ::> c ::> d)
+size4 = incSize size3
+
+size5 :: Size (EmptyCtx ::> a ::> b ::> c ::> d ::> e)
+size5 = incSize size4
+
+size6 :: Size (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f)
+size6 = incSize size5
+
+i1of2 :: Index (EmptyCtx ::> a ::> b) a
+i1of2 = skipIndex baseIndex
+
+i2of2 :: Index (EmptyCtx ::> a ::> b) b
+i2of2 = nextIndex size1
+
+i1of3 :: Index (EmptyCtx ::> a ::> b ::> c) a
+i1of3 = skipIndex i1of2
+
+i2of3 :: Index (EmptyCtx ::> a ::> b ::> c) b
+i2of3 = skipIndex i2of2
+
+i3of3 :: Index (EmptyCtx ::> a ::> b ::> c) c
+i3of3 = nextIndex size2
+
+i1of4 :: Index (EmptyCtx ::> a ::> b ::> c ::> d) a
+i1of4 = skipIndex i1of3
+
+i2of4 :: Index (EmptyCtx ::> a ::> b ::> c ::> d) b
+i2of4 = skipIndex i2of3
+
+i3of4 :: Index (EmptyCtx ::> a ::> b ::> c ::> d) c
+i3of4 = skipIndex i3of3
+
+i4of4 :: Index (EmptyCtx ::> a ::> b ::> c ::> d) d
+i4of4 = nextIndex size3
+
+i1of5 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e) a
+i1of5 = skipIndex i1of4
+
+i2of5 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e) b
+i2of5 = skipIndex i2of4
+
+i3of5 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e) c
+i3of5 = skipIndex i3of4
+
+i4of5 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e) d
+i4of5 = skipIndex i4of4
+
+i5of5 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e) e
+i5of5 = nextIndex size4
+
+i1of6 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f) a
+i1of6 = skipIndex i1of5
+
+i2of6 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f) b
+i2of6 = skipIndex i2of5
+
+i3of6 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f) c
+i3of6 = skipIndex i3of5
+
+i4of6 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f) d
+i4of6 = skipIndex i4of5
+
+i5of6 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f) e
+i5of6 = skipIndex i5of5
+
+i6of6 :: Index (EmptyCtx ::> a ::> b ::> c ::> d ::> e ::> f) f
+i6of6 = nextIndex size5
