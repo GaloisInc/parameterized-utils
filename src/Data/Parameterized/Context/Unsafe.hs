@@ -97,9 +97,13 @@ import           Data.Parameterized.TraversableFC
 -- Size
 
 -- | Represents the size of a context.
-newtype Size (ctx :: Ctx k) = Size { sizeInt :: Int }
+newtype Size (ctx :: Ctx k) = Size Int
 
 type role Size nominal
+
+-- | Convert a context size to an 'Int'.
+sizeInt :: Size ctx -> Int
+sizeInt (Size n) = n
 
 -- | The size of an empty context.
 zeroSize :: Size 'EmptyCtx
