@@ -120,7 +120,7 @@ import Data.Parameterized.TraversableFC
 ------------------------------------------------------------------------
 -- Size
 
--- | A  indexed singleton type representing the size of a context.
+-- | An indexed singleton type representing the size of a context.
 data Size (ctx :: Ctx k) where
   SizeZero :: Size 'EmptyCtx
   SizeSucc :: !(Size ctx) -> Size (ctx '::> tp)
