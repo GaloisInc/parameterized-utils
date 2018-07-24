@@ -32,6 +32,7 @@ module Data.Parameterized.Classes
     -- * Ordering generalization
   , OrdF(..)
   , lexCompareF
+  , testEqualityDefault
   , OrderingF(..)
   , joinOrderingF
   , orderingF_refl
@@ -92,8 +93,10 @@ instance CoercibleF (Const x) where
 class EqF (f :: k -> *) where
   eqF :: f a -> f a -> Bool
 
-instance Eq a => EqF (Const a) where
-  eqF (Const x) (Const y) = x == y
+  default eqF :: Eq (f a) => f a -> f a -> Bool
+  eqF = (==)
+
+instance Eq a => EqF (Const a)
 
 ------------------------------------------------------------------------
 -- PolyEq
@@ -192,6 +195,10 @@ lexCompareF :: forall (f :: j -> *) (a :: j) (b :: j) (c :: k) (d :: k)
             -> (a ~ b => OrderingF c d)
             -> OrderingF c d
 lexCompareF x y = joinOrderingF (compareF x y)
+
+-- | A handy way to create a 'TestEquality' instance if you already have one for 'OrdF'.
+testEqualityDefault :: OrdF f => f a -> f b -> Maybe (a :~: b)
+testEqualityDefault a b = orderingF_refl (compareF a b)
 
 ------------------------------------------------------------------------
 -- ShowF
