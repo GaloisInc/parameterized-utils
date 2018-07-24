@@ -48,6 +48,7 @@ module Data.Parameterized.Map
   , filterLt
     -- * Folds
   , foldrWithKey
+  , hashMapWithSalt
     -- * Traversal
   , map
   , mapMaybe
@@ -262,6 +263,11 @@ instance TraversableF (MapF ktp) where
 
 instance (ShowF ktp, ShowF rtp) => Show (MapF ktp rtp) where
   show m = showMap showF showF m
+
+-- Neither HashableF nor HashableFC is really right.
+infixl 0 `hashMapWithSalt`
+hashMapWithSalt :: (HashableF k, HashableF v) => Int -> MapF k v -> Int
+hashMapWithSalt = foldrWithKey (\k v s -> s `hashWithSaltF` k `hashWithSaltF` v)
 
 -- | Return all keys of the map in ascending order.
 keys :: MapF k a -> [Some k]
