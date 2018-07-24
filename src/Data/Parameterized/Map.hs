@@ -143,6 +143,9 @@ instance Bin.IsBinTree (MapF k a) (Pair k a) where
 instance (TestEquality k, EqF a) => Eq (MapF k a) where
   x == y = size x == size y && toList x == toList y
 
+instance (OrdF k, OrdF a, EqF a) => Ord (MapF k a) where
+  compare x y = compare (toList x) (toList y)
+
 ------------------------------------------------------------------------
 -- Traversals
 

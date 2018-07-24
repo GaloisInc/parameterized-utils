@@ -31,6 +31,13 @@ instance (TestEquality a, EqF b) => Eq (Pair a b) where
       Just Refl -> eqF xb yb
       Nothing -> False
 
+instance (OrdF a, EqF b, OrdF b) => Ord (Pair a b) where
+  -- why can't I use toOrdering (joinOrdering (compareF xa ya) (compareF xb yb))?
+  compare (Pair xa xb) (Pair ya yb) = case compareF xa ya of
+    EQF -> toOrdering (compareF xb yb)
+    LTF -> LT
+    GTF -> GT
+
 instance FunctorF (Pair a) where
   fmapF f (Pair x y) = Pair x (f y)
 
