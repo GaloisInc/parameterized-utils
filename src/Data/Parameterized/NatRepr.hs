@@ -31,7 +31,7 @@ contained in a NatRepr value matches its static type.
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 #endif
 module Data.Parameterized.NatRepr
-  ( NatRepr
+  ( NatRepr(NatRepr)
   , natValue
   , knownNat
   , withKnownNat

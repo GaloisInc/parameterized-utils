@@ -76,7 +76,7 @@ toList (Vector v) = Vector.toList v
 -- | Length of the vector.
 -- @O(1)@
 length :: Vector n a -> NatRepr n
-length (Vector xs) = unsafeCoerce (fromIntegral (Vector.length xs) :: Integer)
+length (Vector xs) = NatRepr (fromIntegral (Vector.length xs) :: Integer)
 {-# INLINE length #-}
 
 -- | The length of the vector as an "Int".
