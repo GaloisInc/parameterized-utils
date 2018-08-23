@@ -16,6 +16,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -24,6 +25,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeApplications #-}
@@ -98,6 +100,7 @@ module Data.Parameterized.NatRepr
   , withSubMulDistribRight
   , mulCancelR
   , mul2Plus
+  , lemmaMul
     -- * Re-exports typelists basics
 --  , NatK
   , type (+)
@@ -107,6 +110,8 @@ module Data.Parameterized.NatRepr
   , Equality.TestEquality(..)
   , (Equality.:~:)(..)
   , Data.Parameterized.Some.Some
+    -- * Backdoor, no touchy
+  , activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing
   ) where
 
 import Data.Bits ((.&.))
@@ -133,6 +138,14 @@ newtype NatRepr (n::Nat) = NatRepr { natValue :: Integer
                                      -- ^ The underlying integer value of the number.
                                    }
   deriving (Hashable)
+
+type role NatRepr nominal
+
+-- | If you are not 110% sure what the consequences of using this are and
+--   how to use it, don't.
+activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing :: ((Integer -> NatRepr n) -> a) -> a
+activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing k = k NatRepr
+{-# INLINE activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing #-}
 
 -- | Return the value of the nat representation.
 widthVal :: NatRepr n -> Int
@@ -525,3 +538,7 @@ natRec n f0 ih = go n
 mulCancelR ::
   (1 <= c, (n1 * c) ~ (n2 * c)) => f1 n1 -> f2 n2 -> f3 c -> (n1 :~: n2)
 mulCancelR _ _ _ = unsafeCoerce Refl
+
+-- | Used in @Vector@
+lemmaMul :: (1 <= n) => p w -> q n -> (w + (n-1) * w) :~: (n * w)
+lemmaMul = unsafeCoerce Refl
