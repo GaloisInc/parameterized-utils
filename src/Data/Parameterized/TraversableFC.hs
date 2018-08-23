@@ -150,12 +150,12 @@ foldMapFCDefault = \f -> getConst . traverseFC (Const . f)
 
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.
-traverseFC_ :: (FoldableFC t, Applicative m) => (forall x. f x -> m ()) -> (forall x. t f x -> m ())
+traverseFC_ :: (FoldableFC t, Applicative m) => (forall x. f x -> m a) -> (forall x. t f x -> m ())
 traverseFC_ f = foldrFC (\e r -> f e *> r) (pure ())
 {-# INLINE traverseFC_ #-}
 
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.
-forMFC_ :: (FoldableFC t, Applicative m) => t f c -> (forall x. f x -> m ()) -> m ()
+forMFC_ :: (FoldableFC t, Applicative m) => t f c -> (forall x. f x -> m a) -> m ()
 forMFC_ v f = traverseFC_ f v
 {-# INLINE forMFC_ #-}

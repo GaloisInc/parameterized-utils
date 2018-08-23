@@ -112,5 +112,5 @@ foldMapFDefault f = getConst #. traverseF (Const #. f)
 
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.
-traverseF_ :: (FoldableF t, Applicative f) => (forall s . e s  -> f ()) -> t e -> f ()
+traverseF_ :: (FoldableF t, Applicative f) => (forall s . e s  -> f a) -> t e -> f ()
 traverseF_ f = foldrF (\e r -> f e *> r) (pure ())
