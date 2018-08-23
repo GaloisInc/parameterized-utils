@@ -16,6 +16,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -24,6 +25,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeApplications #-}
@@ -31,7 +33,7 @@ contained in a NatRepr value matches its static type.
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 #endif
 module Data.Parameterized.NatRepr
-  ( NatRepr(NatRepr)
+  ( NatRepr
   , natValue
   , knownNat
   , withKnownNat
@@ -108,6 +110,8 @@ module Data.Parameterized.NatRepr
   , Equality.TestEquality(..)
   , (Equality.:~:)(..)
   , Data.Parameterized.Some.Some
+    -- * Backdoor, no touchy
+  , activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing
   ) where
 
 import Data.Bits ((.&.))
@@ -134,6 +138,14 @@ newtype NatRepr (n::Nat) = NatRepr { natValue :: Integer
                                      -- ^ The underlying integer value of the number.
                                    }
   deriving (Hashable)
+
+type role NatRepr nominal
+
+-- | If you are not 110% sure what the consequences of using this are and
+--   how to use it, don't.
+activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing :: ((Integer -> NatRepr n) -> a) -> a
+activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing k = k NatRepr
+{-# INLINE activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing #-}
 
 -- | Return the value of the nat representation.
 widthVal :: NatRepr n -> Int

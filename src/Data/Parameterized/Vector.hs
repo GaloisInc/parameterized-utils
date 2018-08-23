@@ -1,6 +1,7 @@
 {-# Language GADTs, DataKinds, TypeOperators, BangPatterns #-}
+{-# Language PatternGuards #-}
 {-# Language TypeApplications, ScopedTypeVariables #-}
-{-# Language Rank2Types #-}
+{-# Language Rank2Types, RoleAnnotations #-}
 -- | A vector fixed-size vector of typed elements.
 module Data.Parameterized.Vector
   ( Vector
@@ -53,13 +54,12 @@ module Data.Parameterized.Vector
   ) where
 
 import qualified Data.Vector as Vector
+import Data.Coerce
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
 import Data.Parameterized.NatRepr
 import Data.Proxy
-import Unsafe.Coerce
-import Data.Coerce
 import Prelude hiding (length,zipWith)
 
 import Data.Parameterized.Utils.Endian
@@ -67,6 +67,8 @@ import Data.Parameterized.Utils.Endian
 -- | Fixed-size non-empty vectors.
 data Vector n a where
   Vector :: (1 <= n) => !(Vector.Vector a) -> Vector n a
+
+type role Vector nominal representational
 
 -- | Get the elements of the vector as a list, lowest index first.
 toList :: Vector n a -> [a]
@@ -76,7 +78,9 @@ toList (Vector v) = Vector.toList v
 -- | Length of the vector.
 -- @O(1)@
 length :: Vector n a -> NatRepr n
-length (Vector xs) = NatRepr (fromIntegral (Vector.length xs) :: Integer)
+length (Vector xs) =
+  activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing $ \mkNatRepr ->
+    mkNatRepr (fromIntegral (Vector.length xs) :: Integer)
 {-# INLINE length #-}
 
 -- | The length of the vector as an "Int".
