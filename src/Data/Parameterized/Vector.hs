@@ -194,11 +194,11 @@ zipWithM_ :: Monad m => (a -> b -> m ()) -> Vector n a -> Vector n b -> m ()
 zipWithM_ f (Vector xs) (Vector ys) = Vector.zipWithM_ f xs ys
 {-# Inline zipWithM_ #-}
 
-{- | Interlieve two vectors.  The elements of the first vector are
+{- | Interleave two vectors.  The elements of the first vector are
 at even indexes in the result, the elements of the second are at odd indexes. -}
-interlieve ::
+interleave ::
   forall n a. (1 <= n) => Vector n a -> Vector n a -> Vector (2 * n) a
-interlieve (Vector xs) (Vector ys)
+interleave (Vector xs) (Vector ys)
   | LeqProof <- leqMulPos (Proxy @2) (Proxy @n) = Vector zs
   where
   len = Vector.length xs + Vector.length ys
