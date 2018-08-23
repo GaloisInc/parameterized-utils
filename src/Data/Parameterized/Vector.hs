@@ -279,10 +279,6 @@ append v1@(Vector xs) v2@(Vector ys) =
 
 --------------------------------------------------------------------------------
 
-
-lemmaMul :: (1 <= n) => p w -> q n -> (w + (n-1) * w) :~: (n * w)
-lemmaMul = unsafeCoerce Refl
-
 coerceVec :: Coercible a b => Vector n a -> Vector n b
 coerceVec = coerce
 

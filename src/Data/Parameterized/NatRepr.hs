@@ -98,6 +98,7 @@ module Data.Parameterized.NatRepr
   , withSubMulDistribRight
   , mulCancelR
   , mul2Plus
+  , lemmaMul
     -- * Re-exports typelists basics
 --  , NatK
   , type (+)
@@ -525,3 +526,7 @@ natRec n f0 ih = go n
 mulCancelR ::
   (1 <= c, (n1 * c) ~ (n2 * c)) => f1 n1 -> f2 n2 -> f3 c -> (n1 :~: n2)
 mulCancelR _ _ _ = unsafeCoerce Refl
+
+-- | Used in @Vector@
+lemmaMul :: (1 <= n) => p w -> q n -> (w + (n-1) * w) :~: (n * w)
+lemmaMul = unsafeCoerce Refl
