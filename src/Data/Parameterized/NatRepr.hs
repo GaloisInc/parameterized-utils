@@ -225,6 +225,9 @@ addNat (NatRepr m) (NatRepr n) = NatRepr (m+n)
 subNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m-n)
 subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
+mulNat :: (n <= m) => NatRepr m -> NatRepr n -> NatRepr (m*n)
+mulNat (NatRepr m) (NatRepr n) = NatRepr (m*n)
+
 divNat :: (1 <= n) => NatRepr (m * n) -> NatRepr n -> NatRepr m
 divNat (NatRepr x) (NatRepr y) = NatRepr (div x y)
 
