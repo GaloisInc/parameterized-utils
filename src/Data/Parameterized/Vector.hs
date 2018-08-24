@@ -71,11 +71,13 @@ import Data.Parameterized.Utils.Endian
 data Vector n a where
   Vector :: (1 <= n) => !(Vector.Vector a) -> Vector n a
 
-
 type role Vector nominal representational
 
 instance Eq a => Eq (Vector n a) where
   (Vector x) == (Vector y) = x == y
+
+instance Show a => Show (Vector n a) where
+  show (Vector x) = show x
 
 -- | Get the elements of the vector as a list, lowest index first.
 toList :: Vector n a -> [a]
