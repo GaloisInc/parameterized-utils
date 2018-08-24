@@ -231,7 +231,7 @@ shuffle f (Vector xs) = Vector ys
 -- uncons :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
 -- uncons v@(Vector xs) = (Vector.head xs, mbTail)
 reverse :: forall a n. (1 <= n) => Vector n a -> Vector n a
-reverse x = shuffle (\i -> lengthInt x - i) x
+reverse x = shuffle (\i -> lengthInt x - i - 1) x
 
 -- | Rotate "left".  The first element of the vector is on the "left", so
 -- rotate left moves all elemnts toward the corresponding smaller index.
