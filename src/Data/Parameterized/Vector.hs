@@ -44,6 +44,7 @@ module Data.Parameterized.Vector
 
     -- * Splitting and joining
     -- ** General
+  , joinWithM
   , joinWith
   , splitWith
 
@@ -59,6 +60,7 @@ import Data.Coerce
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
+import Data.Functor.Identity
 import Data.Parameterized.NatRepr
 import Data.Proxy
 import Prelude hiding (length,reverse,zipWith)
@@ -69,11 +71,13 @@ import Data.Parameterized.Utils.Endian
 data Vector n a where
   Vector :: (1 <= n) => !(Vector.Vector a) -> Vector n a
 
-
 type role Vector nominal representational
 
 instance Eq a => Eq (Vector n a) where
   (Vector x) == (Vector y) = x == y
+
+instance Show a => Show (Vector n a) where
+  show (Vector x) = show x
 
 -- | Get the elements of the vector as a list, lowest index first.
 toList :: Vector n a -> [a]
@@ -293,6 +297,36 @@ append v1@(Vector xs) v2@(Vector ys) =
 coerceVec :: Coercible a b => Vector n a -> Vector n b
 coerceVec = coerce
 
+-- | Monadically join a vector of values, using the given function.
+-- This functionality can sometimes be reproduced by creating a newtype
+-- wrapper and using @joinWith@, this implementation is provided for
+-- convenience.
+joinWithM ::
+  forall m f n w.
+  (1 <= w, Monad m) =>
+  (forall l. (1 <= l) => NatRepr l -> f w -> f l -> m (f (w + l)))
+  {- ^ A function for appending contained elements.
+       Earlier vector indexes are the first argument of the join function.
+       Pass a different function to implmenet little/big endian behaviors -} ->
+  NatRepr w -> Vector n (f w) -> m (f (n * w))
+
+joinWithM jn w = fmap fst . go
+  where
+  go :: forall l. Vector l (f w) -> m (f (l * w), NatRepr (l * w))
+  go exprs =
+    case uncons exprs of
+      (a, Left Refl) -> return (a, w)
+      (a, Right rest) ->
+        case nonEmpty rest                of { LeqProof ->
+        case leqMulPos (length rest) w    of { LeqProof ->
+        case nonEmpty exprs               of { LeqProof ->
+        case lemmaMul w (length exprs)    of { Refl -> do
+          -- @siddharthist: This could probably be written applicatively?
+          (res, sz) <- go rest
+          joined <- jn sz a res
+          return (joined, addNat w sz)
+        }}}}
+
 -- | Join a vector of values, using the given function.
 joinWith ::
   forall f n w.
@@ -302,20 +336,7 @@ joinWith ::
        Earlier vector indexes are the first argument of the join function.
        Pass a different function to implmenet little/big endian behaviors -} ->
   NatRepr w -> Vector n (f w) -> f (n * w)
-
-joinWith jn w = fst . go
-  where
-  go :: forall l. Vector l (f w) -> (f (l * w), NatRepr (l * w))
-  go exprs =
-    case uncons exprs of
-      (a, Left Refl) -> (a, w)
-      (a, Right rest) ->
-        case nonEmpty rest                of { LeqProof ->
-        case leqMulPos (length rest) w    of { LeqProof ->
-        case nonEmpty exprs               of { LeqProof ->
-        case lemmaMul w (length exprs)    of { Refl ->
-        let (res,sz) = go rest            in
-          (jn sz a res, addNat w sz) }}}}
+joinWith jn w v = runIdentity $ joinWithM (\n x -> pure . (jn n x)) w v
 {-# Inline joinWith #-}
 
 
