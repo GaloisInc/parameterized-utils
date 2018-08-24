@@ -87,6 +87,7 @@ test-suite parameterizedTests
   other-modules:
     Test.Context
     Test.NatRepr
+    Test.Vector
 
   build-depends:
     base,

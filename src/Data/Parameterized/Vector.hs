@@ -36,6 +36,7 @@ module Data.Parameterized.Vector
 
     -- * Reorder
   , shuffle
+  , reverse
   , rotateL
   , rotateR
   , shiftL
@@ -60,7 +61,7 @@ import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
 import Data.Parameterized.NatRepr
 import Data.Proxy
-import Prelude hiding (length,zipWith)
+import Prelude hiding (length,reverse,zipWith)
 
 import Data.Parameterized.Utils.Endian
 
@@ -68,7 +69,11 @@ import Data.Parameterized.Utils.Endian
 data Vector n a where
   Vector :: (1 <= n) => !(Vector.Vector a) -> Vector n a
 
+
 type role Vector nominal representational
+
+instance Eq a => Eq (Vector n a) where
+  (Vector x) == (Vector y) = x == y
 
 -- | Get the elements of the vector as a list, lowest index first.
 toList :: Vector n a -> [a]
@@ -125,7 +130,6 @@ nonEmpty (Vector _) = LeqProof
 {-# Inline nonEmpty #-}
 
 
-
 -- | Remove the first element of the vector, and return the rest, if any.
 uncons :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
 uncons v@(Vector xs) = (Vector.head xs, mbTail)
@@ -167,8 +171,6 @@ take :: forall n x a. (1 <= n) => NatRepr n -> Vector (n + x) a -> Vector n a
 take | LeqProof <- prf = slice (knownNat @0)
   where
   prf = leqAdd (leqRefl (Proxy @n)) (Proxy @x)
-
-
 
 --------------------------------------------------------------------------------
 
@@ -225,6 +227,11 @@ shuffle f (Vector xs) = Vector ys
   ys = Vector.generate (Vector.length xs) (\i -> xs Vector.! f i)
 {-# Inline shuffle #-}
 
+-- | Reverse the vector.
+-- uncons :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
+-- uncons v@(Vector xs) = (Vector.head xs, mbTail)
+reverse :: forall a n. (1 <= n) => Vector n a -> Vector n a
+reverse x = shuffle (\i -> lengthInt x - i) x
 
 -- | Rotate "left".  The first element of the vector is on the "left", so
 -- rotate left moves all elemnts toward the corresponding smaller index.
