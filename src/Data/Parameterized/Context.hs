@@ -50,6 +50,8 @@ module Data.Parameterized.Context
   , generateSome
   , generateSomeM
   , fromList
+  , traverseAndCollect
+
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
   , ExtendContext(..)
@@ -80,10 +82,12 @@ module Data.Parameterized.Context
   , i1of6, i2of6, i3of6, i4of6, i5of6, i6of6
   ) where
 
+import           Control.Applicative (liftA2)
 import           Control.Lens hiding (Index, (:>), Empty)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
+import           Data.Monoid ((<>))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
@@ -346,6 +350,24 @@ fromList = go empty
   where go :: Assignment f ctx -> [Some f] -> Some (Assignment f)
         go prev [] = Some prev
         go prev (Some g:next) = (go $! prev `extend` g) next
+
+
+newtype Collector m w a = Collector { runCollector :: m w }
+instance Functor (Collector m w) where
+  fmap _ (Collector x) = Collector x
+instance (Applicative m, Monoid w) => Applicative (Collector m w) where
+  pure _ = Collector (pure mempty)
+  Collector x <*> Collector y = Collector (liftA2 (<>) x y)
+
+-- | Visit each of the elements in an @Assignment@ in order
+--   from left to right and collect the results using the provided @Monoid@.
+traverseAndCollect ::
+  (Monoid w, Applicative m) =>
+  (forall tp. Index ctx tp -> f tp -> m w) ->
+  Assignment f ctx ->
+  m w
+traverseAndCollect f =
+  runCollector . traverseWithIndex (\i x -> Collector (f i x))
 
 --------------------------------------------------------------------------------
 -- Size and Index values
