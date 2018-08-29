@@ -42,11 +42,19 @@ module Data.Parameterized.Vector
   , shiftL
   , shiftR
 
+    -- * Construction
+  , singleton
+  , cons
+  , snoc
+  , generate
+  , generateM
+
     -- * Splitting and joining
     -- ** General
   , joinWithM
   , joinWith
   , splitWith
+  , splitWithA
 
     -- ** Vectors
   , split
@@ -56,6 +64,7 @@ module Data.Parameterized.Vector
   ) where
 
 import qualified Data.Vector as Vector
+import Data.Functor.Compose
 import Data.Coerce
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
@@ -232,8 +241,6 @@ shuffle f (Vector xs) = Vector ys
 {-# Inline shuffle #-}
 
 -- | Reverse the vector.
--- uncons :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
--- uncons v@(Vector xs) = (Vector.head xs, mbTail)
 reverse :: forall a n. (1 <= n) => Vector n a -> Vector n a
 reverse x = shuffle (\i -> lengthInt x - i - 1) x
 
@@ -291,6 +298,76 @@ append v1@(Vector xs) v2@(Vector ys) =
   }
 {-# Inline append #-}
 
+--------------------------------------------------------------------------------
+-- Constructing Vectors
+
+-- | Vector with exactly one element
+singleton :: forall a. a -> Vector 1 a
+singleton a = Vector (Vector.singleton a)
+
+leqLen :: forall n a. Vector n a -> LeqProof 1 (n + 1)
+leqLen v =
+  let leqSucc :: forall f z. f z -> LeqProof z (z + 1)
+      leqSucc fz = leqAdd (leqRefl fz :: LeqProof z z) (knownNat @1)
+  in leqTrans (nonEmpty v :: LeqProof 1 n) (leqSucc (length v))
+
+-- | Add an element to the head of a vector
+cons :: forall n a. a -> Vector n a -> Vector (n+1) a
+cons a v@(Vector x) = case leqLen v of LeqProof -> (Vector (Vector.cons a x))
+
+-- | Add an element to the tail of a vector
+snoc :: forall n a. Vector n a -> a -> Vector (n+1) a
+snoc v@(Vector x) a = case leqLen v of LeqProof -> (Vector (Vector.snoc x a))
+
+-- | This newtype wraps Vector so that we can curry it in the call to
+-- @natRecBounded@. It adds 1 to the length so that the base case is
+-- a @Vector@ of non-zero length.
+newtype Vector' a n = MkVector' (Vector (n+1) a)
+
+unVector' :: Vector' a n -> Vector (n+1) a
+unVector' (MkVector' v) = v
+
+snoc' :: forall a m. Vector' a m -> a -> Vector' a (m+1)
+snoc' v = MkVector' . snoc (unVector' v)
+
+generate' :: forall h a
+           . NatRepr h
+          -> (forall n. (n <= h) => NatRepr n -> a)
+          -> Vector' a h
+generate' h gen =
+  case isZeroOrGT1 h of
+    Left Refl -> base
+    Right LeqProof ->
+      case (minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h) of { Refl ->
+      natRecBounded (decNat h) (decNat h) base step
+      }
+  where base :: Vector' a 0
+        base = MkVector' $ singleton (gen (knownNat @0))
+        step :: forall m. (1 <= h, m <= h - 1)
+             => NatRepr m -> Vector' a m -> Vector' a (m + 1)
+        step m v =
+          case minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h of { Refl ->
+          case (leqAdd2 (LeqProof :: LeqProof m (h-1))
+                        (LeqProof :: LeqProof 1 1) :: LeqProof (m+1) h) of { LeqProof ->
+            snoc' v (gen (incNat m))
+          }}
+
+-- | Apply a function to each element in a range starting at zero;
+-- return the a vector of values obtained.
+-- cf. both @natFromZero@ and @Data.Vector.generate@
+generate :: forall h a
+          . NatRepr h
+         -> (forall n. (n <= h) => NatRepr n -> a)
+         -> Vector (h + 1) a
+generate h gen = unVector' (generate' h gen)
+
+-- | Since @Vector@ is traversable, we can pretty trivially sequence
+-- @natFromZeroVec@ inside a monad.
+generateM :: forall m h a. (Monad m)
+          => NatRepr h
+          -> (forall n. (n <= h) => NatRepr n -> m a)
+          -> m (Vector (h + 1) a)
+generateM h gen = sequence $ generate h gen
 
 --------------------------------------------------------------------------------
 
@@ -339,7 +416,6 @@ joinWith ::
 joinWith jn w v = runIdentity $ joinWithM (\n x -> pure . (jn n x)) w v
 {-# Inline joinWith #-}
 
-
 -- | Split a bit-vector into a vector of bit-vectors.
 -- If "LittleEndian", then less significant bits go into smaller indexes.
 -- If "BigEndian", then less significant bits go into larger indexes.
@@ -382,7 +458,23 @@ splitWith endian select n w val = Vector (Vector.create initializer)
   inLen = natMultiply n w
 {-# Inline splitWith #-}
 
-
+-- We can sneakily put our functor in the parameter "f" of @splitWith@ using the
+-- @Compose@ newtype.
+-- | An applicative version of @splitWith@.
+splitWithA :: forall f g w n. (Applicative f, 1 <= w, 1 <= n) =>
+  Endian ->
+  (forall i. (i + w <= n * w) =>
+             NatRepr (n * w) -> NatRepr i -> g (n * w) -> f (g w))
+  {- ^ f function for slicing out f chunk of length @w@, starting at @i@ -} ->
+  NatRepr n -> NatRepr w -> g (n * w) -> f (Vector n (g w))
+splitWithA e select n w val = traverse getCompose $
+  splitWith @(Compose f g) e select' n w $ Compose (pure val)
+  where -- Wrap everything in Compose
+        select' :: (forall i. (i + w <= n * w)
+                => NatRepr (n * w) -> NatRepr i -> Compose f g (n * w) -> Compose f g w)
+        -- Whatever we pass in as "val" is what's passed to select anyway,
+        -- so there's no need to examine the argument. Just use "val" directly here.
+        select' nw i _ = Compose $ select nw i val
 
 newtype Vec a n = Vec (Vector n a)
 
