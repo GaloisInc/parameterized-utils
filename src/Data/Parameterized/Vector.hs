@@ -54,7 +54,7 @@ module Data.Parameterized.Vector
   , joinWithM
   , joinWith
   , splitWith
-  , splitWithM
+  , splitWithA
 
     -- ** Vectors
   , split
@@ -458,23 +458,23 @@ splitWith endian select n w val = Vector (Vector.create initializer)
   inLen = natMultiply n w
 {-# Inline splitWith #-}
 
--- We can sneakily put our monad in the parameter "f" of @splitWith@ using the
+-- We can sneakily put our functor in the parameter "f" of @splitWith@ using the
 -- @Compose@ newtype.
--- | A monadic version of @splitWith@.
-splitWithM :: forall m f w n. (Monad m, 1 <= w, 1 <= n) =>
+-- | An applicative version of @splitWith@.
+splitWithA :: forall f g w n. (Applicative f, 1 <= w, 1 <= n) =>
   Endian ->
   (forall i. (i + w <= n * w) =>
-             NatRepr (n * w) -> NatRepr i -> f (n * w) -> m (f w))
-  {- ^ A function for slicing out a chunk of length @w@, starting at @i@ -} ->
-  NatRepr n -> NatRepr w -> f (n * w) -> m (Vector n (f w))
-splitWithM e select n w val = traverse getCompose $
-  splitWith @(Compose m f) e select' n w val'
+             NatRepr (n * w) -> NatRepr i -> g (n * w) -> f (g w))
+  {- ^ f function for slicing out f chunk of length @w@, starting at @i@ -} ->
+  NatRepr n -> NatRepr w -> g (n * w) -> f (Vector n (g w))
+splitWithA e select n w val = traverse getCompose $
+  splitWith @(Compose f g) e select' n w $ Compose (pure val)
   where -- Wrap everything in Compose
         select' :: (forall i. (i + w <= n * w)
-                => NatRepr (n * w) -> NatRepr i -> Compose m f (n * w) -> Compose m f w)
-        select' nw i (Compose x) = Compose $ select nw i =<< x
-        val' :: Compose m f (n * w)
-        val' = Compose (return val)
+                => NatRepr (n * w) -> NatRepr i -> Compose f g (n * w) -> Compose f g w)
+        -- Whatever we pass in as "val" is what's passed to select anyway,
+        -- so there's no need to examine the argument. Just use "val" directly here.
+        select' nw i _ = Compose $ select nw i val
 
 newtype Vec a n = Vec (Vector n a)
 
