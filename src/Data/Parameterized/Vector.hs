@@ -45,6 +45,7 @@ module Data.Parameterized.Vector
     -- * Construction
   , singleton
   , cons
+  , snoc
   , generate
   , generateM
 
@@ -317,7 +318,6 @@ cons a v@(Vector x) = case leqLen v of LeqProof -> (Vector (Vector.cons a x))
 -- | Add an element to the tail of a vector
 snoc :: forall n a. Vector n a -> a -> Vector (n+1) a
 snoc v@(Vector x) a = case leqLen v of LeqProof -> (Vector (Vector.snoc x a))
-
 
 -- | This newtype wraps Vector so that we can curry it in the call to
 -- @natRecBounded@. It adds 1 to the length so that the base case is
