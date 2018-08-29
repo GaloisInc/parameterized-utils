@@ -1,5 +1,5 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2015
+Copyright        : (c) Galois, Inc 2014-2018
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
 
 This defines a type 'NatRepr' for representing a type-level natural
@@ -8,13 +8,15 @@ each @n@, @NatRepr n@ contains a single value containing the vlaue
 @n@.  This can be used to help use type-level variables on code
 with data dependendent types.
 
-The 'TestEquality' instance for 'NatRepr' is implemented using
-'unsafeCoerce', as is the `isZeroNat` function. This should be
-typesafe because we maintain the invariant that the integer value
+The @TestEquality@ and @DecidableEq@ instances for 'NatRepr'
+are implemented using 'unsafeCoerce', as is the `isZeroNat` function. This
+should be typesafe because we maintain the invariant that the integer value
 contained in a NatRepr value matches its static type.
 -}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -39,6 +41,7 @@ module Data.Parameterized.NatRepr
   , withKnownNat
   , IsZeroNat(..)
   , isZeroNat
+  , isZeroOrGT1
   , NatComparison(..)
   , compareNat
   , decNat
@@ -53,9 +56,15 @@ module Data.Parameterized.NatRepr
   , someNat
   , maxNat
   , natRec
+  , natRecStrong
+  , natRecBounded
   , natForEach
+  , natFromZero
   , NatCases(..)
   , testNatCases
+    -- * Strict order
+  , lessThanIrreflexive
+  , lessThanAsymmetric
     -- * Bitvector utilities
   , widthVal
   , minUnsigned
@@ -68,6 +77,7 @@ module Data.Parameterized.NatRepr
   , signedClamp
     -- * LeqProof
   , LeqProof(..)
+  , decideLeq
   , testLeq
   , testStrictLeq
   , leqRefl
@@ -118,10 +128,12 @@ import Data.Bits ((.&.))
 import Data.Hashable
 import Data.Proxy as Proxy
 import Data.Type.Equality as Equality
+import Data.Void as Void
 import GHC.TypeLits as TypeLits
 import Unsafe.Coerce
 
 import Data.Parameterized.Classes
+import Data.Parameterized.DecidableEq
 import Data.Parameterized.Some
 
 maxInt :: Integer
@@ -159,6 +171,12 @@ instance TestEquality NatRepr where
   testEquality (NatRepr m) (NatRepr n)
     | m == n = Just (unsafeCoerce Refl)
     | otherwise = Nothing
+
+instance DecidableEq NatRepr where
+  decEq (NatRepr m) (NatRepr n)
+    | m == n    = Left $ unsafeCoerce Refl
+    | otherwise = Right $
+        \x -> seq x $ error "Impossible [DecidableEq on NatRepr]"
 
 -- | Result of comparing two numbers.
 data NatComparison m n where
@@ -216,6 +234,30 @@ data IsZeroNat n where
 isZeroNat :: NatRepr n -> IsZeroNat n
 isZeroNat (NatRepr 0) = unsafeCoerce ZeroNat
 isZeroNat (NatRepr _) = unsafeCoerce NonZeroNat
+
+-- | Every nat is either zero or >= 1.
+isZeroOrGT1 :: NatRepr n -> Either (n :~: 0) (LeqProof 1 n)
+isZeroOrGT1 n =
+  case isZeroNat n of
+    ZeroNat    -> Left Refl
+    NonZeroNat -> Right $
+      -- We have n = m + 1 for some m.
+      let
+        -- | x <= x + 1
+        leqSucc:: forall x. LeqProof x (x+1)
+        leqSucc = leqAdd2 (LeqProof :: LeqProof x x) (LeqProof :: LeqProof 0 1)
+        leqPlus :: forall f x y. ((x + 1) ~ y) => f x ->  LeqProof 1 y
+        leqPlus fx =
+          case (plusComm fx (knownNat @1) :: x + 1 :~: 1 + x)    of { Refl ->
+          case (plusMinusCancel (knownNat @1) fx :: 1+x-x :~: 1) of { Refl ->
+          case (LeqProof :: LeqProof (x+1) y)                    of { LeqProof ->
+          case (LeqProof :: LeqProof (1+x-x) (y-x))              of { LeqProof ->
+            leqTrans (LeqProof :: LeqProof 1 (y-x))
+                     (leqSub (LeqProof :: LeqProof y y)
+                             (leqTrans (leqSucc :: LeqProof x (x+1))
+                                       (LeqProof) :: LeqProof x y) :: LeqProof (y - x) y)
+          }}}}
+      in leqPlus (predNat n)
 
 -- | Decrement a @NatRepr@
 decNat :: (1 <= n) => NatRepr n -> NatRepr (n-1)
@@ -358,8 +400,6 @@ withSubMulDistribRight _n _m _p f =
   case unsafeCoerce (Refl :: 0 :~: 0) of
     (Refl :: (((n * p) - (m * p)) :~: ((n - m) * p)) ) -> f
 
-
-
 ------------------------------------------------------------------------
 -- LeqProof
 
@@ -367,6 +407,13 @@ withSubMulDistribRight _n _m _p f =
 -- is less than or equal to @n@.
 data LeqProof m n where
   LeqProof :: (m <= n) => LeqProof m n
+
+-- | (<=) is a decidable relation on nats.
+decideLeq :: NatRepr a -> NatRepr b -> Either (LeqProof a b) ((LeqProof a b) -> Void)
+decideLeq (NatRepr m) (NatRepr n)
+  | m <= n    = Left $ unsafeCoerce (LeqProof :: LeqProof 0 0)
+  | otherwise = Right $
+      \x -> seq x $ error "Impossible [decidable <= on NatRepr]"
 
 testStrictLeq :: forall m n
                . (m <= n)
@@ -397,6 +444,31 @@ testNatCases m n =
     GT -> NatCaseGT (unsafeCoerce (LeqProof :: LeqProof 0 0))
 {-# NOINLINE testNatCases #-}
 
+-- | The strict order (<), defined by n < m <-> n + 1 <= m, is irreflexive.
+lessThanIrreflexive :: forall f (a :: Nat). f a -> LeqProof (1 + a) a -> Void
+lessThanIrreflexive a prf =
+  let prf1 :: LeqProof (1 + a - a) (a - a)
+      prf1 = leqSub2 prf (LeqProof :: LeqProof a a)
+      prf2 :: 1 + a - a :~: 1
+      prf2 = plusMinusCancel (knownNat @1) a
+      prf3 :: a - a :~: 0
+      prf3 = plusMinusCancel (knownNat @0) a
+      prf4 :: LeqProof 1 0
+      prf4 = case prf2 of Refl -> case prf3 of { Refl -> prf1 }
+  in case prf4 of {}
+
+-- | The strict order on the naturals is irreflexive.
+lessThanAsymmetric :: forall m f n
+                    . LeqProof (n+1) m
+                   -> LeqProof (m+1) n
+                   -> f n
+                   -> Void
+lessThanAsymmetric nLTm mLTn n =
+  case plusComm n (knownNat @1) :: n + 1 :~: 1 + n of { Refl ->
+  case leqAdd (LeqProof :: LeqProof m m) (knownNat @1) :: LeqProof m (m+1) of
+    LeqProof -> lessThanIrreflexive n $ leqTrans (leqTrans nLTm LeqProof) mLTn
+  }
+
 -- | @x `testLeq` y@ checks whether @x@ is less than or equal to @y@.
 testLeq :: forall m n . NatRepr m -> NatRepr n -> Maybe (LeqProof m n)
 testLeq (NatRepr m) (NatRepr n)
@@ -407,7 +479,6 @@ testLeq (NatRepr m) (NatRepr n)
 -- | Apply reflexivity to LeqProof
 leqRefl :: forall f n . f n -> LeqProof n n
 leqRefl _ = LeqProof
-
 
 -- | Apply transitivity to LeqProof
 leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
@@ -522,18 +593,79 @@ natForEach :: forall l h a
            -> [a]
 natForEach l h f = natForEach' l h (\LeqProof LeqProof -> f)
 
+-- | Apply a function to each element in a range starting at zero;
+-- return the list of values obtained.
+natFromZero :: forall h a
+            . NatRepr h
+           -> (forall n. (n <= h) => NatRepr n -> a)
+           -> [a]
+natFromZero = natForEach (knownNat @0)
+
 -- | Recursor for natural numbeers.
-natRec :: forall m f
-       .  NatRepr m
-       -> f 0
+natRec :: forall p f
+       .  NatRepr p
+       -> f 0 {- ^ base case -}
        -> (forall n. NatRepr n -> f n -> f (n + 1))
-       -> f m
-natRec n f0 ih = go n
-  where
-    go :: forall n'. NatRepr n' -> f n'
-    go n' = case isZeroNat n' of
-              ZeroNat    -> f0
-              NonZeroNat -> let n'' = predNat n' in ih n'' (go n'')
+       -> f p
+natRec n base ind =
+  case isZeroNat n of
+    ZeroNat    -> base
+    NonZeroNat -> let n' = predNat n
+                  in ind n' (natRec n' base ind)
+
+-- | Strong induction variant of the recursor.
+natRecStrong :: forall p f
+             .  NatRepr p
+             -> f 0 {- ^ base case -}
+             -> (forall n.
+                  NatRepr n ->
+                  (forall m. (m <= n) => NatRepr m -> f m) ->
+                  f (n + 1)) {- ^ inductive step -}
+             -> f p
+natRecStrong p base ind = natRecStrong' base ind p
+  where -- We can't use use "flip" or some other basic combinator
+        -- because type variables can't be instantiated to contain "forall"s.
+        natRecStrong' :: forall p' f'
+                      .  f' 0 {- ^ base case -}
+                      -> (forall n.
+                            NatRepr n ->
+                            (forall m. (m <= n) => NatRepr m -> f' m) ->
+                            f' (n + 1)) {- ^ inductive step -}
+                      -> NatRepr p'
+                      -> f' p'
+        natRecStrong' base' ind' n =
+          case isZeroNat n of
+            ZeroNat    -> base'
+            NonZeroNat -> ind' (predNat n) (natRecStrong' base' ind')
+
+-- | Bounded recursor for natural numbers.
+--
+-- If you can prove:
+-- - Base case: f 0
+-- - Inductive step: if n <= h and (f n) then (f (n + 1))
+-- You can conclude: for all n <= h, (f (n + 1)).
+natRecBounded :: forall m h f. (m <= h)
+              => NatRepr m
+              -> NatRepr h
+              -> f 0
+              -> (forall n. (n <= h) => NatRepr n -> f n -> f (n + 1))
+              -> f (m + 1)
+natRecBounded m h base indH =
+  case isZeroOrGT1 m of
+    Left Refl      -> indH (knownNat @0) base
+    Right LeqProof ->
+      case decideLeq m h of
+        Left LeqProof {- :: m <= h -} ->
+          let -- Since m is non-zero, it is n + 1 for some n.
+              lemma :: LeqProof (m-1) h
+              lemma = leqSub (LeqProof :: LeqProof m h) (LeqProof :: LeqProof 1 m)
+          in indH m $
+            case lemma of { LeqProof ->
+            case minusPlusCancel m (knownNat @1) of { Refl ->
+              natRecBounded @(m - 1) @h @f (predNat m) h base indH
+            }}
+        Right f {- :: (m <= h) -> Void -} ->
+          absurd $ f (LeqProof :: LeqProof m h)
 
 mulCancelR ::
   (1 <= c, (n1 * c) ~ (n2 * c)) => f1 n1 -> f2 n2 -> f3 c -> (n1 :~: n2)
