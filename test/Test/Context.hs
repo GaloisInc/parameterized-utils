@@ -16,6 +16,7 @@ import Data.Parameterized.Classes
 import Data.Parameterized.TraversableFC
 import Data.Parameterized.Some
 
+import qualified Data.Parameterized.Context as C
 import qualified Data.Parameterized.Context.Safe as S
 import qualified Data.Parameterized.Context.Unsafe as U
 
@@ -167,4 +168,11 @@ contextTests = testGroup "Context" <$> return
          case testEquality x y of
            Just Refl -> return $ vals1 == vals2
            Nothing   -> return $ vals1 /= vals2
+
+   , testProperty "append_take" $ \vals1 vals2 -> ioProperty $ do
+         Some x <- return $ mkUAsgn vals1
+         Some y <- return $ mkUAsgn vals2
+         let z = x U.<++> y
+         let x' = C.take (U.size x) (U.size y) z
+         return $ isJust $ testEquality x x'
    ]

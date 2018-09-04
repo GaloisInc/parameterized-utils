@@ -60,6 +60,7 @@ module Data.Parameterized.Context.Safe
   , Diff
   , noDiff
   , extendRight
+  , appendDiff
   , DiffView(..)
   , viewDiff
   , KnownDiff(..)
@@ -185,6 +186,10 @@ noDiff = DiffHere
 -- | Extend the difference to a sub-context of the right side.
 extendRight :: Diff l r -> Diff l (r '::> tp)
 extendRight diff = DiffThere diff
+
+appendDiff :: Size r -> Diff l (l <+> r)
+appendDiff SizeZero = DiffHere
+appendDiff (SizeSucc sz) = DiffThere (appendDiff sz)
 
 composeDiff :: Diff a b -> Diff b c -> Diff a c
 composeDiff x DiffHere = x

@@ -32,6 +32,7 @@ module Data.Parameterized.Context.Unsafe
   , Diff
   , noDiff
   , extendRight
+  , appendDiff
   , DiffView(..)
   , viewDiff
   , KnownDiff(..)
@@ -147,6 +148,8 @@ instance KnownContext ctx => KnownContext (ctx '::> tp) where
 newtype Diff (l :: Ctx k) (r :: Ctx k)
       = Diff { _contextExtSize :: Int }
 
+type role Diff nominal nominal
+
 -- | The identity difference.
 noDiff :: Diff l l
 noDiff = Diff 0
@@ -154,6 +157,9 @@ noDiff = Diff 0
 -- | Extend the difference to a sub-context of the right side.
 extendRight :: Diff l r -> Diff l (r '::> tp)
 extendRight (Diff i) = Diff (i+1)
+
+appendDiff :: Size r -> Diff l (l <+> r)
+appendDiff (Size r) = Diff r
 
 instance Cat.Category Diff where
   id = Diff 0
