@@ -124,7 +124,7 @@ module Data.Parameterized.NatRepr
   , activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing
   ) where
 
-import Data.Bits ((.&.))
+import Data.Bits ((.&.), bit)
 import Data.Hashable
 import Data.Proxy as Proxy
 import Data.Type.Equality as Equality
@@ -309,15 +309,15 @@ minUnsigned _ = 0
 
 -- | Return maximum unsigned value for bitvector with given width.
 maxUnsigned :: NatRepr w -> Integer
-maxUnsigned w = 2^(natValue w) - 1
+maxUnsigned w = bit (widthVal w) - 1
 
 -- | Return minimum value for bitvector in 2s complement with given width.
 minSigned :: (1 <= w) => NatRepr w -> Integer
-minSigned w = negate (2^(natValue w - 1))
+minSigned w = negate (bit (widthVal w - 1))
 
 -- | Return maximum value for bitvector in 2s complement with given width.
 maxSigned :: (1 <= w) => NatRepr w -> Integer
-maxSigned w = 2^(natValue w - 1) - 1
+maxSigned w = bit (widthVal w - 1) - 1
 
 -- | @toUnsigned w i@ maps @i@ to a @i `mod` 2^w@.
 toUnsigned :: NatRepr w -> Integer -> Integer
@@ -327,7 +327,7 @@ toUnsigned w i = maxUnsigned w .&. i
 -- signed number in two's complement notation and returns that value.
 toSigned :: (1 <= w) => NatRepr w -> Integer -> Integer
 toSigned w i0
-    | i > maxSigned w = i - 2^(natValue w)
+    | i > maxSigned w = i - bit (widthVal w)
     | otherwise       = i
   where i = i0 .&. maxUnsigned w
 
