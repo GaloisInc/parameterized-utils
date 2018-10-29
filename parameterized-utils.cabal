@@ -14,7 +14,7 @@ Description:
   intended for things like expression libraries where one wishes
   to leverage the Haskell type-checker to improve type-safety by encoding
   the object language type system into data kinds.
-tested-with: GHC==8.4.3
+tested-with: GHC==8.4.3, GHC==8.6.1
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set
@@ -31,7 +31,7 @@ source-repository head
 
 library
   build-depends:
-    base >= 4.7 && < 4.12,
+    base >= 4.7 && < 4.13,
     th-abstraction >=0.1 && <0.3,
     containers,
     deepseq,
