@@ -53,7 +53,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
 
-#if MIN_VERSION_base(4,9,0)
+#if MIN_VERSION_base(4,9,0) && __GLASGOW_HASKELL__ < 805
 import Data.Kind
 #endif
 

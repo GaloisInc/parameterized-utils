@@ -5,7 +5,10 @@
 {-# Language FlexibleInstances #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
-
+{-# Language CPP #-}
+#if __GLASGOW_HASKELL__ >= 805
+{-# Language NoStarIsType #-}
+#endif
 module Test.Vector
 ( vecTests
 ) where

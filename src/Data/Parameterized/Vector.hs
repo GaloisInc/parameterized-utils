@@ -2,6 +2,10 @@
 {-# Language PatternGuards #-}
 {-# Language TypeApplications, ScopedTypeVariables #-}
 {-# Language Rank2Types, RoleAnnotations #-}
+{-# Language CPP #-}
+#if __GLASGOW_HASKELL__ >= 805
+{-# Language NoStarIsType #-}
+#endif
 -- | A vector fixed-size vector of typed elements.
 module Data.Parameterized.Vector
   ( Vector
