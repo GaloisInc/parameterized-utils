@@ -48,10 +48,15 @@ module Data.Parameterized.Map
   , filterGt
   , filterLt
     -- * Folds
+  , foldlWithKey
+  , foldlWithKey'
   , foldrWithKey
+  , foldrWithKey'
+  , foldMapWithKey
     -- * Traversal
   , map
   , mapMaybe
+  , mapMaybeWithKey
   , traverseWithKey
   , traverseWithKey_
     -- * Complex interface.
@@ -65,18 +70,19 @@ module Data.Parameterized.Map
   , Pair(..)
   ) where
 
-import Control.Applicative hiding (empty)
-import Control.Lens (Traversal', Lens')
-import Control.Monad.Identity
-import Data.List (intercalate, foldl')
-import Data.Maybe ()
-import Data.Kind(Type)
+import           Control.Applicative hiding (empty)
+import           Control.Lens (Traversal', Lens')
+import           Control.Monad.Identity
+import           Data.Kind (Type)
+import           Data.List (intercalate, foldl')
+import           Data.Maybe ()
+import           Data.Monoid
 
-import Data.Parameterized.Classes
-import Data.Parameterized.Some
-import Data.Parameterized.Pair ( Pair(..) )
-import Data.Parameterized.TraversableF
-import Data.Parameterized.Utils.BinTree
+import           Data.Parameterized.Classes
+import           Data.Parameterized.Some
+import           Data.Parameterized.Pair ( Pair(..) )
+import           Data.Parameterized.TraversableF
+import           Data.Parameterized.Utils.BinTree
   ( MaybeS(..)
   , fromMaybeS
   , Updated(..)
@@ -91,9 +97,9 @@ import Data.Parameterized.Utils.BinTree
 import qualified Data.Parameterized.Utils.BinTree as Bin
 
 #if MIN_VERSION_base(4,8,0)
-import Prelude hiding (lookup, map, traverse, null)
+import           Prelude hiding (lookup, map, traverse, null)
 #else
-import Prelude hiding (lookup, map, null)
+import           Prelude hiding (lookup, map, null)
 #endif
 
 ------------------------------------------------------------------------
@@ -170,13 +176,17 @@ map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
 map _ Tip = Tip
 map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
 
--- | Run partial map over elements.
+-- | Map keys and elements and collect `Just` results.
+mapMaybeWithKey :: (forall tp . k tp -> f tp -> Maybe (g tp)) -> MapF k f -> MapF k g
+mapMaybeWithKey _ Tip = Tip
+mapMaybeWithKey f (Bin _ k x l r) =
+  case f k x of
+    Just y -> Bin.link (Pair k y) (mapMaybeWithKey f l) (mapMaybeWithKey f r)
+    Nothing -> Bin.merge (mapMaybeWithKey f l) (mapMaybeWithKey f r)
+
+-- | Map elements and collect `Just` results.
 mapMaybe :: (forall tp . f tp -> Maybe (g tp)) -> MapF ktp f -> MapF ktp g
-mapMaybe _ Tip = Tip
-mapMaybe f (Bin _ k x l r) =
-  case f x of
-    Just y -> Bin.link (Pair k y) (mapMaybe f l) (mapMaybe f r)
-    Nothing -> Bin.merge (mapMaybe f l) (mapMaybe f r)
+mapMaybe f = mapMaybeWithKey (\_ x -> f x)
 
 -- | Traverse elements in a map
 traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
@@ -270,12 +280,42 @@ keys = foldrWithKey (\k _ l -> Some k : l) []
 elems :: MapF k a -> [Some a]
 elems = foldrF (\e l -> Some e : l) []
 
--- | Perform a fold with the key also provided.
+-- | Perform a left fold with the key also provided.
+foldlWithKey :: (forall s . b -> k s -> a s -> b) -> b -> MapF k a -> b
+foldlWithKey _ z Tip = z
+foldlWithKey f z (Bin _ kx x l r) =
+  let lz = foldlWithKey f z l
+      kz = f lz kx x
+   in foldlWithKey f kz r
+
+-- | Perform a strict left fold with the key also provided.
+foldlWithKey' :: (forall s . b -> k s -> a s -> b) -> b -> MapF k a -> b
+foldlWithKey' _ z Tip = z
+foldlWithKey' f z (Bin _ kx x l r) =
+  let lz = foldlWithKey f z l
+      kz = seq lz $ f lz kx x
+   in seq kz $ foldlWithKey f kz r
+
+-- | Perform a right fold with the key also provided.
 foldrWithKey :: (forall s . k s -> a s -> b -> b) -> b -> MapF k a -> b
-foldrWithKey f z = go z
-  where
-    go z' Tip = z'
-    go z' (Bin _ kx x l r) = go (f kx x (go z' r)) l
+foldrWithKey _ z Tip = z
+foldrWithKey f z (Bin _ kx x l r) =
+  let rz = foldrWithKey f z r
+      kz = f kx x rz
+   in foldrWithKey f kz l
+
+-- | Perform a strict right fold with the key also provided.
+foldrWithKey' :: (forall s . k s -> a s -> b -> b) -> b -> MapF k a -> b
+foldrWithKey' _ z Tip = z
+foldrWithKey' f z (Bin _ kx x l r) =
+  let rz = foldrWithKey f z r
+      kz = seq rz $ f kx x rz
+   in seq kz $ foldrWithKey f kz l
+
+-- | Fold the keys and values using the given monoid.
+foldMapWithKey :: Monoid m => (forall s . k s -> a s -> m) -> MapF k a -> m
+foldMapWithKey _ Tip = mempty
+foldMapWithKey f (Bin _ kx x l r) = foldMapWithKey f l <> f kx x <> foldMapWithKey f r
 
 showMap :: (forall tp . ktp tp -> String)
         -> (forall tp . rtp tp -> String)
