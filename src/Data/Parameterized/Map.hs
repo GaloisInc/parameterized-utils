@@ -75,7 +75,6 @@ import           Control.Lens (Traversal', Lens')
 import           Control.Monad.Identity
 import           Data.Kind (Type)
 import           Data.List (intercalate, foldl')
-import           Data.Maybe ()
 import           Data.Monoid
 
 import           Data.Parameterized.Classes
