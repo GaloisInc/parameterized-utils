@@ -45,6 +45,8 @@ module Data.Parameterized.Map
   , fromKeys
   , fromKeysM
    -- * Filter
+  , filter
+  , filterWithKey
   , filterGt
   , filterLt
     -- * Folds
@@ -96,9 +98,9 @@ import           Data.Parameterized.Utils.BinTree
 import qualified Data.Parameterized.Utils.BinTree as Bin
 
 #if MIN_VERSION_base(4,8,0)
-import           Prelude hiding (lookup, map, traverse, null)
+import           Prelude hiding (filter, lookup, map, traverse, null)
 #else
-import           Prelude hiding (lookup, map, null)
+import           Prelude hiding (filter, lookup, map, null)
 #endif
 
 ------------------------------------------------------------------------
@@ -325,6 +327,17 @@ showMap ppk ppv m = "{ " ++ intercalate ", " l ++ " }"
 
 ------------------------------------------------------------------------
 -- filter
+
+-- | Return entries with values that satisfy predicate.
+filter :: (forall tp . f tp -> Bool) -> MapF k f -> MapF k f
+filter f = filterWithKey (\_ v -> f v)
+
+-- | Return key-value pairs that satisfy predicate.
+filterWithKey :: (forall tp . k tp -> f tp -> Bool) -> MapF k f -> MapF k f
+filterWithKey _ Tip = Tip
+filterWithKey f (Bin _ k x l r)
+  | f k x     = Bin.link (Pair k x) (filterWithKey f l) (filterWithKey f r)
+  | otherwise = Bin.merge (filterWithKey f l) (filterWithKey f r)
 
 compareKeyPair :: OrdF k => k tp -> Pair k a -> Ordering
 compareKeyPair k = \(Pair x _) -> toOrdering (compareF k x)
