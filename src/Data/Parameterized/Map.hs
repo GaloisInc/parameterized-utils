@@ -178,9 +178,9 @@ instance (TestEquality k, EqF a) => Eq (MapF k a) where
 mapWithKey
   :: (forall tp . ktp tp -> f tp -> g tp)
   -> MapF ktp f
-  -> m (MapF ktp g)
+  -> MapF ktp g
 mapWithKey _ Tip = Tip
-mapWithKey f (Bin sx kx x l r) = Bin sx kx <$> f kx x <*> mapWithKey f l <*> mapWithKey f r
+mapWithKey f (Bin sx kx x l r) = Bin sx kx (f kx x) (mapWithKey f l) (mapWithKey f r)
 
 -- | Modify elements in a map
 map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
