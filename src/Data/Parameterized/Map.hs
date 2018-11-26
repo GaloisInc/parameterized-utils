@@ -57,6 +57,7 @@ module Data.Parameterized.Map
   , foldMapWithKey
     -- * Traversal
   , map
+  , mapWithKey
   , mapMaybe
   , mapMaybeWithKey
   , traverseWithKey
@@ -172,10 +173,18 @@ instance (TestEquality k, EqF a) => Eq (MapF k a) where
  #-}
 #endif
 
+
+-- | Apply function to all elements in map.
+mapWithKey
+  :: (forall tp . ktp tp -> f tp -> g tp)
+  -> MapF ktp f
+  -> m (MapF ktp g)
+mapWithKey _ Tip = Tip
+mapWithKey f (Bin sx kx x l r) = Bin sx kx <$> f kx x <*> mapWithKey f l <*> mapWithKey f r
+
 -- | Modify elements in a map
 map :: (forall tp . f tp -> g tp) -> MapF ktp f -> MapF ktp g
-map _ Tip = Tip
-map f (Bin sx kx x l r) = Bin sx kx (f x) (map f l) (map f r)
+map f = mapWithKey (\_ x -> f x)
 
 -- | Map keys and elements and collect `Just` results.
 mapMaybeWithKey :: (forall tp . k tp -> f tp -> Maybe (g tp)) -> MapF k f -> MapF k g
