@@ -221,12 +221,11 @@ knownNat = NatRepr (natVal (Proxy :: Proxy n))
 instance (KnownNat n) => KnownRepr NatRepr n where
   knownRepr = knownNat
 
-{-# DEPRECATED withKnownNat "This function is potentially unsafe and is schedueled to be removed." #-}
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =
   case someNatVal nVal of
     Just (SomeNat (Proxy :: Proxy n')) ->
-      case unsafeCoerce (Refl :: 0 :~: 0) :: n :~: n' of
+      case unsafeCoerce (Refl :: n :~: n) :: n :~: n' of
         Refl -> v
     Nothing -> error "withKnownNat: inner value in NatRepr is not a natural"
 
