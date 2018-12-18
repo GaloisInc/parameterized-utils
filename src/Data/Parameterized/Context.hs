@@ -165,7 +165,7 @@ pattern (:>) a v <- (viewAssign -> AssignExtend a v)
 #endif
 
 --------------------------------------------------------------------------------
--- | Views
+-- Views
 
 -- | Return true if assignment is empty.
 null :: Assignment f ctx -> Bool
@@ -200,9 +200,9 @@ take sz sz' asgn =
   generate sz (\i -> asgn ! extendIndex' diff i)
 
 --------------------------------------------------------------------------------
--- | Context embedding.
+-- Context embedding.
 
--- This datastructure contains a proof that the first context is
+-- | This datastructure contains a proof that the first context is
 -- embeddable in the second.  This is useful if we want to add extend
 -- an existing term under a larger context.
 
