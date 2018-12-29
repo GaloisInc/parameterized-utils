@@ -98,9 +98,8 @@ test-suite parameterizedTests
     lens,
     mtl,
     parameterized-utils,
-    tasty < 1.2,
-    -- tasty-ant-xml is not compatible with tasty 1.2
-    tasty-ant-xml,
+    tasty,
+    tasty-ant-xml >= 1.1.0,
     tasty-hunit,
     tasty-quickcheck >= 0.8.1,
     QuickCheck >= 2.7
