@@ -92,7 +92,7 @@ newSTNonceGenerator = g <$> newSTRef (toEnum 0)
                 return $! Nonce i
             }
 
--- | Create a new nonce generator in the ST monad.
+-- | Create a new nonce generator in the IO monad.
 newIONonceGenerator :: IO (Some (NonceGenerator IO))
 newIONonceGenerator = g <$> newIORef (toEnum 0)
   where g r = Some $!
