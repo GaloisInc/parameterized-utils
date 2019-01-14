@@ -16,6 +16,7 @@ if their values are equal.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
@@ -29,6 +30,7 @@ module Data.Parameterized.Nonce
   ( -- * NonceGenerator
     NonceGenerator
   , freshNonce
+  , countNoncesGenerated
   , Nonce
   , indexValue
     -- * Accessing a nonce generator
@@ -61,47 +63,53 @@ import Data.Kind
 --
 -- The first type parameter @m@ is the monad used for generating names, and
 -- the second parameter @s@ is used for the counter.
-data NonceGenerator (m :: * -> *) (s :: *) = NonceGenerator {
+data NonceGenerator (m :: * -> *) (s :: *) where
+  STNG :: !(STRef t Word64) -> NonceGenerator (ST t) s
+  IONG :: !(IORef Word64) -> NonceGenerator IO s
+
 #if MIN_VERSION_base(4,9,0)
 -- We have to make the k explicit in GHC 8.0 to avoid a warning.
-    freshNonce :: forall k (tp :: k) . m (Nonce s tp)
+freshNonce :: forall m s k (tp :: k) . NonceGenerator m s -> m (Nonce s tp)
 #else
-    freshNonce :: forall (tp :: k) . m (Nonce s tp)
+freshNonce :: forall m s (tp :: k) . NonceGenerator m s -> m (Nonce s tp)
 #endif
-  }
+freshNonce (IONG r) =
+  atomicModifyIORef' r $ \n -> (n+1, Nonce n)
+freshNonce (STNG r) = do
+  i <- readSTRef r
+  writeSTRef r $! i+1
+  return $ Nonce i
+  -- (Weirdly, there's no atomicModifySTRef'.  Yes, only the IO monad
+  -- does concurrency, but the ST monad is part of the IO monad via
+  -- stToIO, so there's no guarantee that ST code won't be run in
+  -- multiple threads.)
+
+{-# INLINE freshNonce #-}
+  -- Inlining is particularly necessary since there's no @Monad m@
+  -- constraint on 'freshNonce', so SPECIALIZE doesn't work on it.  In
+  -- this case, though, we get specialization for free from inlining.
+  -- For instance, a @NonceGenerator IO s@ must be an @IONG@, so the
+  -- simplifier eliminates the STNG branch.
+
+-- | The number of nonces generated so far by this generator.  Only
+-- really useful for profiling.
+countNoncesGenerated :: NonceGenerator m s -> m Integer
+countNoncesGenerated (IONG r) = toInteger <$> readIORef r
+countNoncesGenerated (STNG r) = toInteger <$> readSTRef r
 
 -- | Create a new counter.
 withGlobalSTNonceGenerator :: (forall t . NonceGenerator (ST t) t -> ST t r) -> r
 withGlobalSTNonceGenerator f = runST $ do
   r <- newSTRef (toEnum 0)
-  f $! NonceGenerator {
-      freshNonce = do
-          i <- readSTRef r
-          writeSTRef r $! succ i
-          return $! Nonce i
-    }
+  f $! STNG r
 
 -- | Create a new nonce generator in the ST monad.
 newSTNonceGenerator :: ST t (Some (NonceGenerator (ST t)))
-newSTNonceGenerator = g <$> newSTRef (toEnum 0)
-  where g r = Some $!
-          NonceGenerator {
-              freshNonce = do
-                i <- readSTRef r
-                writeSTRef r $! succ i
-                return $! Nonce i
-            }
+newSTNonceGenerator = Some . STNG <$> newSTRef (toEnum 0)
 
--- | Create a new nonce generator in the IO monad.
+-- | Create a new nonce generator in the ST monad.
 newIONonceGenerator :: IO (Some (NonceGenerator IO))
-newIONonceGenerator = g <$> newIORef (toEnum 0)
-  where g r = Some $!
-          NonceGenerator {
-              freshNonce = do
-                  i <- readIORef r
-                  writeIORef r $! succ i
-                  return $! Nonce i
-            }
+newIONonceGenerator = Some . IONG <$> newIORef (toEnum 0)
 
 -- | Run a ST computation with a new nonce generator in the ST monad.
 withSTNonceGenerator :: (forall s . NonceGenerator (ST t) s -> (ST t) r) -> ST t r
@@ -152,7 +160,4 @@ globalNonceIORef = unsafePerformIO (newIORef 0)
 
 -- | A nonce generator that uses a globally-defined counter.
 globalNonceGenerator :: NonceGenerator IO GlobalNonceGenerator
-globalNonceGenerator =
-  NonceGenerator
-  { freshNonce = Nonce <$> atomicModifyIORef' globalNonceIORef (\n -> (n+1, n))
-  }
+globalNonceGenerator = IONG globalNonceIORef
