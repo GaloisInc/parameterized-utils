@@ -123,11 +123,11 @@ traverseF_ f = foldrF (\e r -> f e *> r) (pure ())
 ------------------------------------------------------------------------
 -- TraversableF (Compose s t)
 
-instance ( TraversableF (s :: (k -> *) -> *)
-         , TraversableFC (t :: (l -> *) -> (k -> *))
+instance ( FunctorF (s :: (k -> *) -> *)
+         , FunctorFC (t :: (l -> *) -> (k -> *))
          ) =>
          FunctorF (Compose s t) where
-  fmapF = fmapFDefault
+  fmapF f (Compose v) = Compose $ fmapF (fmapFC f) v
 
 instance ( TraversableF (s :: (k -> *) -> *)
          , TraversableFC (t :: (l -> *) -> (k -> *))
