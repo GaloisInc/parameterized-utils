@@ -7,8 +7,10 @@
 -- This module declares classes for working with structures that accept
 -- a single parametric type parameter.
 ------------------------------------------------------------------------
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.TraversableF
   ( FunctorF(..)
@@ -24,8 +26,11 @@ module Data.Parameterized.TraversableF
 import Control.Applicative
 import Control.Monad.Identity
 import Data.Coerce
+import Data.Functor.Compose (Compose(..))
 import Data.Monoid
 import GHC.Exts (build)
+
+import Data.Parameterized.TraversableFC
 
 -- | A parameterized type that is a functor on all instances.
 class FunctorF m where
@@ -114,3 +119,28 @@ foldMapFDefault f = getConst #. traverseF (Const #. f)
 -- these actions from left to right, and ignore the results.
 traverseF_ :: (FoldableF t, Applicative f) => (forall s . e s  -> f a) -> t e -> f ()
 traverseF_ f = foldrF (\e r -> f e *> r) (pure ())
+
+------------------------------------------------------------------------
+-- TraversableF (Compose s t)
+
+instance ( TraversableF (s :: (k -> *) -> *)
+         , TraversableFC (t :: (l -> *) -> (k -> *))
+         ) =>
+         FunctorF (Compose s t) where
+  fmapF = fmapFDefault
+
+instance ( TraversableF (s :: (k -> *) -> *)
+         , TraversableFC (t :: (l -> *) -> (k -> *))
+         ) =>
+         FoldableF (Compose s t) where
+  foldMapF = foldMapFDefault
+
+-- | Traverse twice over: go under the @t@, under the @s@ and lift @m@ out.
+instance ( TraversableF (s :: (k -> *) -> *)
+         , TraversableFC (t :: (l -> *) -> (k -> *))
+         ) =>
+         TraversableF (Compose s t) where
+  traverseF :: forall (f :: l -> *) (g :: l -> *) m. (Applicative m) =>
+               (forall (u :: l). f u -> m (g u))
+            -> Compose s t f -> m (Compose s t g)
+  traverseF f (Compose v) = Compose <$> traverseF (traverseFC f) v
