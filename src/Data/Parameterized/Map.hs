@@ -114,7 +114,7 @@ comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
 ------------------------------------------------------------------------
 -- MapF
 
--- | A map from parameterized keys to values with the same paramter type.
+-- | A map from parameterized keys to values with the same parameter type.
 data MapF (k :: v -> Type) (a :: v -> Type) where
   Bin :: {-# UNPACK #-}
          !Size -- Number of elements in tree.
