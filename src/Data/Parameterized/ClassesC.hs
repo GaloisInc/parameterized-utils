@@ -1,0 +1,52 @@
+{-|
+Copyright        : (c) Galois, Inc 2014-2015
+Maintainer       : Langston Barrett <langston@galois.com>
+
+This module declares classes for working with types with the kind
+@(k -> *) -> *@ for any kind @k@.
+
+These classes generally require type-level evidence for operations
+on their subterms, but don't actually provide it themselves (because
+their types are not themselves parameterized, unlike those in
+"Data.Parameterized.TraverableFC").
+
+Note that there is still some ambiguity around naming conventions, see
+<https://github.com/GaloisInc/parameterized-utils/issues/23 issue 23>.
+-}
+
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE Safe #-}
+{-# LANGUAGE TypeOperators #-}
+
+module Data.Parameterized.ClassesC
+  ( TestEqualityC(..)
+  , OrdC(..)
+  ) where
+
+import Data.Type.Equality ((:~:)(..))
+import Data.Maybe (isJust)
+import Data.Parameterized.Classes (OrderingF, toOrdering)
+import Data.Parameterized.Some (Some(..))
+
+class TestEqualityC (t :: (k -> *) -> *) where
+  testEqualityC :: (forall x y. f x -> f y -> Maybe (x :~: y))
+                -> t f
+                -> t f
+                -> Bool
+
+class TestEqualityC t => OrdC (t :: (k -> *) -> *) where
+  compareC :: (forall x y. f x -> g y -> OrderingF x y)
+           -> t f
+           -> t g
+           -> Ordering
+
+-- | This instance demonstrates where the above class is useful: namely, in
+-- types with existential quantification.
+instance TestEqualityC Some where
+  testEqualityC subterms (Some someone) (Some something) =
+    isJust (subterms someone something)
+
+instance OrdC Some where
+  compareC subterms (Some someone) (Some something) =
+    toOrdering (subterms someone something)

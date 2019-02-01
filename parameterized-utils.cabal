@@ -1,5 +1,5 @@
 Name:          parameterized-utils
-Version:       1.0.7
+Version:       1.0.8
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com
 Build-type:    Simple
@@ -49,6 +49,8 @@ library
   exposed-modules:
     Data.Parameterized
     Data.Parameterized.Classes
+    Data.Parameterized.ClassesC
+    Data.Parameterized.Compose
     Data.Parameterized.Context
     Data.Parameterized.Context.Safe
     Data.Parameterized.Context.Unsafe
@@ -62,15 +64,15 @@ library
     Data.Parameterized.Nonce
     Data.Parameterized.Nonce.Transformers
     Data.Parameterized.Nonce.Unsafe
+    Data.Parameterized.Pair
     Data.Parameterized.Some
     Data.Parameterized.SymbolRepr
-    Data.Parameterized.Pair
     Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
-    Data.Parameterized.Vector
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
+    Data.Parameterized.Vector
 
   ghc-options: -Wall
 
