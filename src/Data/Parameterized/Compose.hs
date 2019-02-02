@@ -12,6 +12,7 @@ NB: This module contains an orphan instance.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE Safe #-}
 
 module Data.Parameterized.Compose
   ( testEqualityComposeBare

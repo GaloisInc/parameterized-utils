@@ -17,6 +17,7 @@ Note that there is still some ambiguity around naming conventions, see
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE Safe #-}
 
 module Data.Parameterized.ClassesC
   ( TestEqualityC(..)
