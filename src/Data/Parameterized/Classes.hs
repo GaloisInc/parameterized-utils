@@ -37,6 +37,7 @@ module Data.Parameterized.Classes
   , orderingF_refl
   , toOrdering
   , fromOrdering
+  , ordFCompose
     -- * Typeclass generalizations
   , ShowF(..)
   , showsF
@@ -55,10 +56,13 @@ module Data.Parameterized.Classes
   ) where
 
 import Data.Functor.Const
+import Data.Functor.Compose (Compose(..))
 import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
+
+import Data.Parameterized.Compose ()
 
 -- We define these type alias here to avoid importing Control.Lens
 -- modules, as this apparently causes problems with the safe Hasekll
@@ -193,6 +197,23 @@ lexCompareF :: forall (f :: j -> *) (a :: j) (b :: j) (c :: k) (d :: k)
             -> (a ~ b => OrderingF c d)
             -> OrderingF c d
 lexCompareF x y = joinOrderingF (compareF x y)
+
+-- | If the \"outer\" functor has an 'OrdF' instance, then one can be generated
+-- for the \"inner\" functor. The type-level evidence of equality is deduced
+-- via generativity of @g@, e.g. the inference @g x ~ g y@ implies @x ~ y@.
+ordFCompose :: forall (f :: k -> *) (g :: l -> k) x y.
+                (forall w z. f w -> f z -> OrderingF w z)
+            -> Compose f g x
+            -> Compose f g y
+            -> OrderingF x y
+ordFCompose ordF_ (Compose x) (Compose y) =
+  case ordF_ x y of
+    LTF -> LTF
+    GTF -> GTF
+    EQF -> EQF
+
+instance OrdF f => OrdF (Compose f g) where
+  compareF x y = ordFCompose compareF x y
 
 ------------------------------------------------------------------------
 -- ShowF
