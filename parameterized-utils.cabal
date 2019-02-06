@@ -33,6 +33,7 @@ library
   build-depends:
     base >= 4.7 && < 4.13,
     th-abstraction >=0.1 && <0.3,
+    constraints >= 0.10 && < 0.11,
     containers,
     deepseq,
     ghc-prim,
@@ -65,6 +66,7 @@ library
     Data.Parameterized.Nonce.Transformers
     Data.Parameterized.Nonce.Unsafe
     Data.Parameterized.Pair
+    Data.Parameterized.Peano
     Data.Parameterized.Some
     Data.Parameterized.SymbolRepr
     Data.Parameterized.TH.GADT

@@ -265,7 +265,7 @@ isZeroOrGT1 n =
 decNat :: (1 <= n) => NatRepr n -> NatRepr (n-1)
 decNat (NatRepr i) = NatRepr (i-1)
 
--- | Get the predicessor of a nat
+-- | Get the predecessor of a nat
 predNat :: NatRepr (n+1) -> NatRepr n
 predNat (NatRepr i) = NatRepr (i-1)
 
