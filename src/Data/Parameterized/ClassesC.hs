@@ -14,10 +14,12 @@ Note that there is still some ambiguity around naming conventions, see
 <https://github.com/GaloisInc/parameterized-utils/issues/23 issue 23>.
 -}
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Safe #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Data.Parameterized.ClassesC
   ( TestEqualityC(..)
@@ -25,16 +27,32 @@ module Data.Parameterized.ClassesC
   ) where
 
 import Data.Type.Equality ((:~:)(..))
-import Data.Parameterized.Classes (OrderingF)
+import Data.Maybe (isJust)
+import Data.Parameterized.Classes (OrderingF, toOrdering)
+import Data.Parameterized.Some (Some(..))
 
 class TestEqualityC (t :: (k -> *) -> *) where
-  testEqualityC :: (forall x y. f x -> f y -> Maybe (x :~: y)) -- ^ Equality of subterm types
+  testEqualityC :: (forall x y. f x -> f y -> Maybe (x :~: y))
                 -> t f
                 -> t f
                 -> Bool
 
 class TestEqualityC t => OrdC (t :: (k -> *) -> *) where
-  compareC :: (forall x. f x -> g x -> OrderingF f g) -- ^ Ordering of subterm types
+  compareC :: (forall x y. f x -> g y -> OrderingF x y)
            -> t f
            -> t g
            -> Ordering
+
+-- | This instance demonstrates where the above class is useful: namely, in
+-- types with existential quantification.
+instance TestEqualityC Some where
+  testEqualityC subterms (Some someone) (Some something) =
+    isJust (subterms someone something)
+
+instance OrdC Some where
+  compareC :: (forall x y. f x -> g y -> OrderingF x y)
+           -> Some f
+           -> Some g
+           -> Ordering
+  compareC subterms (Some someone) (Some something) =
+    toOrdering (subterms someone something)
