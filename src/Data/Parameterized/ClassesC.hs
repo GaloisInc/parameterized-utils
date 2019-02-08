@@ -14,12 +14,10 @@ Note that there is still some ambiguity around naming conventions, see
 <https://github.com/GaloisInc/parameterized-utils/issues/23 issue 23>.
 -}
 
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE InstanceSigs #-}
 
 module Data.Parameterized.ClassesC
   ( TestEqualityC(..)
@@ -50,9 +48,5 @@ instance TestEqualityC Some where
     isJust (subterms someone something)
 
 instance OrdC Some where
-  compareC :: (forall x y. f x -> g y -> OrderingF x y)
-           -> Some f
-           -> Some g
-           -> Ordering
   compareC subterms (Some someone) (Some something) =
     toOrdering (subterms someone something)
