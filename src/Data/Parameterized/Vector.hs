@@ -77,6 +77,7 @@ import Data.Functor.Identity
 import Data.Parameterized.NatRepr
 import Data.Proxy
 import Prelude hiding (length,reverse,zipWith)
+import Numeric.Natural
 
 import Data.Parameterized.Utils.Endian
 
@@ -101,8 +102,8 @@ toList (Vector v) = Vector.toList v
 -- @O(1)@
 length :: Vector n a -> NatRepr n
 length (Vector xs) =
-  activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing $ \mkNatRepr ->
-    mkNatRepr (fromIntegral (Vector.length xs) :: Integer)
+  activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing $ \mk ->
+    mk (fromIntegral (Vector.length xs) :: Natural)
 {-# INLINE length #-}
 
 -- | The length of the vector as an "Int".

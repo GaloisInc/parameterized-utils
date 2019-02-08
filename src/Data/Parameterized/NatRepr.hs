@@ -40,6 +40,7 @@ contained in a NatRepr value matches its static type.
 module Data.Parameterized.NatRepr
   ( NatRepr
   , natValue
+  , intValue
   , knownNat
   , withKnownNat
   , IsZeroNat(..)
@@ -57,6 +58,7 @@ module Data.Parameterized.NatRepr
   , withDivModNat
   , natMultiply
   , someNat
+  , mkNatRepr
   , maxNat
   , natRec
   , natRecStrong
@@ -132,15 +134,16 @@ import Data.Hashable
 import Data.Proxy as Proxy
 import Data.Type.Equality as Equality
 import Data.Void as Void
-import GHC.TypeLits as TypeLits
+import Numeric.Natural
+import GHC.TypeNats as TypeNats
 import Unsafe.Coerce
 
 import Data.Parameterized.Classes
 import Data.Parameterized.DecidableEq
 import Data.Parameterized.Some
 
-maxInt :: Integer
-maxInt = toInteger (maxBound :: Int)
+maxInt :: Natural
+maxInt = fromIntegral (maxBound :: Int)
 
 ------------------------------------------------------------------------
 -- Nat
@@ -149,23 +152,27 @@ maxInt = toInteger (maxBound :: Int)
 --
 -- This can be used for performing dynamic checks on a type-level natural
 -- numbers.
-newtype NatRepr (n::Nat) = NatRepr { natValue :: Integer
-                                     -- ^ The underlying integer value of the number.
+newtype NatRepr (n::Nat) = NatRepr { natValue :: Natural
+                                     -- ^ The underlying natural value of the number.
                                    }
   deriving (Hashable)
 
 type role NatRepr nominal
 
+intValue :: NatRepr n -> Integer
+intValue n = toInteger (natValue n)
+{-# INLINE intValue #-}
+
 -- | If you are not 110% sure what the consequences of using this are and
 --   how to use it, don't.
-activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing :: ((Integer -> NatRepr n) -> a) -> a
+activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing :: ((Natural -> NatRepr n) -> a) -> a
 activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing k = k NatRepr
 {-# INLINE activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing #-}
 
 -- | Return the value of the nat representation.
 widthVal :: NatRepr n -> Int
-widthVal (NatRepr i) | i < maxInt = fromInteger i
-                     | otherwise = error "Width is too large."
+widthVal (NatRepr i) | i <= maxInt = fromIntegral i
+                     | otherwise   = error ("Width is too large: " ++ show i)
 
 instance Eq (NatRepr m) where
   _ == _ = True
@@ -224,10 +231,9 @@ instance (KnownNat n) => KnownRepr NatRepr n where
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =
   case someNatVal nVal of
-    Just (SomeNat (Proxy :: Proxy n')) ->
+    SomeNat (Proxy :: Proxy n') ->
       case unsafeCoerce (Refl :: n :~: n) :: n :~: n' of
         Refl -> v
-    Nothing -> error "withKnownNat: inner value in NatRepr is not a natural"
 
 data IsZeroNat n where
   ZeroNat    :: IsZeroNat 0
@@ -352,9 +358,15 @@ signedClamp w i
 ------------------------------------------------------------------------
 -- Some NatRepr
 
-someNat :: Integer -> Maybe (Some NatRepr)
-someNat n | 0 <= n && n <= toInteger maxInt = Just (Some (NatRepr (fromInteger n)))
-          | otherwise = Nothing
+-- | Turn an @Integral@ value into a @NatRepr@.  Returns @Nothing@
+--   if the given value is negative.
+someNat :: Integral a => a -> Maybe (Some NatRepr)
+someNat x | x >= 0 = Just . Some . NatRepr $! fromIntegral x
+someNat _ = Nothing
+
+-- | Turn a @Natural@ into the corresponding @NatRepr@
+mkNatRepr :: Natural -> Some NatRepr
+mkNatRepr n = Some (NatRepr n)
 
 -- | Return the maximum of two nat representations.
 maxNat :: NatRepr m -> NatRepr n -> Some NatRepr

@@ -51,6 +51,7 @@ module Data.Parameterized.Peano
      , viewRepr
 
      , somePeano
+     , mkPeanoRepr
      , maxPeano
      , minPeano
 
@@ -67,6 +68,7 @@ import           Data.Parameterized.Some
 
 import           Data.Hashable
 import           Data.Constraint
+import           Data.Word
 
 import           Unsafe.Coerce(unsafeCoerce)
 
@@ -131,10 +133,10 @@ type family Repeat (m :: Peano) (f :: k -> k) (s :: k) :: k where
 ------------------------------------------------------------------------
 -- ** Run time representation of Peano numbers
 
--- | The run time value, stored as an Int
+-- | The run time value, stored as an Word64
 -- As these are unary numbers, we don't worry about overflow.
 newtype PeanoRepr (n :: Peano) =
-  PeanoRepr { peanoValue :: Int }
+  PeanoRepr { peanoValue :: Word64 }
 
 -- n is Phantom in the definition, but we don't want to allow coerce
 type role PeanoRepr nominal
@@ -257,10 +259,15 @@ repeatP n f s = case peanoView n of
 ------------------------------------------------------------------------
 -- * Some PeanoRepr
 
--- | Ensure that the integer is non-negative, then convert
-somePeano :: Int -> Maybe (Some PeanoRepr)
-somePeano n | 0 <= n  = Just (Some (PeanoRepr n))
-            | otherwise = Nothing
+-- | Convert a Word64 to a PeanoRepr
+mkPeanoRepr :: Word64 -> Some PeanoRepr
+mkPeanoRepr n = Some (PeanoRepr n)
+
+-- | Turn an @Integral@ value into a @PeanoRepr@.  Returns @Nothing@
+--   if the given value is negative.
+somePeano :: Integral a => a -> Maybe (Some PeanoRepr)
+somePeano x | x >= 0 = Just . Some . PeanoRepr $! fromIntegral x
+somePeano _ = Nothing
 
 -- | Return the maximum of two representations.
 maxPeano :: PeanoRepr m -> PeanoRepr n -> Some PeanoRepr
