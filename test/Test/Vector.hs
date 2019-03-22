@@ -6,6 +6,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
 {-# Language CPP #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 #if __GLASGOW_HASKELL__ >= 805
 {-# Language NoStarIsType #-}
 #endif
