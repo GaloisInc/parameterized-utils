@@ -14,7 +14,7 @@ see https://gitlab.haskell.org/ghc/ghc/merge_requests/273.
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Safe #-}
-
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Data.Parameterized.Compose
   ( testEqualityComposeBare
   ) where
