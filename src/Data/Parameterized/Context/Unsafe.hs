@@ -36,6 +36,8 @@ module Data.Parameterized.Context.Unsafe
   , DiffView(..)
   , viewDiff
   , KnownDiff(..)
+  , IsAppend(..)
+  , diffIsAppend
     -- * Indexing
   , Index
   , indexVal
@@ -173,6 +175,15 @@ extSize (Size i) (Diff j) = Size (i+j)
 addSize :: Size x -> Size y -> Size (x <+> y)
 addSize (Size x) (Size y) = Size (x + y)
 
+
+-- | Proof that @r = l <+> app@ for some @app@
+data IsAppend l r where
+  IsAppend :: Size app -> IsAppend l (l <+> app)
+
+-- | If @l@ is a sub-context of @r@ then extract out their "contextual
+-- difference", i.e., the @app@ such that @r = l <+> app@
+diffIsAppend :: Diff l r -> IsAppend l r
+diffIsAppend (Diff i) = unsafeCoerce $ IsAppend (Size i)
 
 data DiffView a b where
   NoDiff :: DiffView a a
