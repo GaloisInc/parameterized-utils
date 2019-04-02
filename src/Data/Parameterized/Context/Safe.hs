@@ -32,7 +32,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -64,6 +63,8 @@ module Data.Parameterized.Context.Safe
   , DiffView(..)
   , viewDiff
   , KnownDiff(..)
+  , IsAppend(..)
+  , diffIsAppend
     -- * Indexing
   , Index
   , indexVal
@@ -203,6 +204,18 @@ instance Cat.Category Diff where
 extSize :: Size l -> Diff l r -> Size r
 extSize sz DiffHere = sz
 extSize sz (DiffThere diff) = incSize (extSize sz diff)
+
+-- | Proof that @r = l <+> app@ for some @app@
+data IsAppend l r where
+  IsAppend :: Size app -> IsAppend l (l <+> app)
+
+-- | If @l@ is a sub-context of @r@ then extract out their "contextual
+-- difference", i.e., the @app@ such that @r = l <+> app@
+diffIsAppend :: Diff l r -> IsAppend l r
+diffIsAppend DiffHere = IsAppend zeroSize
+diffIsAppend (DiffThere diff) =
+  case diffIsAppend diff of
+    IsAppend sz -> IsAppend (incSize sz)
 
 data DiffView a b where
   NoDiff :: DiffView a a

@@ -31,7 +31,7 @@ source-repository head
 
 library
   build-depends:
-    base >= 4.7 && < 4.13,
+    base >= 4.10 && < 4.13,
     th-abstraction >=0.1 && <0.3,
     constraints >= 0.10 && < 0.11,
     containers,

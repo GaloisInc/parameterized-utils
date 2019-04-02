@@ -16,13 +16,11 @@ correspondingly has very few functions that manipulate them.
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
 module Data.Parameterized.SymbolRepr
   ( -- * SymbolRepr

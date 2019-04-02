@@ -115,18 +115,13 @@ contextTests = testGroup "Context" <$> return
          Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
          Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-         let x' = over (ixF idx_x) twiddle x
-             y' = (ixF idx_y) %~ twiddle $ y
-             x'' = U.adjust twiddle idx_x x
-             y'' = S.adjust twiddle idx_y y
+         let x' = x & ixF idx_x %~ twiddle
+             y' = y & ixF idx_y %~ twiddle
 
          return (toListFC Some x' == toListFC Some y' &&
                  -- adjust actually modified the entry
                  toListFC Some x /= toListFC Some x' &&
-                 toListFC Some y /= toListFC Some y' &&
-                 -- verify new version is equivalent to older deprecated version
-                 toListFC Some x'' == toListFC Some x' &&
-                 toListFC Some y'' == toListFC Some y')
+                 toListFC Some y /= toListFC Some y')
 
    , testProperty "update test" $ \v vs i -> ioProperty $ do
          let vals = v:vs  -- ensures vals is not an empty array
@@ -139,10 +134,8 @@ contextTests = testGroup "Context" <$> return
 
          let x' = over (ixF idx_x) twiddle x
              y' = (ixF idx_y) %~ twiddle $ y
-             updX = set (ixF idx_x) (x' U.! idx_x) x
-             updY = (ixF idx_y) .~  (y' S.! idx_y) $ y
-             updX' = U.update idx_x (x' U.! idx_x) x
-             updY' = S.update idx_y (y' S.! idx_y) y
+             updX = x & ixF idx_x .~ x' U.! idx_x
+             updY = y & ixF idx_y .~ y' S.! idx_y
 
          return (toListFC Some updX == toListFC Some updY &&
                  -- update actually modified the entry
@@ -150,10 +143,7 @@ contextTests = testGroup "Context" <$> return
                  toListFC Some y /= toListFC Some updY &&
                  -- update modified the expected entry
                  toListFC Some x' == toListFC Some updX &&
-                 toListFC Some y' == toListFC Some updY &&
-                 -- verify new version is equivalent to older deprecated version
-                 toListFC Some updX == toListFC Some updX' &&
-                 toListFC Some updY == toListFC Some updY'
+                 toListFC Some y' == toListFC Some updY
                 )
 
    , testProperty "safe_eq" $ \vals1 vals2 -> ioProperty $ do
