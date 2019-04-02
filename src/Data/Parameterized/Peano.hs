@@ -21,6 +21,7 @@ natural numbers is an Int.
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
@@ -40,10 +41,12 @@ natural numbers is an Int.
 module Data.Parameterized.Peano
    ( Peano
      , Z , S
-     , Plus, Minus, Mul, Le, Lt, Gt, Ge, Max, Min, Repeat
-     , plusP, minusP, mulP, maxP, minP, repeatP
+     , Plus, Minus, Mul, Le, Lt, Gt, Ge, Max, Min
+     , plusP, minusP, mulP, maxP, minP
      , zeroP, succP, predP
-
+     , Repeat, CtxSizeP
+     , repeatP, ctxSizeP
+     
      , KnownPeano
 
      , PeanoRepr, peanoValue
@@ -51,6 +54,8 @@ module Data.Parameterized.Peano
      , viewRepr
 
      , somePeano
+     , peanoLength
+     
      , mkPeanoRepr
      , maxPeano
      , minPeano
@@ -65,6 +70,7 @@ module Data.Parameterized.Peano
 import           Data.Parameterized.Classes
 import           Data.Parameterized.DecidableEq
 import           Data.Parameterized.Some
+import           Data.Parameterized.Context
 
 import           Data.Hashable
 import           Data.Word
@@ -130,6 +136,10 @@ type family Repeat (m :: Peano) (f :: k -> k) (s :: k) :: k where
   Repeat Z f s     = s
   Repeat (S m) f s = f (Repeat m f s)
 
+-- Calculate the size of a context
+type family CtxSizeP (ctx :: Ctx k) :: Peano where
+  CtxSizeP 'EmptyCtx   = Z
+  CtxSizeP (xs '::> x) = S (CtxSizeP xs)
 
 ------------------------------------------------------------------------
 -- ** Run time representation of Peano numbers
@@ -211,12 +221,11 @@ instance DecidableEq PeanoRepr where
   decEq (SRepr m1) (SRepr m2) =
     case decEq m1 m2 of
       Left Refl -> Left Refl
-      Right f   -> Right $ \ x -> case x of
-                     Refl -> f Refl
+      Right f   -> Right $ \case Refl -> f Refl
   decEq ZRepr (SRepr _) =
-      Right $ \ x -> case x of {}
+      Right $ \case {}
   decEq (SRepr _) ZRepr =
-      Right $ \ x -> case x of {}
+      Right $ \case {}
 #endif
 
 instance OrdF PeanoRepr where
@@ -332,6 +341,11 @@ repeatP n f s = case peanoView n of
   ZRepr   -> s
   SRepr m -> f (repeatP m f s)
 
+ctxSizeP :: Assignment f ctx -> PeanoRepr (CtxSizeP ctx)
+ctxSizeP r = case viewAssign r of
+  AssignEmpty -> zeroP
+  AssignExtend a _ -> succP (ctxSizeP a)
+
 ------------------------------------------------------------------------
 -- * Some PeanoRepr
 
@@ -362,6 +376,12 @@ minPeano :: PeanoRepr m -> PeanoRepr n -> Some PeanoRepr
 minPeano x y
   | peanoValue y >= peanoValue x = Some x
   | otherwise = Some y
+
+-- | List length as a Peano number
+peanoLength :: [a] -> Some PeanoRepr
+peanoLength [] = Some zeroP
+peanoLength (_:xs) = case peanoLength xs of
+  Some n -> Some (succP n)
 
 ------------------------------------------------------------------------
 --  LocalWords:  PeanoRepr withKnownPeano runtime Peano unary
