@@ -75,6 +75,7 @@ library
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
+    Data.Parameterized.WithRepr                  
 
   ghc-options: -Wall
 
