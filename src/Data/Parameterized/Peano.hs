@@ -187,7 +187,7 @@ instance Eq (PeanoRepr m) where
   _ == _ = True
 
 instance TestEquality PeanoRepr where
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
   testEquality (PeanoRepr m) (PeanoRepr n)
     | m == n = Just (unsafeCoerce Refl)
     | otherwise = Nothing
@@ -201,7 +201,7 @@ instance TestEquality PeanoRepr where
 #endif
 
 instance DecidableEq PeanoRepr where
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
   decEq (PeanoRepr m) (PeanoRepr n)
     | m == n    = Left $ unsafeCoerce Refl
     | otherwise = Right $
@@ -220,7 +220,7 @@ instance DecidableEq PeanoRepr where
 #endif
 
 instance OrdF PeanoRepr where
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
   compareF (PeanoRepr m) (PeanoRepr n)
     | m < n     = unsafeCoerce LTF
     | m == n    = unsafeCoerce EQF
@@ -337,7 +337,7 @@ repeatP n f s = case peanoView n of
 
 -- | Convert a Word64 to a PeanoRepr
 mkPeanoRepr :: Word64 -> Some PeanoRepr
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
 mkPeanoRepr n = Some (PeanoRepr n)
 #else
 mkPeanoRepr 0 = Some ZRepr

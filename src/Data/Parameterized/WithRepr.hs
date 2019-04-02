@@ -26,7 +26,7 @@ data PeanoRepr p where
 
 Then the instance for this class
 @
-instance IsRepr PRepr
+instance IsRepr PeanoRepr
 @
 
 means that functions with 'KnownRepr' constraints can be used after
@@ -60,7 +60,7 @@ module Data.Parameterized.WithRepr(IsRepr(..)) where
 
 import Data.Parameterized.Classes
 
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
 import Data.Constraint(Dict(..))
 import Unsafe.Coerce(unsafeCoerce)
 
@@ -77,7 +77,7 @@ class IsRepr (f :: k -> *) where
 
   withRepr :: f a -> (KnownRepr f a => r) -> r
 
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
   withRepr si r = case reprInstance si of
                      Dict -> r
 
@@ -94,7 +94,7 @@ newtype DI f a = Don'tInstantiate (KnownRepr f a => Dict (KnownRepr f a))
 ------------------------------------
 -- Instances for types defined in parameterized-utils
 
-#if UNSAFE_OPS
+#ifdef UNSAFE_OPS
 instance IsRepr NatRepr
 instance IsRepr SymbolRepr
 instance IsRepr PeanoRepr
