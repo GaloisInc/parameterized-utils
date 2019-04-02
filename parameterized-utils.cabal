@@ -23,7 +23,7 @@ tested-with: GHC==8.4.3, GHC==8.6.1
 -- impose a significant performance hit.
 flag unsafe-operations
   Description: Use unsafe operations to improve performance
-  Default: True
+  Default: False
 
 source-repository head
   type: git
@@ -75,6 +75,7 @@ library
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
+    Data.Parameterized.WithRepr                  
 
   ghc-options: -Wall
 
