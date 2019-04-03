@@ -41,11 +41,14 @@ natural numbers is an Int.
 module Data.Parameterized.Peano
    ( Peano
      , Z , S
-     , Plus, Minus, Mul, Le, Lt, Gt, Ge, Max, Min
+     , Plus, Minus, Mul,  Max, Min
      , plusP, minusP, mulP, maxP, minP
      , zeroP, succP, predP
      , Repeat, CtxSizeP
      , repeatP, ctxSizeP
+
+     , Le, Lt, Gt, Ge
+     , leP, ltP, gtP, geP
      
      , KnownPeano
 
@@ -67,6 +70,7 @@ module Data.Parameterized.Peano
 
      ) where
 
+import           Data.Parameterized.BoolRepr
 import           Data.Parameterized.Classes
 import           Data.Parameterized.DecidableEq
 import           Data.Parameterized.Some
@@ -107,7 +111,6 @@ type family Mul (a :: Peano) (b :: Peano) :: Peano where
   Mul (S a) b = Plus a (Mul a b)
 
 type family Le  (a :: Peano) (b :: Peano) :: Bool where
-  Le  a  a        = 'True
   Le  Z  b        = 'True
   Le  a  Z        = 'False
   Le  (S a) (S b) = Le a b
@@ -116,10 +119,10 @@ type family Lt  (a :: Peano) (b :: Peano) :: Bool where
   Lt a b = Le (S a) b
 
 type family Gt  (a :: Peano) (b :: Peano) :: Bool where
-  Gt a b = Lt b a
+  Gt a b = Le b a
 
 type family Ge  (a :: Peano) (b :: Peano) :: Bool where
-  Ge a b = Le b a
+  Ge a b = Lt b a
 
 type family Max (a :: Peano) (b :: Peano) :: Peano where
   Max Z b = b
@@ -298,6 +301,13 @@ maxP (PeanoRepr a) (PeanoRepr b) = PeanoRepr (max a b)
 
 minP :: PeanoRepr a -> PeanoRepr b -> PeanoRepr (Min a b)
 minP (PeanoRepr a) (PeanoRepr b) = PeanoRepr (min a b)
+
+leP :: PeanoRepr a -> PeanoRepr b -> BoolRepr (Le a b)
+leP  (PeanoRepr a) (PeanoRepr b) =
+  if a < b then unsafeCoerce (TrueRepr)
+           else unsafeCoerce(FalseRepr)
+
+
 #else
 zeroP :: PeanoRepr Z
 zeroP = ZRepr
@@ -334,7 +344,25 @@ minP ZRepr     _b        = ZRepr
 minP _a        ZRepr     = ZRepr
 minP (SRepr a) (SRepr b) = SRepr (minP a b)
 
+leP :: PeanoRepr a -> PeanoRepr b -> BoolRepr (Le a b)
+leP ZRepr      ZRepr    = TrueRepr
+leP ZRepr     (SRepr _) = TrueRepr
+leP (SRepr _) ZRepr     = FalseRepr
+leP (SRepr a) (SRepr b) = leP a b
+
 #endif
+
+
+ltP :: PeanoRepr a -> PeanoRepr b -> BoolRepr (Lt a b)
+ltP a b = leP (succP a) b
+
+geP :: PeanoRepr a -> PeanoRepr b -> BoolRepr (Ge a b)
+geP a b = ltP b a
+
+gtP :: PeanoRepr a -> PeanoRepr b -> BoolRepr (Gt a b)
+gtP a b = leP b a
+
+
 
 repeatP :: PeanoRepr m -> (forall a. repr a -> repr (f a)) -> repr s -> repr (Repeat m f s)
 repeatP n f s = case peanoView n of
