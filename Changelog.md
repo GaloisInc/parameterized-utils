@@ -72,31 +72,30 @@
 ## 1.0.6 -- *2018 Nov 19*
 
   * Add support for GHC 8.6.
-  * Map
+  * Data.Parameterized.Map
     - Added functions:
-       - foldlWithKey
-       - foldlWithKey'
-       - foldrWithKey
-       - foldrWithKey'
-       - mapMaybeWithKey
+       - `foldlWithKey` and `foldlWithKey'` (strict)
+       - `foldrWithKey` and `foldrWithKey'` (strict)
+       - `mapMaybeWithKey`
 
 ## 1.0.5 -- *2018 Sep 04*
 
-  * Assignments
-    - Add function: `take`, `appendEmbedding`, `appendDiff`
-    - Diff is type role nominal in both parameters.
+  * Data.Parameterized.Context
+      - Add function: `take`, `appendEmbedding`, `appendDiff`
+      - Diff is type role nominal in both parameters.
 
 ## 1.0.4 -- *2018 Aug 29*
 
-  * Assignments
+  * Data.Parameterized.Context
     - Add `traverseAndCollect`.  Allows traversal of an Assignment in
       order from left to right, collecting the results of a visitor
       function monoidically.
-  * Add `Data.Parameterized.DecidableEq`.  The `DecidableEq` class
-    represents decideable equality on a type family as a superclass of
-    `TestEquality`, where the latter cannot provide evidence of
-    non-equality.
-  * NatRepr
+  * Data.Parameterized.DecidableEq
+    - Newly added module.  The `DecidableEq` class represents
+      decideable equality on a type family as a superclass of
+      `TestEquality`, where the latter cannot provide evidence of
+      non-equality.
+  * Data.Parameterized.NatRepr
     - Add `DecidableEq` instance for NatRepr.
     - Add functions:
       - `decideLeq`
@@ -106,7 +105,7 @@
       - `natRecStrong`  -- recursor with strong induction
       - `natRecBounded` -- bounded recursor
       - `natFromZero`
-  * Vector
+  * Data.Parameterized.Vector
     - Add construction functions: `singleton`, `cons`, `snoc`, `generate`, and `generateM`
     - Add functions: `splitWithA` (applicative `splitWith`).
 
@@ -116,15 +115,20 @@
   * Add stricter role annotations:
     - `NatRepr` is nominal.
     - `Vector` is nominal in the first parameter and representational in the second.
-  * Provide a backdoor for directly creating `NatRepr` values.  Use carefully.
-  * Update Vector: Show and Eq instances, `joinWithM`, `reverse`
+  * Data.Parameterized.NatRepr
+    - Provide a backdoor for directly creating `NatRepr` values.  Use carefully.
+  * Data.Parameterized.Vector
+    - Add Show and Eq instances
+    - Add functions: `joinWithM`, `reverse`
 
 ## 1.0.2 -- *2018 Aug 23*
 
   * Allow function passed to `traverseF_`, `traverseFC_`, and
     `forMFC_` to return a value instead of null (`()`).
-  * Added `Data.Parameterized.Vector`: a fixed-size vector of typed elements.
-  * Added `Data.Parameterized.Utils.Endian` (used in Vector `splitWith`).
+  * Data.Parameterized.Vector
+    - Newly added module.  A fixed-size vector of typed elements.
+  * Data.Parameterized.Utils.Endian
+    - Newly added module.  Used in Vector.
 
 ## 1.0.1 -- *2018 Aug 13*
 
