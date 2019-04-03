@@ -4,7 +4,7 @@ Maintainer       : Joe Hendrix <jhendrix@galois.com>
 
 This defines a type 'NatRepr' for representing a type-level natural
 at runtime.  This can be used to branch on a type-level value.  For
-each @n@, @NatRepr n@ contains a single value containing the vlaue
+each @n@, @NatRepr n@ contains a single value containing the value
 @n@.  This can be used to help use type-level variables on code
 with data dependendent types.
 
