@@ -1,12 +1,13 @@
 Name:          parameterized-utils
-Version:       1.0.8
+Version:       2.0
 Author:        Galois Inc.
-Maintainer:    jhendrix@galois.com
+Maintainer:    jhendrix@galois.com, kquick@galois.com
+stability:     stable
 Build-type:    Simple
 Cabal-version: >= 1.9.2
-license: BSD3
-license-file: LICENSE
-category: Data Structures, Dependent Types
+license:       BSD3
+license-file:  LICENSE
+category:      Data Structures, Dependent Types
 Synopsis: Classes and data structures for working with data-kind indexed types
 Description:
   This packages contains collection classes and type representations
@@ -14,7 +15,10 @@ Description:
   intended for things like expression libraries where one wishes
   to leverage the Haskell type-checker to improve type-safety by encoding
   the object language type system into data kinds.
-tested-with: GHC==8.4.3, GHC==8.6.1
+extra-source-files: Changelog.md
+homepage:      https://github.com/GaloisInc/parameterized-utils
+bug-reports:   https://github.com/GaloisInc/parameterized-utils/issues
+tested-with:   GHC==8.2.2, GHC==8.4.4, GHC==8.6.4
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set
@@ -22,7 +26,7 @@ tested-with: GHC==8.4.3, GHC==8.6.1
 -- Unsafe.Coerce and Data.Coerce.  These alternate implementations
 -- impose a significant performance hit.
 flag unsafe-operations
-  Description: Use unsafe operations to improve performance
+  Description: Use unsafe operations (e.g. coercions) to improve performance
   Default: True
 
 source-repository head
@@ -30,20 +34,19 @@ source-repository head
   location: https://github.com/GaloisInc/parameterized-utils
 
 library
-  build-depends:
-    base >= 4.10 && < 4.13,
-    th-abstraction >=0.1 && <0.3,
-    constraints >= 0.10 && < 0.11,
-    containers,
-    deepseq,
-    ghc-prim,
-    hashable,
-    hashtables,
-    lens,
-    mtl,
-    template-haskell,
-    text,
-    vector
+  build-depends: base >= 4.10 && < 5
+               , th-abstraction >=0.1 && <0.3
+               , constraints == 0.10.*
+               , containers
+               , deepseq
+               , ghc-prim
+               , hashable == 1.2.*
+               , hashtables == 1.2.*
+               , lens == 4.17.*
+               , mtl
+               , template-haskell
+               , text
+               , vector == 0.12.*
 
   hs-source-dirs: src
 
@@ -89,22 +92,21 @@ test-suite parameterizedTests
 
   ghc-options: -Wall
 
-  main-is:UnitTest.hs
+  main-is: UnitTest.hs
   other-modules:
     Test.Context
     Test.NatRepr
     Test.Vector
 
-  build-depends:
-    base,
-    hashable,
-    hashtables,
-    ghc-prim,
-    lens,
-    mtl,
-    parameterized-utils,
-    tasty,
-    tasty-ant-xml >= 1.1.0,
-    tasty-hunit,
-    tasty-quickcheck >= 0.8.1,
-    QuickCheck >= 2.7
+  build-depends: base
+               , hashable
+               , hashtables
+               , ghc-prim
+               , lens
+               , mtl
+               , parameterized-utils
+               , tasty == 1.2.*
+               , tasty-ant-xml == 1.1.*
+               , tasty-hunit >= 0.9 && < 0.11
+               , tasty-quickcheck >= 0.8.1 && < 0.11
+               , QuickCheck >= 2.7 && < 2.14
