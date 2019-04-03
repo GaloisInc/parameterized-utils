@@ -6,7 +6,7 @@
 #if __GLASGOW_HASKELL__ >= 805
 {-# Language NoStarIsType #-}
 #endif
--- | A vector fixed-size vector of typed elements.
+-- | A fixed-size vector of typed elements.
 module Data.Parameterized.Vector
   ( Vector
     -- * Lists
@@ -18,12 +18,12 @@ module Data.Parameterized.Vector
   , nonEmpty
   , lengthInt
 
-  -- * Indexing
+    -- * Indexing
   , elemAt
   , elemAtMaybe
   , elemAtUnsafe
 
-  -- * Update
+    -- * Update
   , insertAt
   , insertAtMaybe
 
@@ -387,10 +387,14 @@ joinWithM ::
   forall m f n w.
   (1 <= w, Monad m) =>
   (forall l. (1 <= l) => NatRepr l -> f w -> f l -> m (f (w + l)))
-  {- ^ A function for appending contained elements.
-       Earlier vector indexes are the first argument of the join function.
-       Pass a different function to implmenet little/big endian behaviors -} ->
-  NatRepr w -> Vector n (f w) -> m (f (n * w))
+  {- ^ A function for joining contained elements.  The first argument is
+       the size of the accumulated third term, and the second argument
+       is the element to join to the accumulated term.  The function
+       can use any join strategy desired (prepending/"BigEndian",
+       appending/"LittleEndian", etc.). -}
+  -> NatRepr w
+  -> Vector n (f w)
+  -> m (f (n * w))
 
 joinWithM jn w = fmap fst . go
   where
@@ -409,21 +413,30 @@ joinWithM jn w = fmap fst . go
           return (joined, addNat w sz)
         }}}}
 
--- | Join a vector of values, using the given function.
+-- | Join a vector of vectors, using the given function to combine the
+-- sub-vectors.
 joinWith ::
   forall f n w.
   (1 <= w) =>
   (forall l. (1 <= l) => NatRepr l -> f w -> f l -> f (w + l))
-  {- ^ A function for appending contained elements.
-       Earlier vector indexes are the first argument of the join function.
-       Pass a different function to implmenet little/big endian behaviors -} ->
-  NatRepr w -> Vector n (f w) -> f (n * w)
+  {- ^ A function for joining contained elements.  The first argument is
+       the size of the accumulated third term, and the second argument
+       is the element to join to the accumulated term.  The function
+       can use any join strategy desired (prepending/"BigEndian",
+       appending/"LittleEndian", etc.). -}
+  -> NatRepr w
+  -> Vector n (f w)
+  -> f (n * w)
 joinWith jn w v = runIdentity $ joinWithM (\n x -> pure . (jn n x)) w v
 {-# Inline joinWith #-}
 
--- | Split a bit-vector into a vector of bit-vectors.
--- If "LittleEndian", then less significant bits go into smaller indexes.
--- If "BigEndian", then less significant bits go into larger indexes.
+-- | Split a vector into a vector of vectors.
+--
+-- The "Endian" parameter determines the ordering of the inner
+-- vectors.  If "LittleEndian", then less significant bits go into
+-- smaller indexes.  If "BigEndian", then less significant bits go
+-- into larger indexes.  See the documentation for 'split' for more
+-- details.
 splitWith :: forall f w n.
   (1 <= w, 1 <= n) =>
   Endian ->
@@ -494,13 +507,46 @@ vAppend :: NatRepr n -> Vec a m -> Vec a n -> Vec a (m + n)
 vAppend _ (Vec xs) (Vec ys) = Vec (append xs ys)
 {-# Inline vAppend #-}
 
--- | Split a vector into a vector of vectors.
+-- | Split a vector into a vector of vectors.  The default ordering of
+-- the outer result vector is "LittleEndian".
+--
+-- For example:
+-- @
+--   let wordsize = knownNat :: NatRepr 3
+--       vecsize = knownNat :: NatRepr 12
+--       numwords = knownNat :: NatRepr 4  (12 / 3)
+--       Just inpvec = fromList vecsize [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]
+--   in show (split numwords wordsize inpvec) == "[ [1,2,3], [4,5,6], [7,8,9], [10,11,12] ]"
+-- @
+-- whereas a BigEndian result would have been
+-- @
+--      [ [10,11,12], [7,8,9], [4,5,6], [1,2,3] ]
+-- @
 split :: (1 <= w, 1 <= n) =>
-        NatRepr n -> NatRepr w -> Vector (n * w) a -> Vector n (Vector w a)
+         NatRepr n -- ^ Inner vector size
+      -> NatRepr w -- ^ Outer vector size
+      -> Vector (n * w) a -- ^ Input vector
+      -> Vector n (Vector w a)
 split n w xs = coerceVec (splitWith LittleEndian (vSlice w) n w (Vec xs))
 {-# Inline split #-}
 
--- | Join a vector of vectors into a single vector.
+-- | Join a vector of vectors into a single vector.  Assumes an
+-- append/"LittleEndian" join strategy: the order of the inner vectors
+-- is preserved in the result vector.
+--
+-- @
+--   let innersize = knownNat :: NatRepr 4
+--       Just inner1 = fromList innersize [ 1, 2, 3, 4 ]
+--       Just inner2 = fromList innersize [ 5, 6, 7, 8 ]
+--       Just inner3 = fromList innersize [ 9, 10, 11, 12 ]
+--       outersize = knownNat :: NatRepr 3
+--       Just outer = fromList outersize [ inner1, inner2, inner3 ]
+--   in show (join innersize outer) = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]
+-- @
+-- a prepend/"BigEndian" join strategy would have the result:
+-- @
+--   [ 9, 10, 11, 12, 5, 6, 7, 8, 1, 2, 3, 4 ]
+-- @
 join :: (1 <= w) => NatRepr w -> Vector n (Vector w a) -> Vector (n * w) a
 join w xs = ys
   where Vec ys = joinWith vAppend w (coerceVec xs)
