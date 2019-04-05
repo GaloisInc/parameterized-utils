@@ -5,8 +5,9 @@ Maintainer:    jhendrix@galois.com, kquick@galois.com
 stability:     stable
 Build-type:    Simple
 Cabal-version: >= 1.9.2
-license:       BSD3
-license-file:  LICENSE
+Copyright:     ©2016-2019 Galois, Inc.
+License:       BSD3
+License-file:  LICENSE
 category:      Data Structures, Dependent Types
 Synopsis: Classes and data structures for working with data-kind indexed types
 Description:
