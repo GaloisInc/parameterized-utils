@@ -20,6 +20,7 @@ import Test.Tasty.QuickCheck ( Arbitrary(..), testProperty, vectorOf )
 import Data.Parameterized.NatRepr
 import Data.Parameterized.Vector
 import GHC.TypeLits
+import Data.Semigroup
 import Prelude hiding (reverse)
 
 

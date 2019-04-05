@@ -16,6 +16,7 @@ contained in a NatRepr value matches its static type.
 -}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE ExplicitNamespaces #-}
@@ -131,8 +132,8 @@ module Data.Parameterized.NatRepr
   ) where
 
 import Data.Bits ((.&.), bit)
+import Data.Data
 import Data.Hashable
-import Data.Proxy as Proxy
 import Data.Type.Equality as Equality
 import Data.Void as Void
 import Numeric.Natural
@@ -156,7 +157,7 @@ maxInt = fromIntegral (maxBound :: Int)
 newtype NatRepr (n::Nat) = NatRepr { natValue :: Natural
                                      -- ^ The underlying natural value of the number.
                                    }
-  deriving (Hashable)
+  deriving (Hashable, Data)
 
 type role NatRepr nominal
 
