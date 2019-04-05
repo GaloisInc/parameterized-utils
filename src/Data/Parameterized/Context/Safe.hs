@@ -298,9 +298,10 @@ extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' DiffHere idx = idx
 extendIndex' (DiffThere diff) idx = IndexThere (extendIndex' diff idx)
 
--- | Given a size @n@, an initial value @v0@, and a function @f@,
--- @forIndex n v0 f@ calls @f@ on each index less than @n@ starting
--- from @0@ and @v0@, with the value @v@ obtained from the last call.
+-- | Given a size @n@, an initial value @v0@, and a function @f@, the
+-- expression @forIndex n v0 f@ calls @f@ on each index less than @n@
+-- starting from @0@ and @v0@, with the value @v@ obtained from the
+-- last call.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
@@ -339,9 +340,10 @@ forIndexRangeImpl _ SizeZero _ _ r = r
 forIndexRangeImpl i (SizeSucc sz) d f r =
   forIndexRangeImpl (i-1) sz (LDiffThere d) f r
 
--- | Given an index 'i', size 'n', a function 'f', value 'v', and a function 'f',
--- 'forIndex i n f v' is equivalent to 'v' when 'i >= sizeInt n', and
--- 'f i (forIndexRange (i+1) n v0)' otherwise.
+-- | Given an index @i@, size @n@, a function @f@, value @v@, and a
+-- function @f@, the expression @forIndexRange i n f v@ is equivalent
+-- to @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n v)@
+-- otherwise.
 forIndexRange :: Int
               -> Size ctx
               -> (forall tp . Index ctx tp -> r -> r)
@@ -427,7 +429,7 @@ generateM sz_top f = go id sz_top
 replicate :: Size ctx -> (forall tp . f tp) -> Assignment f ctx
 replicate n c = generate n (\_ -> c)
 
--- | Create empty indexec vector.
+-- | Create empty indexed vector.
 empty :: Assignment f 'EmptyCtx
 empty = AssignmentEmpty
 

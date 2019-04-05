@@ -1,8 +1,9 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.TH.GADT
--- Copyright        : (c) Galois, Inc 2013-2014
+-- Copyright        : (c) Galois, Inc 2013-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description : Template Haskell primitives for working with large GADTs
 --
 -- This module declares template Haskell primitives so that it is easier
 -- to work with GADTs that have many constructors.
@@ -79,7 +80,7 @@ conExpr = ConE . constructorName
 data TypePat
    = TypeApp TypePat TypePat -- ^ The application of a type.
    | AnyType       -- ^ Match any type.
-   | DataArg Int   -- ^ Match the ith argument of the data type we are traversing.
+   | DataArg Int   -- ^ Match the i'th argument of the data type we are traversing.
    | ConType TypeQ -- ^ Match a ground type.
 
 matchTypePat :: [Type] -> TypePat -> Type -> Q Bool
@@ -198,7 +199,9 @@ mkEqF d pats con =
   in mkSimpleEqF dVars bnd pats con
 
 -- | @structuralTypeEquality f@ returns a function with the type:
---   forall x y . f x -> f y -> Maybe (x :~: y)
+--   @
+--     forall x y . f x -> f y -> Maybe (x :~: y)
+--   @
 structuralTypeEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralTypeEquality tpq pats = do
   d <- reifyDatatype =<< asTypeCon "structuralTypeEquality" =<< tpq
@@ -214,7 +217,9 @@ structuralTypeEquality tpq pats = do
     else [| \x y -> $(caseE [| x |] (trueEqs [| y |])) |]
 
 -- | @structuralTypeOrd f@ returns a function with the type:
---   forall x y . f x -> f y -> OrderingF x y
+--   @
+--     forall x y . f x -> f y -> OrderingF x y
+--   @
 --
 -- This implementation avoids matching on both the first and second
 -- parameters in a simple case expression in order to avoid stressing
@@ -256,12 +261,12 @@ structuralTypeOrd tpq l = do
       | (i,con) <- zip [0..] (datatypeCons d) ]
 
 -- | Generate a list of fresh names using the base name
--- numbered 1 to n to make them useful in conjunction with
--- @-dsuppress-unqiues@.
+-- and numbered 1 to @n@ to make them useful in conjunction with
+-- @-dsuppress-uniques@.
 newNames ::
   String   {- ^ base name                     -} ->
   Int      {- ^ quantity                      -} ->
-  Q [Name] {- ^ list of names: base1, base2.. -}
+  Q [Name] {- ^ list of names: @base1@, @base2@, ... -}
 newNames base n = traverse (\i -> newName (base ++ show i)) [1..n]
 
 
@@ -273,7 +278,7 @@ joinCompareF f x y r = do
       EQF -> $(r)
    |]
 
--- | Compare two variables and use following comparison if they are different.
+-- | Compare two variables, returning the third argument if they are equal.
 --
 -- This returns an 'OrdF' instance.
 joinCompareToOrdF :: Name -> Name -> ExpQ -> ExpQ
@@ -284,7 +289,7 @@ joinCompareToOrdF x y r =
       EQ -> $(r)
    |]
 
-  -- Match expression with given type to variables
+-- | Match expression with given type to variables
 matchOrdArguments :: [Type]
                      -- ^ Types bound by data arguments
                   -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
@@ -343,7 +348,7 @@ mkOrdF :: DatatypeInfo -- ^ Data declaration.
        -> Q [MatchQ]
 mkOrdF d pats = mkSimpleOrdF (datatypeVars d) pats
 
--- | Find the first recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
+-- | @recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
 recurseArg :: (Type -> Q (Maybe ExpQ))
            -> ExpQ -- ^ Function to apply
            -> ExpQ
@@ -361,7 +366,7 @@ recurseArg m f v tp = do
 
 -- | @traverseAppMatch f c@ builds a case statement that matches a term with
 -- the constructor @c@ and applies @f@ to each argument.
-traverseAppMatch :: (Type -> Q (Maybe ExpQ)) -- Pattern match function
+traverseAppMatch :: (Type -> Q (Maybe ExpQ)) -- ^ Pattern match function
                  -> ExpQ -- ^ Function to apply to each argument recursively.
                  -> ConstructorInfo -- ^ Constructor to match.
                  -> MatchQ -- ^ Match expression that

@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2018
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : Type level natural number representation at runtime
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
 This defines a type 'NatRepr' for representing a type-level natural
 at runtime.  This can be used to branch on a type-level value.  For
@@ -319,11 +320,11 @@ minUnsigned _ = 0
 maxUnsigned :: NatRepr w -> Integer
 maxUnsigned w = bit (widthVal w) - 1
 
--- | Return minimum value for bitvector in 2s complement with given width.
+-- | Return minimum value for bitvector in two's complement with given width.
 minSigned :: (1 <= w) => NatRepr w -> Integer
 minSigned w = negate (bit (widthVal w - 1))
 
--- | Return maximum value for bitvector in 2s complement with given width.
+-- | Return maximum value for bitvector in two's complement with given width.
 maxSigned :: (1 <= w) => NatRepr w -> Integer
 maxSigned w = bit (widthVal w - 1) - 1
 
@@ -377,11 +378,11 @@ maxNat x y
 ------------------------------------------------------------------------
 -- Arithmetic
 
--- | Produce evidence that + is commutative.
+-- | Produce evidence that @+@ is commutative.
 plusComm :: forall f m g n . f m -> g n -> m+n :~: n+m
 plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
 
--- | Produce evidence that * is commutative.
+-- | Produce evidence that @*@ is commutative.
 mulComm :: forall f m g n. f m -> g n -> (m * n) :~: (n * m)
 mulComm _ _ = unsafeCoerce Refl
 
@@ -389,7 +390,7 @@ mul2Plus :: forall f n. f n -> (n + n) :~: (2 * n)
 mul2Plus n = case addMulDistribRight (Proxy @1) (Proxy @1) n of
                Refl -> Refl
 
--- | Cancel an add followed b a subtract
+-- | Cancel an add followed by a subtract
 plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
 plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
 

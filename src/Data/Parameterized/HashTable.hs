@@ -1,13 +1,14 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.HashTable
--- Copyright        : (c) Galois, Inc 2014
+-- Description      : a hash table for parameterized keys and values
+-- Copyright        : (c) Galois, Inc 2014-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 --
--- This module provides a ST-based hashtable for parameterized keys and values.
+-- This module provides a 'ST'-based hashtable for parameterized keys and values.
 --
--- NOTE: This API makes use of unsafeCoerce to implement the parameterized
--- hashtable abstraction.  This should be typesafe provided the
+-- NOTE: This API makes use of 'unsafeCoerce' to implement the parameterized
+-- hashtable abstraction.  This should be type-safe provided that the
 -- 'TestEquality' instance on the key type is implemented soundly.
 ------------------------------------------------------------------------
 {-# LANGUAGE KindSignatures #-}

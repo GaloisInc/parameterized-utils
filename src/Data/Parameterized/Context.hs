@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Context
--- Copyright        : (c) Galois, Inc 2014-16
+-- Copyright        : (c) Galois, Inc 2014-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
 --
 -- This module reexports either "Data.Parameterized.Context.Safe"
@@ -321,7 +321,7 @@ instance {-# Overlaps #-} (KnownContext xs, Idx' (n-1) xs r) =>
 
 
 --------------------------------------------------------------------------------
--- CurryAssignment
+-- * CurryAssignment
 
 -- | This type family is used to define currying\/uncurrying operations
 -- on assignments.  It is best understood by seeing its evaluation on

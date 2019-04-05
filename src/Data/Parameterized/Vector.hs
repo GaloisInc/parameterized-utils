@@ -6,7 +6,14 @@
 #if __GLASGOW_HASKELL__ >= 805
 {-# Language NoStarIsType #-}
 #endif
--- | A fixed-size vector of typed elements.
+{-|
+Copyright        : (c) Galois, Inc 2014-2019
+
+A fixed-size vector of typed elements.
+
+NB: This module contains an orphan instance. It will be included in GHC 8.10,
+see https://gitlab.haskell.org/ghc/ghc/merge_requests/273.
+-}
 module Data.Parameterized.Vector
   ( Vector
     -- * Lists
