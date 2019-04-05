@@ -49,6 +49,7 @@ library
 
   exposed-modules:
     Data.Parameterized
+    Data.Parameterized.BoolRepr                  
     Data.Parameterized.Classes
     Data.Parameterized.ClassesC
     Data.Parameterized.Compose

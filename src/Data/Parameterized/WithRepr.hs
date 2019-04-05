@@ -72,6 +72,8 @@ import Data.Parameterized.List(List)
 #else
 import Data.Parameterized.Peano (PeanoRepr,PeanoView(..))
 #endif
+import Data.Parameterized.BoolRepr
+
 -- | Turn an explicit Repr value into an implict KnownRepr constraint
 class IsRepr (f :: k -> *) where
 
@@ -98,6 +100,7 @@ newtype DI f a = Don'tInstantiate (KnownRepr f a => Dict (KnownRepr f a))
 instance IsRepr NatRepr
 instance IsRepr SymbolRepr
 instance IsRepr PeanoRepr
+instance IsRepr BoolRepr
 instance IsRepr f => IsRepr (List f)
 instance IsRepr f => IsRepr (Assignment f)
 #else
@@ -105,4 +108,8 @@ instance IsRepr f => IsRepr (Assignment f)
 instance IsRepr PeanoRepr where
   withRepr ZRepr f     = f
   withRepr (SRepr m) f = withRepr m f
+
+instance IsRepr BoolRepr where
+  withRepr TrueRepr f = f
+  withRepr FalseRepr f = f
 #endif
