@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2015
-Maintainer       : Langston Barrett <langston@galois.com>
+Description : Classes for working with type of kind @(k -> *) -> *@
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Langston Barrett <langston@galois.com>
 
 This module declares classes for working with types with the kind
 @(k -> *) -> *@ for any kind @k@.

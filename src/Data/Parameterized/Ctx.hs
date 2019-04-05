@@ -1,6 +1,6 @@
 {-|
 Description      : Type-level lists.
-Copyright        : (c) Galois, Inc 2015
+Copyright        : (c) Galois, Inc 2015-2019
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
 
 This module defines type-level lists used for representing the type of

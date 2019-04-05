@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2015
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : Classes for working with type of kind @k -> *@
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
 This module declares classes for working with types with the kind
 @k -> *@ for any kind @k@.  These are generalizations of the
@@ -138,8 +139,8 @@ fromOrdering LT = LTF
 fromOrdering EQ = EQF
 fromOrdering GT = GTF
 
--- | `joinOrderingF x y` first compares on x, returning an equivalent
--- value if it is not `EQF`.  If it is EQF, it returns `y`.
+-- | @joinOrderingF x y@ first compares on @x@, returning an
+-- equivalent value if it is not `EQF`.  If it is `EQF`, it returns @y@.
 joinOrderingF :: forall (a :: j) (b :: j) (c :: k) (d :: k)
               .  OrderingF a b
               -> (a ~ b => OrderingF c d)

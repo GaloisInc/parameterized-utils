@@ -1,5 +1,6 @@
 {-|
-Copyright        : (c) Galois, Inc 2017
+nDescription : A 2-tuple with identically parameterized elements
+Copyright   : (c) Galois, Inc 2017-2019
 
 This module defines a 2-tuple where both elements are parameterized over the
 same existentially quantified parameter.

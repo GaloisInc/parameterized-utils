@@ -1,4 +1,6 @@
 {-|
+Description: Representations of a type-level natural at runtime.
+Copyright        : (c) Galois, Inc 2019
 
 This defines a type 'Peano' and 'PeanoRepr' for representing a
 type-level natural at runtime. These type-level numbers are defined
@@ -6,9 +8,9 @@ inductively instead of using GHC.TypeLits.
 
 As a result, type-level computation defined recursively over these
 numbers works more smoothly. (For example, see the type-level
-function Repeatn below.)
+function 'Repeat' below.)
 
-Note: as in NatRepr, the runtime representation of these type-level
+Note: as in 'NatRepr', the runtime representation of these type-level
 natural numbers is an Int.
 
 -}
@@ -39,20 +41,26 @@ natural numbers is an Int.
 {-# LANGUAGE NoStarIsType #-}
 #endif
 module Data.Parameterized.Peano
-   ( Peano
+   ( -- * Peano
+     Peano
      , Z , S
      , Plus, Minus, Mul, Le, Lt, Gt, Ge, Max, Min
+
+     -- * Operations on runtime numbers
      , plusP, minusP, mulP, maxP, minP
      , zeroP, succP, predP
      , Repeat, CtxSizeP
      , repeatP, ctxSizeP
      
+     -- * Implicit runtime Peano numbers
      , KnownPeano
 
+     -- * Run time representation of Peano numbers
      , PeanoRepr, peanoValue
      , PeanoView(..), peanoView
      , viewRepr
 
+     -- * Some PeanoRepr
      , somePeano
      , peanoLength
      
@@ -80,8 +88,11 @@ import           Unsafe.Coerce(unsafeCoerce)
 #endif
 
 ------------------------------------------------------------------------
--- ** Peano - a unary representation of natural numbers
+-- * Peano
+--
+-- A unary representation of natural numbers
 
+-- | A unary representation of natural numbers
 data Peano = Z | S Peano
 -- | Peano zero
 type Z = 'Z
@@ -131,18 +142,18 @@ type family Min (a :: Peano) (b :: Peano) :: Peano where
   Min a Z = Z
   Min (S a) (S b) = S (Min a b)
 
--- Apply a constructor 'f' n-times to an argument 's'
+-- | Apply a constructor 'f' n-times to an argument 's'
 type family Repeat (m :: Peano) (f :: k -> k) (s :: k) :: k where
   Repeat Z f s     = s
   Repeat (S m) f s = f (Repeat m f s)
 
--- Calculate the size of a context
+-- | Calculate the size of a context
 type family CtxSizeP (ctx :: Ctx k) :: Peano where
   CtxSizeP 'EmptyCtx   = Z
   CtxSizeP (xs '::> x) = S (CtxSizeP xs)
 
 ------------------------------------------------------------------------
--- ** Run time representation of Peano numbers
+-- * Run time representation of Peano numbers
 
 -- | The run time value, stored as an Word64
 -- As these are unary numbers, we don't worry about overflow.

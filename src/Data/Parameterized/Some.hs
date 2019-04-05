@@ -1,8 +1,9 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Some
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description : a GADT that hides a type parameter
 --
 -- This module provides 'Some', a GADT that hides a type parameter.
 ------------------------------------------------------------------------
