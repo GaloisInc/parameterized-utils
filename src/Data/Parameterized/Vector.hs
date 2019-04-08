@@ -75,6 +75,7 @@ import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
 import Data.Functor.Identity
 import Data.Parameterized.NatRepr
+import Data.Parameterized.NatRepr.Internal
 import Data.Proxy
 import Prelude hiding (length,reverse,zipWith)
 import Numeric.Natural
@@ -98,12 +99,11 @@ toList :: Vector n a -> [a]
 toList (Vector v) = Vector.toList v
 {-# Inline toList #-}
 
+-- NOTE: We are using the raw 'NatRepr' constructor here, which is unsafe.
 -- | Length of the vector.
 -- @O(1)@
 length :: Vector n a -> NatRepr n
-length (Vector xs) =
-  activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing $ \mk ->
-    mk (fromIntegral (Vector.length xs) :: Natural)
+length (Vector xs) = NatRepr (fromIntegral (Vector.length xs) :: Natural)
 {-# INLINE length #-}
 
 -- | The length of the vector as an "Int".
