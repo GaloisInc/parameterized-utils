@@ -2,16 +2,8 @@
 Copyright        : (c) Galois, Inc 2014-2018
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
 
-This defines a type 'NatRepr' for representing a type-level natural
-at runtime.  This can be used to branch on a type-level value.  For
-each @n@, @NatRepr n@ contains a single value containing the value
-@n@.  This can be used to help use type-level variables on code
-with data dependendent types.
-
-The @TestEquality@ and @DecidableEq@ instances for 'NatRepr'
-are implemented using 'unsafeCoerce', as is the `isZeroNat` function. This
-should be typesafe because we maintain the invariant that the integer value
-contained in a NatRepr value matches its static type.
+This module should be imported for in-library use only, as it exports
+'activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing'.
 -}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
@@ -38,7 +30,7 @@ contained in a NatRepr value matches its static type.
 #if __GLASGOW_HASKELL__ >= 805
 {-# LANGUAGE NoStarIsType #-}
 #endif
-module Data.Parameterized.NatRepr.Internal
+module Data.Parameterized.NatRepr.Internal where
   ( NatRepr
   , natValue
   , intValue
@@ -117,7 +109,7 @@ module Data.Parameterized.NatRepr.Internal
   , mulCancelR
   , mul2Plus
   , lemmaMul
-    -- * Re-exports typelists basics
+    -- * Re-exports typelits basics
 --  , NatK
   , type (+)
   , type (-)
