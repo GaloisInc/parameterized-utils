@@ -30,7 +30,7 @@ This module should be imported for in-library use only, as it exports
 #if __GLASGOW_HASKELL__ >= 805
 {-# LANGUAGE NoStarIsType #-}
 #endif
-module Data.Parameterized.NatRepr.Internal where
+module Data.Parameterized.NatRepr.Internal
   ( NatRepr
   , natValue
   , intValue
