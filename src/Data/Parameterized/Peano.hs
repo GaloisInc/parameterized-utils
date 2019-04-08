@@ -63,6 +63,10 @@ module Data.Parameterized.Peano
      , maxPeano
      , minPeano
 
+     , plusCtxSizeAxiom
+     , minusPlusAxiom
+     , ltMinusPlusAxiom
+
      -- * Re-exports
      , TestEquality(..)
      , (:~:)(..)
@@ -302,10 +306,11 @@ maxP (PeanoRepr a) (PeanoRepr b) = PeanoRepr (max a b)
 minP :: PeanoRepr a -> PeanoRepr b -> PeanoRepr (Min a b)
 minP (PeanoRepr a) (PeanoRepr b) = PeanoRepr (min a b)
 
+
 leP :: PeanoRepr a -> PeanoRepr b -> BoolRepr (Le a b)
 leP  (PeanoRepr a) (PeanoRepr b) =
-  if a < b then unsafeCoerce (TrueRepr)
-           else unsafeCoerce(FalseRepr)
+  if a <= b then unsafeCoerce (TrueRepr)
+            else unsafeCoerce(FalseRepr)
 
 
 #else
@@ -410,6 +415,52 @@ peanoLength :: [a] -> Some PeanoRepr
 peanoLength [] = Some zeroP
 peanoLength (_:xs) = case peanoLength xs of
   Some n -> Some (succP n)
+
+
+------------------------------------------------------------------------
+-- Some properties about Peano numbers
+
+plusCtxSizeAxiom :: forall t1 t2 f.
+  Assignment f t1 -> Assignment f t2 ->
+  CtxSizeP (t1 <+> t2) :~: Plus (CtxSizeP t2) (CtxSizeP t1)
+#ifdef UNSAFE_OPS
+plusCtxSizeAxiom _t1 _t2 = unsafeCoerce Refl
+#else
+plusCtxSizeAxiom t1 t2 =
+  case viewAssign t2 of
+    AssignEmpty -> Refl
+    AssignExtend t2' _
+      | Refl <- plusCtxSizeAxiom t1 t2' -> Refl
+#endif
+
+
+minusPlusAxiom :: forall n t t'.
+  PeanoRepr n -> PeanoRepr t -> PeanoRepr t' ->    
+  Minus n (Plus t' t) :~: Minus (Minus n t') t
+#ifdef UNSAFE_OPS
+minusPlusAxiom _n _t _t' = unsafeCoerce Refl
+#else
+minusPlusAxiom n t t' = case peanoView t' of
+  ZRepr -> Refl
+  SRepr t1' -> case peanoView n of
+      ZRepr -> Refl
+      SRepr n1 -> case minusPlusAxiom n1 t t1' of
+        Refl -> Refl
+#endif
+
+ltMinusPlusAxiom :: forall n t t'.
+  (Lt t (Minus n t') ~ 'True) =>
+  PeanoRepr n -> PeanoRepr t -> PeanoRepr t' ->
+  Lt (Plus t' t) n :~: 'True
+#ifdef UNSAFE_OPS
+ltMinusPlusAxiom _n _t _t' = unsafeCoerce Refl
+#else
+ltMinusPlusAxiom n t t' = case peanoView n of
+  SRepr m -> case peanoView t' of
+     ZRepr -> Refl
+     SRepr t1' -> case ltMinusPlusAxiom m t t1' of
+        Refl -> Refl
+#endif
 
 ------------------------------------------------------------------------
 --  LocalWords:  PeanoRepr withKnownPeano runtime Peano unary
