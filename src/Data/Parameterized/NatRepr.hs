@@ -126,108 +126,30 @@ module Data.Parameterized.NatRepr
   , Equality.TestEquality(..)
   , (Equality.:~:)(..)
   , Data.Parameterized.Some.Some
-    -- * Backdoor, no touchy
-  , activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing
   ) where
 
 import Data.Bits ((.&.), bit)
 import Data.Data
-import Data.Hashable
 import Data.Type.Equality as Equality
 import Data.Void as Void
 import Numeric.Natural
 import GHC.TypeNats as TypeNats
 import Unsafe.Coerce
 
-import Data.Parameterized.Classes
-import Data.Parameterized.DecidableEq
+import Data.Parameterized.NatRepr.Internal
 import Data.Parameterized.Some
 
 maxInt :: Natural
 maxInt = fromIntegral (maxBound :: Int)
 
-------------------------------------------------------------------------
--- Nat
-
--- | A runtime presentation of a type-level 'Nat'.
---
--- This can be used for performing dynamic checks on a type-level natural
--- numbers.
-newtype NatRepr (n::Nat) = NatRepr { natValue :: Natural
-                                     -- ^ The underlying natural value of the number.
-                                   }
-  deriving (Hashable, Data)
-
-type role NatRepr nominal
-
 intValue :: NatRepr n -> Integer
 intValue n = toInteger (natValue n)
 {-# INLINE intValue #-}
-
--- | If you are not 110% sure what the consequences of using this are and
---   how to use it, don't.
-activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing :: ((Natural -> NatRepr n) -> a) -> a
-activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing k = k NatRepr
-{-# INLINE activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing #-}
 
 -- | Return the value of the nat representation.
 widthVal :: NatRepr n -> Int
 widthVal (NatRepr i) | i <= maxInt = fromIntegral i
                      | otherwise   = error ("Width is too large: " ++ show i)
-
-instance Eq (NatRepr m) where
-  _ == _ = True
-
-instance TestEquality NatRepr where
-  testEquality (NatRepr m) (NatRepr n)
-    | m == n = Just (unsafeCoerce Refl)
-    | otherwise = Nothing
-
-instance DecidableEq NatRepr where
-  decEq (NatRepr m) (NatRepr n)
-    | m == n    = Left $ unsafeCoerce Refl
-    | otherwise = Right $
-        \x -> seq x $ error "Impossible [DecidableEq on NatRepr]"
-
--- | Result of comparing two numbers.
-data NatComparison m n where
-  -- First number is less than second.
-  NatLT :: x+1 <= x+(y+1) => !(NatRepr y) -> NatComparison x (x+(y+1))
-  NatEQ :: NatComparison x x
-  -- First number is greater than second.
-  NatGT :: x+1 <= x+(y+1) => !(NatRepr y) -> NatComparison (x+(y+1)) x
-
-compareNat :: NatRepr m -> NatRepr n -> NatComparison m n
-compareNat m n =
-  case compare (natValue m) (natValue n) of
-    LT -> unsafeCoerce (NatLT @0 @0) (NatRepr (natValue n - natValue m - 1))
-    EQ -> unsafeCoerce  NatEQ
-    GT -> unsafeCoerce (NatGT @0 @0) (NatRepr (natValue m - natValue n - 1))
-
-instance OrdF NatRepr where
-  compareF x y =
-    case compareNat x y of
-      NatLT _ -> LTF
-      NatEQ -> EQF
-      NatGT _ -> GTF
-
-instance PolyEq (NatRepr m) (NatRepr n) where
-  polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
-
-instance Show (NatRepr n) where
-  show (NatRepr n) = show n
-
-instance ShowF NatRepr
-
-instance HashableF NatRepr where
-  hashWithSaltF = hashWithSalt
-
--- | This generates a NatRepr from a type-level context.
-knownNat :: forall n . KnownNat n => NatRepr n
-knownNat = NatRepr (natVal (Proxy :: Proxy n))
-
-instance (KnownNat n) => KnownRepr NatRepr n where
-  knownRepr = knownNat
 
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =

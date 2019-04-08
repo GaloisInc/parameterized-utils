@@ -78,6 +78,9 @@ library
     Data.Parameterized.Vector
     Data.Parameterized.WithRepr                  
 
+  other-modules:
+    Data.Parameterized.NatRepr.Internal
+
   ghc-options: -Wall
 
   if flag(unsafe-operations)
