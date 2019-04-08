@@ -74,7 +74,7 @@ import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
 import Data.Functor.Identity
-import Data.Parameterized.NatRepr
+import Data.Parameterized.NatRepr.Internal -- because we need NatRepr coercion
 import Data.Proxy
 import Prelude hiding (length,reverse,zipWith)
 import Numeric.Natural
