@@ -53,6 +53,7 @@ library
 
   exposed-modules:
     Data.Parameterized
+    Data.Parameterized.BoolRepr                  
     Data.Parameterized.Classes
     Data.Parameterized.ClassesC
     Data.Parameterized.Compose
@@ -80,6 +81,9 @@ library
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
     Data.Parameterized.WithRepr                  
+
+  other-modules:
+    Data.Parameterized.NatRepr.Internal
 
   ghc-options: -Wall
 
