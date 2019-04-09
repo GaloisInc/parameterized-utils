@@ -1,8 +1,9 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.TraversableF
--- Copyright        : (c) Galois, Inc 2014-2015
+-- Copyright        : (c) Galois, Inc 2014-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description      : Traversing structures having a single parametric type
 --
 -- This module declares classes for working with structures that accept
 -- a single parametric type parameter.
@@ -47,7 +48,7 @@ instance FunctorF (Const x) where
 (#.) :: Coercible b c => (b -> c) -> (a -> b) -> (a -> c)
 (#.) _f = coerce
 
--- | This is a generalization of the @Foldable@ class to
+-- | This is a generalization of the 'Foldable' class to
 -- structures over parameterized terms.
 class FoldableF (t :: (k -> *) -> *) where
   {-# MINIMAL foldMapF | foldrF #-}
@@ -81,11 +82,11 @@ class FoldableF (t :: (k -> *) -> *) where
   toListF :: (forall tp . f tp -> a) -> t f -> [a]
   toListF f t = build (\c n -> foldrF (\e v -> c (f e) v) n t)
 
--- | Return 'True' if all values satisfy predicate.
+-- | Return 'True' if all values satisfy the predicate.
 allF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 allF p = getAll #. foldMapF (All #. p)
 
--- | Return 'True' if any values satisfy predicate.
+-- | Return 'True' if any values satisfy the predicate.
 anyF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 anyF p = getAny #. foldMapF (Any #. p)
 

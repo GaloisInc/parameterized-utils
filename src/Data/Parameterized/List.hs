@@ -1,10 +1,11 @@
 {-|
-Copyright        : (c) Galois, Inc 2017
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : A type-indexed parameterized list
+Copyright   : (c) Galois, Inc 2017-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
 This module defines a list over two parameters.  The first
 is a fixed type-level function @k -> *@ for some kind @k@, and the
-second is a list of types with kind k that provide the indices for
+second is a list of types with kind @k@ that provide the indices for
 the values in the list.
 
 This type is closely related to the @Context@ type in
@@ -99,7 +100,7 @@ instance (KnownRepr f s, KnownRepr (List f) sh) => KnownRepr (List f) (s ': sh) 
   knownRepr = knownRepr :< knownRepr
 
 --------------------------------------------------------------------------------
--- Indexed operations
+-- * Indexed operations
 
 
 -- | Represents an index into a type-level list. Used in place of integers to

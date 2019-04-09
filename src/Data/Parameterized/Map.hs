@@ -1,5 +1,6 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2017
+Description : Finite maps with parameterized key and value types
+Copyright   : (c) Galois, Inc 2014-2019
 
 This module defines finite maps where the key and value types are
 parameterized by an arbitrary kind.
@@ -52,7 +53,7 @@ module Data.Parameterized.Map
   , foldrWithKey
   , foldrWithKey'
   , foldMapWithKey
-    -- * Traversal
+    -- * Traversals
   , map
   , mapWithKey
   , mapMaybe
@@ -102,7 +103,7 @@ import           Prelude hiding (filter, lookup, map, null)
 #endif
 
 ------------------------------------------------------------------------
--- Pair
+-- * Pair
 
 comparePairKeys :: OrdF k => Pair k a -> Pair k a -> Ordering
 comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
@@ -151,7 +152,7 @@ instance (TestEquality k, EqF a) => Eq (MapF k a) where
   x == y = size x == size y && toList x == toList y
 
 ------------------------------------------------------------------------
--- Traversals
+-- * Traversals
 
 #ifdef __GLASGOW_HASKELL__
 {-# NOINLINE [1] map #-}
@@ -334,11 +335,11 @@ showMap ppk ppv m = "{ " ++ intercalate ", " l ++ " }"
 ------------------------------------------------------------------------
 -- filter
 
--- | Return entries with values that satisfy predicate.
+-- | Return entries with values that satisfy a predicate.
 filter :: (forall tp . f tp -> Bool) -> MapF k f -> MapF k f
 filter f = filterWithKey (\_ v -> f v)
 
--- | Return key-value pairs that satisfy predicate.
+-- | Return key-value pairs that satisfy a predicate.
 filterWithKey :: (forall tp . k tp -> f tp -> Bool) -> MapF k f -> MapF k f
 filterWithKey _ Tip = Tip
 filterWithKey f (Bin _ k x l r)
@@ -389,9 +390,9 @@ insertWithImpl f k v t = seq k $
 
 -- | @insertWith f new m@ inserts the binding into @m@.
 --
--- It inserts @f new old@ if @m@ already contains an equivaltn value
--- @old@, and @new@ otherwise.  It returns an Unchanged value if the
--- map stays the same size and an updated value if a new entry was
+-- It inserts @f new old@ if @m@ already contains an equivalent value
+-- @old@, and @new@ otherwise.  It returns an 'Unchanged' value if the
+-- map stays the same size and an 'Updated' value if a new entry was
 -- inserted.
 insertWith :: OrdF k => (a tp -> a tp -> a tp) -> k tp -> a tp -> MapF k a -> MapF k a
 insertWith = \f k v t -> seq k $ updatedValue (insertWithImpl f k v t)
@@ -414,7 +415,7 @@ union t1 t2 = Bin.union comparePairKeys t1 t2
 ------------------------------------------------------------------------
 -- updateAtKey
 
--- | Update request tells when to do with value
+-- | 'UpdateRequest' tells what to do with a found value
 data UpdateRequest v
    = -- | Keep the current value.
      Keep
@@ -501,9 +502,9 @@ fromKeys f = foldM go empty
 fromKeysM :: forall m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
           .  (Monad m, Foldable t, OrdF a)
            => (forall tp . a tp -> m (v tp))
-           -- ^ Function for evaluating a register value.
+           -- ^ Function for evaluating an input value to store the result in the map.
            -> t (Some a)
-           -- ^ Set of X86 registers
+           -- ^ Set of input values (traversed via folding)
            -> m (MapF a v)
 fromKeysM f = foldM go empty
   where go :: MapF a v -> Some a -> m (MapF a v)

@@ -1,4 +1,6 @@
 {-|
+Description: Representations of a type-level natural at runtime.
+Copyright        : (c) Galois, Inc 2019
 
 This defines a type 'Peano' and 'PeanoRepr' for representing a
 type-level natural at runtime. These type-level numbers are defined
@@ -39,9 +41,10 @@ these type-level natural numbers is 'Word64'.
 {-# LANGUAGE NoStarIsType #-}
 #endif
 module Data.Parameterized.Peano
-   ( Peano
+   ( -- * Peano
+     Peano
      , Z , S
-     
+
      -- * Basic arithmetic 
      , Plus, Minus, Mul,  Max, Min
      , plusP, minusP, mulP, maxP, minP
@@ -59,7 +62,7 @@ module Data.Parameterized.Peano
      , KnownPeano
      , PeanoRepr
      , PeanoView(..), peanoView, viewRepr
-     
+
      -- * 'Some Peano'
      , mkPeanoRepr, peanoValue     
      , somePeano

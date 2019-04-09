@@ -3,6 +3,7 @@
 -- Module           : Data.Parameterized.TraversableFC
 -- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description      : Traversing structures having a single parametric type followed by a fixed kind.
 --
 -- This module declares classes for working with structures that accept
 -- a parametric type parameter followed by some fixed kind.
@@ -77,12 +78,12 @@ class TestEqualityFC t => OrdFC (t :: (k -> *) -> l -> *) where
 ------------------------------------------------------------------------
 -- FoldableF
 
--- | This is a coercision used to avoid overhead associated
+-- | This is a coercion used to avoid overhead associated
 -- with function composition.
 (#.) :: Coercible b c => (b -> c) -> (a -> b) -> (a -> c)
 (#.) _f = coerce
 
--- | This is a generalization of the @Foldable@ class to
+-- | This is a generalization of the 'Foldable' class to
 -- structures over parameterized terms.
 class FoldableFC (t :: (k -> *) -> l -> *) where
   {-# MINIMAL foldMapFC | foldrFC #-}

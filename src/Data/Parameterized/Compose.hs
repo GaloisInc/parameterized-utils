@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2018
-Maintainer       : Langston Barrett <langston@galois.com
+Description : utilities for working with "Data.Functor.Compose"
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Langston Barrett <langston@galois.com>
 
 Utilities for working with "Data.Functor.Compose".
 

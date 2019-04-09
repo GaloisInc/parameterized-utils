@@ -1,12 +1,13 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2016
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : Index generator in the ST monad.
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
-This module provides a simple generator of new indexes in the ST monad.
+This module provides a simple generator of new indexes in the 'ST' monad.
 It is predictable and not intended for cryptographic purposes.
 
 This module also provides a global nonce generator that will generate
-2^64 nonces before looping.
+2^64 nonces before repeating.
 
 NOTE: The 'TestEquality' and 'OrdF' instances for the 'Nonce' type simply
 compare the generated nonce values and then assert to the compiler
@@ -38,6 +39,7 @@ module Data.Parameterized.Nonce
   , newIONonceGenerator
   , withIONonceGenerator
   , withSTNonceGenerator
+    -- * Global nonce generator
   , withGlobalSTNonceGenerator
   , GlobalNonceGenerator
   , globalNonceGenerator
@@ -97,27 +99,21 @@ countNoncesGenerated :: NonceGenerator m s -> m Integer
 countNoncesGenerated (IONG r) = toInteger <$> readIORef r
 countNoncesGenerated (STNG r) = toInteger <$> readSTRef r
 
--- | Create a new counter.
-withGlobalSTNonceGenerator :: (forall t . NonceGenerator (ST t) t -> ST t r) -> r
-withGlobalSTNonceGenerator f = runST $ do
-  r <- newSTRef (toEnum 0)
-  f $! STNG r
-
--- | Create a new nonce generator in the ST monad.
+-- | Create a new nonce generator in the 'ST' monad.
 newSTNonceGenerator :: ST t (Some (NonceGenerator (ST t)))
 newSTNonceGenerator = Some . STNG <$> newSTRef (toEnum 0)
 
--- | Create a new nonce generator in the ST monad.
+-- | Create a new nonce generator in the 'ST' monad.
 newIONonceGenerator :: IO (Some (NonceGenerator IO))
 newIONonceGenerator = Some . IONG <$> newIORef (toEnum 0)
 
--- | Run a ST computation with a new nonce generator in the ST monad.
+-- | Run a 'ST' computation with a new nonce generator in the 'ST' monad.
 withSTNonceGenerator :: (forall s . NonceGenerator (ST t) s -> (ST t) r) -> ST t r
 withSTNonceGenerator f = do
   Some r <- newSTNonceGenerator
   f r
 
--- | Create a new nonce generator in the IO monad.
+-- | Create a new nonce generator in the 'IO' monad.
 withIONonceGenerator :: (forall s . NonceGenerator IO s -> IO r) -> IO r
 withIONonceGenerator f = do
   Some r <- newIONonceGenerator
@@ -150,7 +146,7 @@ instance HashableF (Nonce s) where
 instance ShowF (Nonce s)
 
 ------------------------------------------------------------------------
--- GlobalNonceGenerator
+-- * GlobalNonceGenerator
 
 data GlobalNonceGenerator
 
@@ -161,3 +157,9 @@ globalNonceIORef = unsafePerformIO (newIORef 0)
 -- | A nonce generator that uses a globally-defined counter.
 globalNonceGenerator :: NonceGenerator IO GlobalNonceGenerator
 globalNonceGenerator = IONG globalNonceIORef
+
+-- | Create a new counter.
+withGlobalSTNonceGenerator :: (forall t . NonceGenerator (ST t) t -> ST t r) -> r
+withGlobalSTNonceGenerator f = runST $ do
+  r <- newSTRef (toEnum 0)
+  f $! STNG r

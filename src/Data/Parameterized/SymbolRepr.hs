@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2015
+Copyright        : (c) Galois, Inc 2014-2019
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : a type family for representing a type-level string (AKA symbol) at runtime
 
 This defines a type family 'SymbolRepr' for representing a type-level string
 (AKA symbol) at runtime.  This can be used to branch on a type-level value.
