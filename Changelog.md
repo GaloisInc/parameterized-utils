@@ -3,6 +3,7 @@
 ## 2.0 -- *2019 Apr 03*
 
   * Drop support for GHC versions prior to GHC 8.2
+  * Various Haddock and module updates.
   * Data.Parameterized.Classes
     - Added function: `ordFCompose`
     - Added `OrdF` instance for `Compose`
@@ -21,6 +22,8 @@
     - Add function `intValue` to recover an `Int` from a `NatRepr`.
     - Add constructor function `mkNatRepr` to construct a `NatRepr`
       from a `Natural`.
+    - Removed awkward backdoor for directly creating `NatRepr` values;
+      the single needed internal usage is now handled internally.
   * Data.Parameterized.Peano
     - Newly added module.
     - Defines a type `Peano` and `PeanoRepr` for representing a
