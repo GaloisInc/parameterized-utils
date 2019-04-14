@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeInType #-}
+{-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
   , KnownContext(..)
