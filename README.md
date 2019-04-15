@@ -162,16 +162,17 @@ data structures:
 
 * Data.Parameterized.Context (`Assignment (f :: k -> Type) (ctx :: Ctx k)`)
 
-  `Assignment` is a sequence type that holds values of parameterized types.
-  It is essentially a snoc list (i.e., a list that is extended on the right
-  instead of the left).  In the default implementation, indexing is O(log(n))
-  time and total.
+  `Assignment` is a sequence type that holds values of parameterized types.  It
+  is essentially a snoc list (i.e., a list that is extended on the right instead
+  of the left).  The `Ctx` (Context) type is a type-level snoc list.  In the
+  default implementation, indexing is O(log(n)) time and total.
 
   There are technically two implementations of `Assignment`: a safe
-  implementation in pure Haskell and the default implementation that uses
-  `unsafeCoerce` for efficiency.  The safe implementation is a proof that the
-  API presented is safe, while the unsafe implementation is efficient enough to
-  use in practice.
+  implementation based on a snoc list in pure Haskell and the default
+  implementation based on a balanced binary tree that uses `unsafeCoerce` to
+  manipulate type indexes for efficiency.  The safe implementation is a proof
+  that the API presented is safe, while the unsafe implementation is efficient
+  enough to use in practice.
 
 * Data.Parameterized.List (`List (f :: k -> Type) [k]`)
 
