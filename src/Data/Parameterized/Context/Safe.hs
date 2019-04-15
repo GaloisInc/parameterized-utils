@@ -42,6 +42,7 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeInType #-}
+{-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
     -- * Size
