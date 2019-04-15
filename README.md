@@ -108,12 +108,11 @@ withBoolExprs e def k =
   case e of
     BoolLit {} -> k [e]
     Lt {} -> k [e]
-    IsEq rep e1 e2 ->
-      case rep of
-        BoolRepr ->
+    IsEq rep e1 e2
+      | Just Refl <- testEquality rep BoolRepr ->
           -- Because we used a GADT pattern match, we know that tp ~ EBool
           k [e, e1, e2]
-        IntRepr -> def
+      | otherwise -> def
     _ -> def
 ```
 
@@ -168,6 +167,12 @@ data structures:
   instead of the left).  In the default implementation, indexing is O(log(n))
   time and total.
 
+  There are technically two implementations of `Assignment`: a safe
+  implementation in pure Haskell and the default implementation that uses
+  `unsafeCoerce` for efficiency.  The safe implementation is a proof that the
+  API presented is safe, while the unsafe implementation is efficient enough to
+  use in practice.
+
 * Data.Parameterized.List (`List (f :: k -> Type) [k]`)
 
   `List` is the plain Haskell list lifted to hold values of parameterized
@@ -182,7 +187,7 @@ data structures:
 
 * Data.Parameterized.HashTable (`HashTable s (key :: k -> Type) (value :: k -> Type)`)
 
-  `HashTable` is an associative container like ``MapF`, except is mutable in
+  `HashTable` is an associative container like `MapF`, except is mutable in
   `ST` (or `IO` via `stToIO`) due to the `s` type parameter.
 
 * Data.Parameterized.Vector (`Vector (n :: Nat) (a :: Type)`)
@@ -236,7 +241,7 @@ Additionally:
   parameter of a parameterized value.  This can be used on any value with a
   parameterized type, but is most useful when an operation exists to recover the
   type parameter later (either via pattern matching over a GADT or by consulting
-  a run-time type representative value.
+  a run-time type representative value).
 
 * Data.Parameterized.Nonce
 
