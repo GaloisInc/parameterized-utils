@@ -43,7 +43,7 @@ error because the two terms in the list have different types: `Expr 'EInt` and
 `Expr 'EBool`, respectively.
 
 One option is to existentially quantify away the type parameter.  There is a
-helper, `Some` type defined in Data.Parameterized.Some that does just this:
+helper type, `Some`, defined in Data.Parameterized.Some that does just this:
 `[Some (IntLit 5), Some (BoolLit False)] :: [Some Expr]`.  Because `Expr` is
 defined as a GADT, pattern matching on constructors allows us to recover the
 type parameter.
