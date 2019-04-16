@@ -43,7 +43,7 @@ library
                , ghc-prim
                , hashable == 1.2.*
                , hashtables == 1.2.*
-               , lens == 4.17.*
+               , lens >= 4.16 && <4.18
                , mtl
                , template-haskell
                , text
