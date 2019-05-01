@@ -52,6 +52,7 @@ module Data.Parameterized.Context.Safe
   , decSize
   , extSize
   , addSize
+  , subtractSize
   , SizeView(..)
   , viewSize
   , KnownContext(..)
@@ -74,6 +75,8 @@ module Data.Parameterized.Context.Safe
   , nextIndex
   , extendIndex
   , extendIndex'
+  , extendIndexLeft
+  , caseIndexAppend
   , forIndex
   , forIndexRange
   , intIndex
@@ -147,6 +150,12 @@ decSize (SizeSucc sz) = sz
 addSize :: Size x -> Size y -> Size (x <+> y)
 addSize sx SizeZero = sx
 addSize sx (SizeSucc sy) = SizeSucc (addSize sx sy)
+
+-- | Subtract the size of half a context from that of the whole context
+subtractSize :: Size (ctx1 <+> ctx2) -> p ctx1 -> Size ctx2 -> Size ctx1
+subtractSize sz12 _ SizeZero = sz12
+subtractSize (SizeSucc sz12') p (SizeSucc sz2') = subtractSize sz12' p sz2'
+
 
 -- | Allows interpreting a size.
 data SizeView (ctx :: Ctx k) where
@@ -297,6 +306,20 @@ extendIndex = extendIndex' knownDiff
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' DiffHere idx = idx
 extendIndex' (DiffThere diff) idx = IndexThere (extendIndex' diff idx)
+
+-- | Extend the context of an 'Index' by prepending another context
+extendIndexLeft :: Size ctx1 -> Index ctx2 a -> Index (ctx1 <+> ctx2) a
+extendIndexLeft sz1 (IndexHere sz2) = IndexHere (addSize sz1 sz2)
+
+-- | Test if an 'Index' is in the left or right half of a context
+caseIndexAppend :: Size ctx1 -> Size ctx2 -> Index (ctx1 <+> ctx2) a ->
+                   Either (Index ctx1 a) (Index ctx2 a)
+caseIndexAppend _ SizeZero i = Left i
+caseIndexAppend _ (SizeSucc sz2') (IndexHere _) = Right (IndexHere sz2')
+caseIndexAppend sz1 (SizeSucc sz2') (IndexThere i') =
+  case caseIndexAppend sz1 sz2' i' of
+    Left i -> Left i
+    Right i -> Right $ IndexThere i
 
 -- | Given a size @n@, an initial value @v0@, and a function @f@,
 -- @forIndex n v0 f@ calls @f@ on each index less than @n@ starting

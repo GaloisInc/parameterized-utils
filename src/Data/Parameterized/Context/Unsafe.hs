@@ -25,6 +25,7 @@ module Data.Parameterized.Context.Unsafe
   , decSize
   , extSize
   , addSize
+  , subtractSize
   , SizeView(..)
   , viewSize
     -- * Diff
@@ -46,6 +47,8 @@ module Data.Parameterized.Context.Unsafe
   , nextIndex
   , extendIndex
   , extendIndex'
+  , extendIndexLeft
+  , caseIndexAppend
   , forIndex
   , forIndexRange
   , intIndex
@@ -174,6 +177,10 @@ extSize (Size i) (Diff j) = Size (i+j)
 addSize :: Size x -> Size y -> Size (x <+> y)
 addSize (Size x) (Size y) = Size (x + y)
 
+-- | Subtract the size of half a context from that of the whole context
+subtractSize :: Size (ctx1 <+> ctx2) -> p ctx1 -> Size ctx2 -> Size ctx1
+subtractSize (Size i12) _ (Size i2) = Size (i12 - i2)
+
 
 -- | Proof that @r = l <+> app@ for some @app@
 data IsAppend l r where
@@ -255,6 +262,19 @@ extendIndex = extendIndex' knownDiff
 {-# INLINE extendIndex' #-}
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' _ = unsafeCoerce
+
+-- | Extend the context of an 'Index' by prepending another context
+extendIndexLeft :: Size ctx1 -> Index ctx2 a -> Index (ctx1 <+> ctx2) a
+extendIndexLeft (Size i) (Index j) = Index (i+j)
+
+-- | Test if an 'Index' is in the left or right half of a context
+caseIndexAppend :: Size ctx1 -> Size ctx2 -> Index (ctx1 <+> ctx2) a ->
+                   Either (Index ctx1 a) (Index ctx2 a)
+caseIndexAppend (Size len1) _ (Index ix) =
+  if ix < len1 then
+    Left (Index ix)
+  else
+    Right (Index (ix - len1))
 
 -- | Given a size 'n', an initial value 'v0', and a function 'f', 'forIndex n v0 f'
 -- is equivalent to 'v0' when 'n' is zero, and 'f (forIndex (n-1) v0) (n-1)' otherwise.
