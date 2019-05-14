@@ -104,7 +104,7 @@ matchTypePat _ (ConType tpq) tp = do
   return (tp' == tp)
 matchTypePat _ _ _ = return False
 
-dataParamTypes :: DatatypeInfo -> [Type]
+dataParamTypes :: DatatypeInfo -> [TyVarBndr]
 dataParamTypes = datatypeVars
 
 -- | Find value associated with first pattern that matches given pat if any.
