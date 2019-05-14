@@ -83,7 +83,7 @@ data TypePat
    | DataArg Int   -- ^ Match the i'th argument of the data type we are traversing.
    | ConType TypeQ -- ^ Match a ground type.
 
-matchTypePat :: [Type] -> TypePat -> Type -> Q Bool
+matchTypePat :: [TyVarBndr] -> TypePat -> Type -> Q Bool
 matchTypePat d (TypeApp p q) (AppT x y) = do
   r <- matchTypePat d p x
   case r of
@@ -93,12 +93,12 @@ matchTypePat _ AnyType _ = return True
 matchTypePat tps (DataArg i) tp
   | i < 0 || i > length tps = error $ "Illegal type pattern index " ++ show i
   | otherwise = do
-    return $ stripSigT (tps !! i) == tp
+    return $ stripKind (tps !! i) == tp
   where
     -- th-abstraction can annotate type parameters with their kinds,
     -- we ignore these for matching
-    stripSigT (SigT t _) = t
-    stripSigT t          = t
+    stripKind (PlainTV n) = VarT n
+    stripKind (KindedTV n _) = VarT n
 matchTypePat _ (ConType tpq) tp = do
   tp' <- tpq
   return (tp' == tp)
@@ -108,7 +108,7 @@ dataParamTypes :: DatatypeInfo -> [TyVarBndr]
 dataParamTypes = datatypeVars
 
 -- | Find value associated with first pattern that matches given pat if any.
-assocTypePats :: [Type] -> [(TypePat,v)] -> Type -> Q (Maybe v)
+assocTypePats :: [TyVarBndr] -> [(TypePat, v)] -> Type -> Q (Maybe v)
 assocTypePats _ [] _ = return Nothing
 assocTypePats dTypes ((p,v):pats) tp = do
   r <- matchTypePat dTypes p tp
@@ -139,7 +139,7 @@ joinTestEquality f x y r =
       Just Refl -> $(r)
    |]
 
-matchEqArguments :: [Type]
+matchEqArguments :: [TyVarBndr]
                     -- ^ Types bound by data arguments.
                   -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
                  -> Name
@@ -168,7 +168,7 @@ matchEqArguments _ _ _ _ [] _  _  = error "Unexpected end of types."
 matchEqArguments _ _ _ _ _  [] _  = error "Unexpected end of names."
 matchEqArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 
-mkSimpleEqF :: [Type] -- ^ Data declaration types
+mkSimpleEqF :: [TyVarBndr] -- ^ Data declaration types
             -> Set Name
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
              -> ConstructorInfo
@@ -195,7 +195,7 @@ mkEqF :: DatatypeInfo -- ^ Data declaration.
 mkEqF d pats con =
   let dVars = datatypeVars d
       bnd | null dVars = Set.empty
-          | otherwise  = typeVars (init dVars)
+          | otherwise  = Set.fromList (tvName <$> init dVars)
   in mkSimpleEqF dVars bnd pats con
 
 -- | @structuralTypeEquality f@ returns a function with the type:
@@ -290,7 +290,7 @@ joinCompareToOrdF x y r =
    |]
 
 -- | Match expression with given type to variables
-matchOrdArguments :: [Type]
+matchOrdArguments :: [TyVarBndr]
                      -- ^ Types bound by data arguments
                   -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
                   -> Name
@@ -322,7 +322,7 @@ matchOrdArguments _ _ _ _ [] _  _  = error "Unexpected end of types."
 matchOrdArguments _ _ _ _ _  [] _  = error "Unexpected end of names."
 matchOrdArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 
-mkSimpleOrdF :: [Type] -- ^ Data declaration types
+mkSimpleOrdF :: [TyVarBndr] -- ^ Data declaration types
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
              -> ConstructorInfo -- ^ Information about the second constructor
              -> Integer -- ^ First constructor's index
