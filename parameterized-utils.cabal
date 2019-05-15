@@ -36,7 +36,7 @@ source-repository head
 
 library
   build-depends: base >= 4.10 && < 5
-               , th-abstraction >=0.1 && <0.3
+               , th-abstraction >=0.3 && <0.4
                , constraints == 0.10.*
                , containers
                , deepseq
@@ -53,7 +53,7 @@ library
 
   exposed-modules:
     Data.Parameterized
-    Data.Parameterized.BoolRepr                  
+    Data.Parameterized.BoolRepr
     Data.Parameterized.Classes
     Data.Parameterized.ClassesC
     Data.Parameterized.Compose
@@ -80,7 +80,7 @@ library
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
-    Data.Parameterized.WithRepr                  
+    Data.Parameterized.WithRepr
 
   other-modules:
     Data.Parameterized.NatRepr.Internal
