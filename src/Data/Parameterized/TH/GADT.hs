@@ -406,9 +406,9 @@ structuralTraversal tpq pats0 = do
       caseE (varE a)
       (traverseAppMatch (assocTypePats (datatypeVars d) pats0) (varE f) <$> datatypeCons d)
 
-asTypeCon :: Monad m => String -> Type -> m Name
+asTypeCon :: String -> Type -> Q Name
 asTypeCon _ (ConT nm) = return nm
-asTypeCon fn _ = fail $ fn ++ " expected type constructor."
+asTypeCon fn _ = fail (fn ++ " expected type constructor.")
 
 -- | @structuralHash tp@ generates a function with the type
 -- @Int -> tp -> Int@ that hashes type.
