@@ -19,6 +19,8 @@ module Data.Parameterized.TraversableFC
   , HashableFC(..)
   , FunctorFC(..)
   , FoldableFC(..)
+  , foldlMFC
+  , foldrMFC
   , TraversableFC(..)
   , traverseFC_
   , forMFC_
@@ -117,6 +119,17 @@ class FoldableFC (t :: (k -> *) -> l -> *) where
   toListFC :: forall f a. (forall x. f x -> a) -> (forall x. t f x -> [a])
   toListFC f t = build (\c n -> foldrFC (\e v -> c (f e) v) n t)
 
+
+-- | Monadic fold over the elements of a structure from left to right.
+foldlMFC :: (FoldableFC t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f c -> m b
+foldlMFC f z0 xs = foldrFC f' return xs z0
+  where f' x k z = f z x >>= k
+
+-- | Monadic fold over the elements of a structure from right to left.
+foldrMFC :: (FoldableFC t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f c -> m b
+foldrMFC f z0 xs = foldlFC f' return xs z0
+  where f' k x z = f x z >>= k
+
 -- | Return 'True' if all values satisfy predicate.
 allFC :: FoldableFC t => (forall x. f x -> Bool) -> (forall x. t f x -> Bool)
 allFC p = getAll #. foldMapFC (All #. p)
@@ -125,7 +138,7 @@ allFC p = getAll #. foldMapFC (All #. p)
 anyFC :: FoldableFC t => (forall x. f x -> Bool) -> (forall x. t f x -> Bool)
 anyFC p = getAny #. foldMapFC (Any #. p)
 
--- | Return number of elements in list.
+-- | Return number of elements that we fold over.
 lengthFC :: FoldableFC t => t f x -> Int
 lengthFC = foldrFC (const (+1)) 0
 

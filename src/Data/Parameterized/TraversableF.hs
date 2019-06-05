@@ -16,12 +16,16 @@
 module Data.Parameterized.TraversableF
   ( FunctorF(..)
   , FoldableF(..)
+  , foldlMF
+  , foldrMF
   , TraversableF(..)
   , traverseF_
+  , forMFC_
   , fmapFDefault
   , foldMapFDefault
   , allF
   , anyF
+  , lengthF
   ) where
 
 import Control.Applicative
@@ -82,6 +86,16 @@ class FoldableF (t :: (k -> *) -> *) where
   toListF :: (forall tp . f tp -> a) -> t f -> [a]
   toListF f t = build (\c n -> foldrF (\e v -> c (f e) v) n t)
 
+-- | Monadic fold over the elements of a structure from left to right.
+foldlMF :: (FoldableF t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f -> m b
+foldlMF f z0 xs = foldrF f' return xs z0
+  where f' x k z = f z x >>= k
+
+-- | Monadic fold over the elements of a structure from right to left.
+foldrMF :: (FoldableF t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f -> m b
+foldrMF f z0 xs = foldlF f' return xs z0
+  where f' k x z = f x z >>= k
+
 -- | Return 'True' if all values satisfy the predicate.
 allF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 allF p = getAll #. foldMapF (All #. p)
@@ -89,6 +103,10 @@ allF p = getAll #. foldMapF (All #. p)
 -- | Return 'True' if any values satisfy the predicate.
 anyF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 anyF p = getAny #. foldMapF (Any #. p)
+
+-- | Return number of elements that we fold over.
+lengthF :: FoldableF t => t f -> Int
+lengthF = foldrF (const (+1)) 0
 
 instance FoldableF (Const x) where
   foldMapF _ _ = mempty
@@ -120,6 +138,13 @@ foldMapFDefault f = getConst #. traverseF (Const #. f)
 -- these actions from left to right, and ignore the results.
 traverseF_ :: (FoldableF t, Applicative f) => (forall s . e s  -> f a) -> t e -> f ()
 traverseF_ f = foldrF (\e r -> f e *> r) (pure ())
+
+
+-- | Map each element of a structure to an action, evaluate
+-- these actions from left to right, and ignore the results.
+forMF_ :: (FoldableF t, Applicative m) => t f -> (forall x. f x -> m a) -> m ()
+forMF_ v f = traverseF_ f v
+{-# INLINE forMF_ #-}
 
 ------------------------------------------------------------------------
 -- TraversableF (Compose s t)
