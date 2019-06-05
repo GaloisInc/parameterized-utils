@@ -406,7 +406,10 @@ delete = \k m -> seq k $ fromMaybeS m $ Bin.delete (p k) m
 {-# INLINABLE delete #-}
 {-# SPECIALIZE Bin.delete :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
 
--- | Union two sets
+-- | Left-biased union of two maps. The resulting map will
+-- contain the union of the keys of the two arguments. When
+-- a key is contained in both maps the value from the first
+-- map will be preserved.
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a
 union t1 t2 = Bin.union comparePairKeys t1 t2
 {-# INLINABLE union #-}
@@ -519,6 +522,23 @@ filterLtMaybe NothingS m = m
 filterLtMaybe (JustS k) m = filterLt k m
 
 -- | Merge bindings in two maps to get a third.
+--
+-- The first function is used to merge elements that occur under the
+-- same key in both maps. Return Just to add an entry into the
+-- resulting map under this key or Nothing to remove this key from the
+-- resulting map.
+--
+-- The second function will be applied to submaps of the first map argument
+-- where no keys overlap with the second map argument. The result of this
+-- function must be a map with a subset of the keys of its argument.
+-- This means the function can alter the values of its argument and it can
+-- remove key-value pairs from it, but it must not introduce new keys.
+--
+-- Third function is analogous to the second function except that it applies
+-- to the second map argument of 'mergeWithKeyM' instead of the first.
+--
+-- Common examples of the two functions include 'id' when constructing a union
+-- or 'const' 'empty' when constructing an intersection.
 mergeWithKeyM :: forall k a b c m
                . (Applicative m, OrdF k)
               => (forall tp . k tp -> a tp -> b tp -> m (Maybe (c tp)))
@@ -579,7 +599,7 @@ filterMiddle _  _  t = t
 
 
 
--- Helper function for 'mergeWithKey'. The @'trimLookupLo' lk hk t@ performs both
+-- Helper function for 'mergeWithKeyM'. The @'trimLookupLo' lk hk t@ performs both
 -- @'trim' (JustS lk) hk t@ and @'lookup' lk t@.
 
 -- See Note: Type of local 'go' function
