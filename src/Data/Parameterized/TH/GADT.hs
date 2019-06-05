@@ -91,9 +91,8 @@ matchTypePat d (TypeApp p q) (AppT x y) = do
     False -> return False
 matchTypePat _ AnyType _ = return True
 matchTypePat tps (DataArg i) tp
-  | i < 0 || i > length tps = error $ "Illegal type pattern index " ++ show i
-  | otherwise = do
-    return $ stripKind (tps !! i) == tp
+  | i < 0 || i >= length tps = error ("Type pattern index " ++ show i ++ " out of bounds")
+  | otherwise = return (stripKind (tps !! i) == tp)
   where
     -- th-abstraction can annotate type parameters with their kinds,
     -- we ignore these for matching
