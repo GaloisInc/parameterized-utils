@@ -20,7 +20,8 @@ module Data.Parameterized.TraversableF
   , foldrMF
   , TraversableF(..)
   , traverseF_
-  , forMFC_
+  , forF_
+  , forF
   , fmapFDefault
   , foldMapFDefault
   , allF
@@ -123,6 +124,11 @@ class (FunctorF t, FoldableF t) => TraversableF t where
 instance TraversableF (Const x) where
   traverseF _ (Const x) = pure (Const x)
 
+-- | Flipped 'traverseF'
+forF :: (TraversableF t, Applicative m) => t e -> (forall s . e s -> m (f s)) -> m (t f)
+forF f x = traverseF x f
+{-# INLINE forF #-}
+
 -- | This function may be used as a value for `fmapF` in a `FunctorF`
 -- instance.
 fmapFDefault :: TraversableF t => (forall s . e s -> f s) -> t e -> t f
@@ -142,9 +148,9 @@ traverseF_ f = foldrF (\e r -> f e *> r) (pure ())
 
 -- | Map each element of a structure to an action, evaluate
 -- these actions from left to right, and ignore the results.
-forMF_ :: (FoldableF t, Applicative m) => t f -> (forall x. f x -> m a) -> m ()
-forMF_ v f = traverseF_ f v
-{-# INLINE forMF_ #-}
+forF_ :: (FoldableF t, Applicative m) => t f -> (forall x. f x -> m a) -> m ()
+forF_ v f = traverseF_ f v
+{-# INLINE forF_ #-}
 
 ------------------------------------------------------------------------
 -- TraversableF (Compose s t)

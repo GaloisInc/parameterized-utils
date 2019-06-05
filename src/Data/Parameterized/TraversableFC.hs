@@ -24,6 +24,8 @@ module Data.Parameterized.TraversableFC
   , TraversableFC(..)
   , traverseFC_
   , forMFC_
+  , forFC_
+  , forFC
   , fmapFCDefault
   , foldMapFCDefault
   , allFC
@@ -173,3 +175,17 @@ traverseFC_ f = foldrFC (\e r -> f e *> r) (pure ())
 forMFC_ :: (FoldableFC t, Applicative m) => t f c -> (forall x. f x -> m a) -> m ()
 forMFC_ v f = traverseFC_ f v
 {-# INLINE forMFC_ #-}
+{-# DEPRECATED forMFC_ "Use forFC_" #-}
+
+-- | Map each element of a structure to an action, evaluate
+-- these actions from left to right, and ignore the results.
+forFC_ :: (FoldableFC t, Applicative m) => t f c -> (forall x. f x -> m a) -> m ()
+forFC_ v f = traverseFC_ f v
+{-# INLINE forFC_ #-}
+
+-- | Flipped 'traverseFC'
+forFC ::
+  (TraversableFC t, Applicative m) =>
+  t f x -> (forall y. f y -> m (g y)) -> m (t g x)
+forFC v f = traverseFC f v
+{-# INLINE forFC #-}
