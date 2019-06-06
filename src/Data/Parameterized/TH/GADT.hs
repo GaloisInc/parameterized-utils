@@ -442,10 +442,10 @@ showCon :: ExpQ -> Name -> Int -> MatchQ
 showCon p nm n = do
   vars <- newNames "x" n
   let pat = ConP nm (VarP <$> vars)
-  let go s e = [| $(s) . showChar ' ' . showsPrec 10 $(varE e) |]
+  let go s e = [| $(s) . showChar ' ' . showsPrec 11 $(varE e) |]
   let ctor = [| showString $(return (LitE (StringL (nameBase nm)))) |]
   let rhs | null vars = ctor
-          | otherwise = [| showParen ($(p) >= 10) $(foldl go ctor vars) |]
+          | otherwise = [| showParen ($(p) >= 11) $(foldl go ctor vars) |]
   match (pure pat) (normalB rhs) []
 
 matchShowCtor :: ExpQ -> ConstructorInfo -> MatchQ
