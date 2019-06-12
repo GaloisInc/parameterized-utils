@@ -53,6 +53,8 @@ module Data.Parameterized.Map
   , foldrWithKey
   , foldrWithKey'
   , foldMapWithKey
+  , foldlMWithKey
+  , foldrMWithKey
     -- * Traversals
   , map
   , mapWithKey
@@ -325,6 +327,15 @@ foldMapWithKey :: Monoid m => (forall s . k s -> a s -> m) -> MapF k a -> m
 foldMapWithKey _ Tip = mempty
 foldMapWithKey f (Bin _ kx x l r) = foldMapWithKey f l <> f kx x <> foldMapWithKey f r
 
+-- | A monadic left-to-right fold over keys and values in the map.
+foldlMWithKey :: Monad m => (forall s . b -> k s -> a s -> m b) -> b -> MapF k a -> m b
+foldlMWithKey f z0 m = foldrWithKey (\k a r z ->  f z k a >>= r) pure m z0
+
+-- | A monadic right-to-left fold over keys and values in the map.
+foldrMWithKey :: Monad m => (forall s . k s -> a s -> b -> m b) -> b -> MapF k a -> m b
+foldrMWithKey f z0 m = foldlWithKey (\r k a z ->  f k a z >>= r) pure m z0
+
+-- | Pretty print keys and values in map.
 showMap :: (forall tp . ktp tp -> String)
         -> (forall tp . rtp tp -> String)
         -> MapF ktp rtp
