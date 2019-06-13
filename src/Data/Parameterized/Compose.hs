@@ -6,7 +6,8 @@ Maintainer  : Langston Barrett <langston@galois.com>
 Utilities for working with "Data.Functor.Compose".
 
 NB: This module contains an orphan instance. It will be included in GHC 8.10,
-see https://gitlab.haskell.org/ghc/ghc/merge_requests/273.
+see https://gitlab.haskell.org/ghc/ghc/merge_requests/273 and also
+https://github.com/haskell-compat/base-orphans/issues/49.
 -}
 
 {-# LANGUAGE GADTs #-}
