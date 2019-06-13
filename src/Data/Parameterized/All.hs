@@ -7,11 +7,33 @@
 --
 -- This module provides 'All', a GADT that encodes universal
 -- quantification/parametricity over a type variable.
+--
+-- The following is an example of a situation in which it might be necessary
+-- to use 'All' (though it is a bit contrived):
+--
+-- @
+--   {-# LANGUAGE FlexibleInstances #-}
+--   {-# LANGUAGE GADTs #-}
+--
+--   data F (x :: Bool) where
+--     FTrue :: F 'True
+--     FFalse :: F 'False
+--     FIndeterminate :: F b
+--
+--   data Value =
+--     VAllF (All F)
+--
+--   class Valuable a where
+--     valuation :: a -> Value
+--
+--   instance Valuable (All F) where
+--     valuation = VAllF
+--
+--   val1 :: Value
+--   val1 = valuation (All FIndeterminate)
+-- @
 ------------------------------------------------------------------------
 
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
