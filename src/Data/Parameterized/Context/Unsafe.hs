@@ -13,6 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeInType #-}
 {-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Unsafe
@@ -50,6 +51,8 @@ module Data.Parameterized.Context.Unsafe
   , forIndex
   , forIndexRange
   , intIndex
+  , IndexView(..)
+  , viewIndex
     -- ** IndexRange
   , IndexRange
   , allRange
@@ -131,6 +134,8 @@ viewSize (Size n) = assert (n > 0) (unsafeCoerce (IncSize (Size (n-1))))
 
 instance Show (Size ctx) where
   show (Size i) = show i
+
+instance ShowF Size
 
 -- | A context that can be determined statically at compiler time.
 class KnownContext (ctx :: Ctx k) where
@@ -293,6 +298,24 @@ instance Show (Index ctx tp) where
    show = show . indexVal
 
 instance ShowF (Index ctx)
+
+-- | View of indexes as pointing to the last element in the
+-- index range or pointing to an earlier element in a smaller
+-- range.
+data IndexView ctx tp where
+  IndexViewLast :: !(Size  ctx  ) -> IndexView (ctx '::> t) t
+  IndexViewInit :: !(Index ctx t) -> IndexView (ctx '::> u) t
+
+deriving instance Show (IndexView ctx tp)
+instance ShowF (IndexView ctx)
+
+-- | Project an index
+viewIndex :: Size ctx -> Index ctx tp -> IndexView ctx tp
+viewIndex (Size sz) (Index i)
+  | sz' == i  = unsafeCoerce (IndexViewLast (Size sz'))
+  | otherwise = unsafeCoerce (IndexViewInit (Index i))
+  where
+    sz' = sz-1
 
 ------------------------------------------------------------------------
 -- IndexRange
