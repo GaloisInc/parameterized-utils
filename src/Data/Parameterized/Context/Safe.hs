@@ -42,6 +42,7 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
@@ -78,6 +79,8 @@ module Data.Parameterized.Context.Safe
   , forIndex
   , forIndexRange
   , intIndex
+  , IndexView(..)
+  , viewIndex
     -- * Assignments
   , Assignment
   , size
@@ -127,6 +130,12 @@ import Data.Parameterized.TraversableFC
 data Size (ctx :: Ctx k) where
   SizeZero :: Size 'EmptyCtx
   SizeSucc :: !(Size ctx) -> Size (ctx '::> tp)
+
+-- | Renders as integer literal
+instance Show (Size ctx) where
+  show = show . sizeInt
+
+instance ShowF Size
 
 -- | Convert a context size to an 'Int'.
 sizeInt :: Size ctx -> Int
@@ -365,10 +374,27 @@ indexList sz_top = go id [] sz_top
 intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
 intIndex n sz = listToMaybe $ drop n $ indexList sz
 
+-- | Renders as integer literal
 instance Show (Index ctx tp) where
    show = show . indexVal
 
 instance ShowF (Index ctx)
+
+-- | View of indexes as pointing to the last element in the
+-- index range or pointing to an earlier element in a smaller
+-- range.
+data IndexView ctx tp where
+  IndexViewLast :: Size  ctx   -> IndexView (ctx '::> t) t
+  IndexViewInit :: Index ctx t -> IndexView (ctx '::> u) t
+
+instance ShowF (IndexView ctx)
+deriving instance Show (IndexView ctx tp)
+
+-- | Project an index
+viewIndex :: Size ctx -> Index ctx tp -> IndexView ctx tp
+viewIndex _ (IndexHere sz) = IndexViewLast sz
+viewIndex _ (IndexThere i) = IndexViewInit i
+-- NB: the unused size parameter is needed in the Unsafe module
 
 ------------------------------------------------------------------------
 -- Assignment
