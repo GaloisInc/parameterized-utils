@@ -1,14 +1,17 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.All
--- Copyright        : (c) Galois, Inc 2014-2019
+-- Copyright        : (c) Galois, Inc 2019
 -- Maintainer       : Langston Barrett <langston@galois.com>
 -- Description      : Universal quantification, in a datatype
 --
 -- This module provides 'All', a GADT that encodes universal
--- quantification/parametricity over a type variable
+-- quantification/parametricity over a type variable.
 ------------------------------------------------------------------------
 
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -25,7 +28,7 @@ import Data.Parameterized.TraversableF
 newtype All (f :: k -> *) = All { getAll :: forall x. f x }
 
 instance FunctorF All where
-  fmapF nat (All a) = All (nat a)
+  fmapF f (All a) = All (f a)
 
 instance FoldableF All where
   foldMapF toMonoid (All x) = toMonoid x
