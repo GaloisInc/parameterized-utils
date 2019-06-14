@@ -32,6 +32,9 @@
 --   val1 :: Value
 --   val1 = valuation (All FIndeterminate)
 -- @
+--
+-- For a less contrived but more complex example, see this blog
+-- post: http://comonad.com/reader/2008/rotten-bananas/
 ------------------------------------------------------------------------
 
 {-# LANGUAGE PolyKinds #-}
