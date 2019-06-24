@@ -32,6 +32,7 @@ module Data.Parameterized.Context.Unsafe
     -- * Diff
   , Diff
   , noDiff
+  , addDiff
   , extendRight
   , appendDiff
   , DiffView(..)
@@ -157,9 +158,16 @@ newtype Diff (l :: Ctx k) (r :: Ctx k)
 
 type role Diff nominal nominal
 
--- | The identity difference.
+-- | The identity difference. Identity element of 'Category' instance.
 noDiff :: Diff l l
 noDiff = Diff 0
+{-# INLINE noDiff #-}
+
+-- | The addition of differences. Flipped binary operation
+-- of 'Category' instance.
+addDiff :: Diff a b -> Diff b c -> Diff a c
+addDiff (Diff x) (Diff y) = Diff (x + y)
+{-# INLINE addDiff #-}
 
 -- | Extend the difference to a sub-context of the right side.
 extendRight :: Diff l r -> Diff l (r '::> tp)
@@ -168,9 +176,10 @@ extendRight (Diff i) = Diff (i+1)
 appendDiff :: Size r -> Diff l (l <+> r)
 appendDiff (Size r) = Diff r
 
+-- | Implemented with 'noDiff' and 'addDiff'
 instance Cat.Category Diff where
-  id = Diff 0
-  Diff j . Diff i = Diff (i + j)
+  id = noDiff
+  j . i = addDiff i j
 
 -- | Extend the size by a given difference.
 extSize :: Size l -> Diff l r -> Size r

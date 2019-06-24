@@ -60,6 +60,7 @@ module Data.Parameterized.Context.Safe
     -- * Diff
   , Diff
   , noDiff
+  , addDiff
   , extendRight
   , appendDiff
   , DiffView(..)
@@ -190,9 +191,15 @@ data Diff (l :: Ctx k) (r :: Ctx k) where
   DiffHere :: Diff ctx ctx
   DiffThere :: Diff ctx1 ctx2 -> Diff ctx1 (ctx2 '::> tp)
 
--- | The identity difference.
+-- | The identity difference. Identity element of 'Category' instance.
 noDiff :: Diff l l
 noDiff = DiffHere
+
+-- | The addition of differences. Flipped binary operation
+-- of 'Category' instance.
+addDiff :: Diff a b -> Diff b c -> Diff a c
+addDiff x DiffHere = x
+addDiff x (DiffThere y) = DiffThere (addDiff x y)
 
 -- | Extend the difference to a sub-context of the right side.
 extendRight :: Diff l r -> Diff l (r '::> tp)
@@ -202,13 +209,10 @@ appendDiff :: Size r -> Diff l (l <+> r)
 appendDiff SizeZero = DiffHere
 appendDiff (SizeSucc sz) = DiffThere (appendDiff sz)
 
-composeDiff :: Diff a b -> Diff b c -> Diff a c
-composeDiff x DiffHere = x
-composeDiff x (DiffThere y) = DiffThere (composeDiff x y)
-
+-- | Implemented with 'noDiff' and 'addDiff'
 instance Cat.Category Diff where
   id = DiffHere
-  d1 . d2 = composeDiff d2 d1
+  d1 . d2 = addDiff d2 d1
 
 -- | Extend the size by a given difference.
 extSize :: Size l -> Diff l r -> Size r
