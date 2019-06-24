@@ -21,3 +21,4 @@ dist-newstyle/
 _darcs/
 .cmd_history
 *~
+.ghc.environment.*
