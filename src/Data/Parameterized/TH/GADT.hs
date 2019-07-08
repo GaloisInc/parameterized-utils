@@ -83,7 +83,7 @@ data TypePat
    | DataArg Int   -- ^ Match the i'th argument of the data type we are traversing.
    | ConType TypeQ -- ^ Match a ground type.
 
-matchTypePat :: [TyVarBndr] -> TypePat -> Type -> Q Bool
+matchTypePat :: [Type] -> TypePat -> Type -> Q Bool
 matchTypePat d (TypeApp p q) (AppT x y) = do
   r <- matchTypePat d p x
   case r of
@@ -92,22 +92,28 @@ matchTypePat d (TypeApp p q) (AppT x y) = do
 matchTypePat _ AnyType _ = return True
 matchTypePat tps (DataArg i) tp
   | i < 0 || i >= length tps = error ("Type pattern index " ++ show i ++ " out of bounds")
-  | otherwise = return (stripKind (tps !! i) == tp)
+  | otherwise = return (stripSigT (tps !! i) == tp)
   where
     -- th-abstraction can annotate type parameters with their kinds,
     -- we ignore these for matching
-    stripKind (PlainTV n) = VarT n
-    stripKind (KindedTV n _) = VarT n
+    stripSigT (SigT t _) = t
+    stripSigT t          = t
 matchTypePat _ (ConType tpq) tp = do
   tp' <- tpq
   return (tp' == tp)
 matchTypePat _ _ _ = return False
 
-dataParamTypes :: DatatypeInfo -> [TyVarBndr]
-dataParamTypes = datatypeVars
+-- | The dataParamTypes function returns the list of Type arguments
+-- for the constructor.  For example, if passed the DatatypeInfo for a
+-- @newtype Id a = MkId a@ then this would return @['SigT' ('VarT' a)
+-- 'StarT']@.  Note that there may be type *variables* not referenced
+-- in the returned array; this simply returns the type *arguments*.
+dataParamTypes :: DatatypeInfo -> [Type]
+dataParamTypes = datatypeInstTypes
+ -- see th-abstraction 'dataTypeVars' for the type variables if needed
 
 -- | Find value associated with first pattern that matches given pat if any.
-assocTypePats :: [TyVarBndr] -> [(TypePat, v)] -> Type -> Q (Maybe v)
+assocTypePats :: [Type] -> [(TypePat, v)] -> Type -> Q (Maybe v)
 assocTypePats _ [] _ = return Nothing
 assocTypePats dTypes ((p,v):pats) tp = do
   r <- matchTypePat dTypes p tp
@@ -138,7 +144,7 @@ joinTestEquality f x y r =
       Just Refl -> $(r)
    |]
 
-matchEqArguments :: [TyVarBndr]
+matchEqArguments :: [Type]
                     -- ^ Types bound by data arguments.
                   -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
                  -> Name
@@ -167,7 +173,7 @@ matchEqArguments _ _ _ _ [] _  _  = error "Unexpected end of types."
 matchEqArguments _ _ _ _ _  [] _  = error "Unexpected end of names."
 matchEqArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 
-mkSimpleEqF :: [TyVarBndr] -- ^ Data declaration types
+mkSimpleEqF :: [Type] -- ^ Data declaration types
             -> Set Name
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
              -> ConstructorInfo
@@ -192,9 +198,12 @@ mkEqF :: DatatypeInfo -- ^ Data declaration.
       -> Bool -- ^ wildcard case required
       -> ExpQ
 mkEqF d pats con =
-  let dVars = datatypeVars d
+  let dVars = dataParamTypes d  -- the type arguments for the constructor
+      -- bnd is the list of type arguments for this datatype.  Since
+      -- this is Functor equality, ignore the final type since this is
+      -- a higher-kinded equality.
       bnd | null dVars = Set.empty
-          | otherwise  = Set.fromList (tvName <$> init dVars)
+          | otherwise  = typeVars (init dVars)
   in mkSimpleEqF dVars bnd pats con
 
 -- | @structuralTypeEquality f@ returns a function with the type:
@@ -289,7 +298,7 @@ joinCompareToOrdF x y r =
    |]
 
 -- | Match expression with given type to variables
-matchOrdArguments :: [TyVarBndr]
+matchOrdArguments :: [Type]
                      -- ^ Types bound by data arguments
                   -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
                   -> Name
@@ -321,7 +330,7 @@ matchOrdArguments _ _ _ _ [] _  _  = error "Unexpected end of types."
 matchOrdArguments _ _ _ _ _  [] _  = error "Unexpected end of names."
 matchOrdArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 
-mkSimpleOrdF :: [TyVarBndr] -- ^ Data declaration types
+mkSimpleOrdF :: [Type] -- ^ Data declaration types
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
              -> ConstructorInfo -- ^ Information about the second constructor
              -> Integer -- ^ First constructor's index
@@ -345,7 +354,7 @@ mkOrdF :: DatatypeInfo -- ^ Data declaration.
        -> Maybe ExpQ -- ^ optional right constructr index
        -> [Name]
        -> Q [MatchQ]
-mkOrdF d pats = mkSimpleOrdF (datatypeVars d) pats
+mkOrdF d pats = mkSimpleOrdF (datatypeInstTypes d) pats
 
 -- | @recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
 recurseArg :: (Type -> Q (Maybe ExpQ))
@@ -404,7 +413,7 @@ structuralTraversal tpq pats0 = do
   a <- newName "a"
   lamE [varP f, varP a] $
       caseE (varE a)
-      (traverseAppMatch (assocTypePats (datatypeVars d) pats0) (varE f) <$> datatypeCons d)
+      (traverseAppMatch (assocTypePats (datatypeInstTypes d) pats0) (varE f) <$> datatypeCons d)
 
 asTypeCon :: String -> Type -> Q Name
 asTypeCon _ (ConT nm) = return nm
