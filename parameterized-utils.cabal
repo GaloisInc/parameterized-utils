@@ -63,6 +63,7 @@ library
     Data.Parameterized.Context.Unsafe
     Data.Parameterized.Ctx
     Data.Parameterized.Ctx.Proofs
+    Data.Parameterized.DataKind
     Data.Parameterized.DecidableEq
     Data.Parameterized.HashTable
     Data.Parameterized.List
