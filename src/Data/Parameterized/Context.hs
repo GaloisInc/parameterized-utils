@@ -383,7 +383,7 @@ traverseAndCollect ::
 traverseAndCollect f =
   runCollector . traverseWithIndex (\i x -> Collector (f i x))
 
--- | Visit each of the elements in an @Assignment in order
+-- | Visit each of the elements in an @Assignment@ in order
 --   from left to right, executing an action with each.
 traverseWithIndex_ :: Applicative m
                    => (forall tp . Index ctx tp -> f tp -> m ())
