@@ -40,6 +40,8 @@ module Data.Parameterized.Map
   , elems
   , fromList
   , toList
+  , toAscList
+  , toDescList
   , fromKeys
   , fromKeysM
    -- * Filter
@@ -495,8 +497,17 @@ updateAtKey k onNotFound onFound t = ins <$> atKey' k onNotFound onFound t
 fromList :: OrdF k => [Pair k a] -> MapF k a
 fromList = foldl' (\m (Pair k a) -> insert k a m) Data.Parameterized.Map.empty
 
+-- | Return list of key-values pairs in map in ascending order.
+toAscList :: MapF k a -> [Pair k a]
+toAscList = foldrWithKey (\k x l -> Pair k x : l) []
+
+-- | Return list of key-values pairs in map in descending order.
+toDescList :: MapF k a -> [Pair k a]
+toDescList = foldlWithKey (\l k x -> Pair k x : l) []
+
+-- | Return list of key-values pairs in map.
 toList :: MapF k a -> [Pair k a]
-toList = foldrWithKey (\k x m -> Pair k x : m) []
+toList = toAscList
 
 -- | Generate a map from a foldable collection of keys and a
 -- function from keys to values.
