@@ -8,32 +8,34 @@ is a fixed type-level function @k -> *@ for some kind @k@, and the
 second is a list of types with kind @k@ that provide the indices for
 the values in the list.
 
-This type is closely related to the @Context@ type in
-@Data.Parameterized.Context@.
+This type is closely related to the
+'Data.Parameterized.Context.Assignment' type in
+"Data.Parameterized.Context".
 
-= Motivation - the 'Data.Parameterized.List` type
+= Motivating example - the 'Data.Parameterized.List.List' type
 
 For this example, we need the following extensions:
 
 @
-  \{\-\# LANGUAGE DataKinds \#\-\}
-  \{\-\# LANGUAGE GADTs \#\-\}
-  \{\-\# LANGUAGE KindSignatures \#\-\}
-  \{\-\# LANGUAGE TypeOperators \#\-\}
+\{\-\# LANGUAGE DataKinds \#\-\}
+\{\-\# LANGUAGE GADTs \#\-\}
+\{\-\# LANGUAGE KindSignatures \#\-\}
+\{\-\# LANGUAGE TypeOperators \#\-\}
 @
 
 We also require the following imports:
 
 @
 import Data.Parameterized
+import Data.Parameterized.List
 import GHC.TypeLits
 @
 
 Suppose we have a bitvector type:
 
 @
-  data BitVector (w :: Nat) :: * where
-    BV :: NatRepr w -> Integer -> BitVector w
+data BitVector (w :: Nat) :: * where
+  BV :: NatRepr w -> Integer -> BitVector w
 @
 
 This type contains a 'Data.Parameterized.NatRepr.NatRepr', a value-level
@@ -42,7 +44,7 @@ actual value of the bitvector. We can create values of this type as
 follows:
 
 @
-  BV (knownNat @8) 0xAB
+BV (knownNat @8) 0xAB
 @
 
 We can also create a smart constructor to handle the
@@ -50,25 +52,25 @@ We can also create a smart constructor to handle the
 from the type context:
 
 @
-  bitVector :: KnownNat w => Integer -> BitVector w
-  bitVector x = BV knownNat x
+bitVector :: KnownNat w => Integer -> BitVector w
+bitVector x = BV knownNat x
 @
 
 Note that this does not check that the value can be represented in the
 given number of bits; that is not important for this example.
 
-If we wish to construct a list of `BitVector`s of a particular length,
+If we wish to construct a list of @BitVector@s of a particular length,
 we can do:
 
 @
-  [bitVector 0xAB, bitVector 0xFF, bitVector 0] :: BitVector 8
+[bitVector 0xAB, bitVector 0xFF, bitVector 0] :: BitVector 8
 @
 
 However, what if we wish to construct a list of 'BitVector's of
 different lengths? We could try:
 
 @
-  [bitVector 0xAB :: BitVector 8, bitVector 0x1234 :: BitVector 16]
+[bitVector 0xAB :: BitVector 8, bitVector 0x1234 :: BitVector 16]
 @
 
 However, this gives us an error:
@@ -87,35 +89,35 @@ However, this gives us an error:
 @
 
 A vanilla Haskell list cannot contain two elements of different types,
-and even though the two elements here are both `BitVector`s, they do
+and even though the two elements here are both @BitVector@s, they do
 not have the same type! One solution is to use the
-`Data.Parameterized.Some` type from @Data.Parameterized.Some@:
+'Data.Parameterized.Some.Some' type:
 
 @
-  [Some (bitVector 0xAB :: BitVector 8), Some (bitVector 0x1234 :: BitVector 16)]
+[Some (bitVector 0xAB :: BitVector 8), Some (bitVector 0x1234 :: BitVector 16)]
 @
 
-The type of the above expression is `[Some BitVector]`, which may be
+The type of the above expression is @[Some BitVector]@, which may be
 perfectly acceptable. However, there is nothing in this type that
 tells us what the widths of the bitvectors are. If we want to actually
-track that information on the type level, we can used the `List` type
+track that information on the type level, we can use the 'List' type
 from this module.
 
 @
-  (bitVector 0xAB :: BitVector 8) :< (bitVector 0x1234 :: BitVector 16) :< Nil
+(bitVector 0xAB :: BitVector 8) :< (bitVector 0x1234 :: BitVector 16) :< Nil
 @
 
 The type of the above expression is @List BitVector '[8, 16]@ -- That
-is, a two-element list of `BitVector`s, where the first element has
+is, a two-element list of @BitVector@s, where the first element has
 width 8 and the second has width 16.
 
 == Summary
 
-In general, if we have a type constructor `Foo` of kind @k -> *@ (in our
-example, `Foo` is just `BitVector`, and we want to create a list of
-`Foo`s where the parameter `k` varies, /and/ we wish to keep track of
-what each value of `k` is inside the list, we use the
-`Data.Parameterized.List` type for exactly this purpose.
+In general, if we have a type constructor @Foo@ of kind @k -> *@ (in
+our example, @Foo@ is just @BitVector@, and we want to create a list
+of @Foo@s where the parameter @k@ varies, /and/ we wish to keep track
+of what each value of @k@ is inside the list at compile time, we can
+use the 'Data.Parameterized.List.List' type for this purpose.
 
 -}
 {-# LANGUAGE DataKinds #-}
