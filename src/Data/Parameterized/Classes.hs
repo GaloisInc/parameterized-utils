@@ -166,8 +166,6 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
   -- parameters are equal.
   compareF :: ktp x -> ktp y -> OrderingF x y
 
-  -- | Provides a Ord instance for each type.
-  --
   leqF :: ktp x -> ktp y -> Bool
   leqF x y =
     case compareF x y of
