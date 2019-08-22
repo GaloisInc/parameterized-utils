@@ -52,6 +52,7 @@ module Data.Parameterized.Context
   , generateSomeM
   , fromList
   , traverseAndCollect
+  , traverseWithIndex_
 
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
@@ -86,6 +87,7 @@ module Data.Parameterized.Context
 
 import           Control.Applicative (liftA2)
 import           Control.Lens hiding (Index, (:>), Empty)
+import           Data.Functor (void)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
@@ -380,6 +382,14 @@ traverseAndCollect ::
   m w
 traverseAndCollect f =
   runCollector . traverseWithIndex (\i x -> Collector (f i x))
+
+-- | Visit each of the elements in an @Assignment@ in order
+--   from left to right, executing an action with each.
+traverseWithIndex_ :: Applicative m
+                   => (forall tp . Index ctx tp -> f tp -> m ())
+                   -> Assignment f ctx
+                   -> m ()
+traverseWithIndex_ f = void . traverseAndCollect f
 
 --------------------------------------------------------------------------------
 -- Size and Index values
