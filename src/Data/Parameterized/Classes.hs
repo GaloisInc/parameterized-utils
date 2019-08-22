@@ -8,6 +8,7 @@ This module declares classes for working with types with the kind
 "Data.Functor.Classes" types as they work with any kind @k@, and are
 not restricted to '*'.
 -}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -17,6 +18,7 @@ not restricted to '*'.
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 #if MIN_VERSION_base(4,9,0)
@@ -44,6 +46,8 @@ module Data.Parameterized.Classes
   , showsF
   , HashableF(..)
   , CoercibleF(..)
+    -- * Type function application constructor
+  , TypeAp(..)
     -- * Optics generalizations
   , IndexF
   , IxValueF
@@ -58,6 +62,7 @@ module Data.Parameterized.Classes
 
 import Data.Functor.Const
 import Data.Functor.Compose (Compose(..))
+import Data.Kind
 import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Proxy
@@ -161,6 +166,8 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
   -- parameters are equal.
   compareF :: ktp x -> ktp y -> OrderingF x y
 
+  -- | Provides a Ord instance for each type.
+  --
   leqF :: ktp x -> ktp y -> Bool
   leqF x y =
     case compareF x y of
@@ -296,6 +303,29 @@ class HashableF (f :: k -> *) where
 
 instance Hashable a => HashableF (Const a) where
   hashWithSaltF s (Const x) = hashWithSalt s x
+
+------------------------------------------------------------------------
+-- TypeApp
+
+-- | Captures the value obtained from applying a type to a function so
+-- that we can use parameterized class instance to provide unparameterized
+-- instances for specific types.
+--
+-- This is the same as `Ap` from @Control.Applicative@, but we introduce
+-- our own new type to avoid orphan instances.
+newtype TypeAp (f :: k -> Type) (tp :: k) = TypeAp (f tp)
+
+instance TestEquality f => Eq (TypeAp f tp) where
+  TypeAp x == TypeAp y = isJust $ testEquality x y
+
+instance OrdF f => Ord (TypeAp f tp) where
+  compare (TypeAp x) (TypeAp y) = toOrdering (compareF x y)
+
+instance ShowF f => Show (TypeAp f tp) where
+  showsPrec p (TypeAp x) = showsPrecF p x
+
+instance HashableF f => Hashable (TypeAp f tp) where
+  hashWithSalt s (TypeAp x) = hashWithSaltF s x
 
 ------------------------------------------------------------------------
 -- KnownRepr
