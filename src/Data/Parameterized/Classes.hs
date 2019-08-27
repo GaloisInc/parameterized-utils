@@ -57,6 +57,7 @@ module Data.Parameterized.Classes
     -- * KnownRepr
   , KnownRepr(..)
     -- * Re-exports
+  , Data.Hashable.Hashable(..)
   , Data.Maybe.isJust
   ) where
 
