@@ -304,7 +304,7 @@ instance Hashable a => HashableF (Const a) where
   hashWithSaltF s (Const x) = hashWithSalt s x
 
 ------------------------------------------------------------------------
--- TypeApp
+-- TypeAp
 
 -- | Captures the value obtained from applying a type to a function so
 -- that we can use parameterized class instance to provide unparameterized
