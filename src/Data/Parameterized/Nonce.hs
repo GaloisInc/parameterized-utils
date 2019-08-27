@@ -39,6 +39,7 @@ module Data.Parameterized.Nonce
   , newIONonceGenerator
   , withIONonceGenerator
   , withSTNonceGenerator
+  , runSTNonceGenerator
     -- * Global nonce generator
   , withGlobalSTNonceGenerator
   , GlobalNonceGenerator
@@ -103,12 +104,21 @@ countNoncesGenerated (STNG r) = toInteger <$> readSTRef r
 newSTNonceGenerator :: ST t (Some (NonceGenerator (ST t)))
 newSTNonceGenerator = Some . STNG <$> newSTRef (toEnum 0)
 
+-- | This combines `runST` and `newSTNonceGenerator` to create a nonce
+-- generator that shares the same phantom type parameter as the @ST@ monad.
+--
+-- This can be used to reduce the number of type parameters when we know a
+-- ST computation only needs a single `NonceGenerator`.
+runSTNonceGenerator :: (forall s . NonceGenerator (ST s) s -> ST s a)
+                    -> a
+runSTNonceGenerator f = runST $ f . STNG =<< newSTRef 0
+
 -- | Create a new nonce generator in the 'ST' monad.
 newIONonceGenerator :: IO (Some (NonceGenerator IO))
 newIONonceGenerator = Some . IONG <$> newIORef (toEnum 0)
 
 -- | Run a 'ST' computation with a new nonce generator in the 'ST' monad.
-withSTNonceGenerator :: (forall s . NonceGenerator (ST t) s -> (ST t) r) -> ST t r
+withSTNonceGenerator :: (forall s . NonceGenerator (ST t) s -> ST t r) -> ST t r
 withSTNonceGenerator f = do
   Some r <- newSTNonceGenerator
   f r
