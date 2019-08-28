@@ -40,10 +40,10 @@ module Data.Parameterized.List
   ) where
 
 import qualified Control.Lens as Lens
-import Prelude hiding ((!!))
+import           Prelude hiding ((!!))
 
-import Data.Parameterized.Classes
-import Data.Parameterized.TraversableFC
+import           Data.Parameterized.Classes
+import           Data.Parameterized.TraversableFC
 
 -- | Parameterized list of elements.
 data List :: (k -> *) -> [k] -> * where
@@ -136,6 +136,9 @@ indexValue = go 0
         go i IndexHere = i
         go i (IndexThere x) = seq j $ go j x
           where j = i+1
+
+instance Hashable (Index l x) where
+  hashWithSalt s i = s `hashWithSalt` (indexValue i)
 
 -- | Index 0
 index0 :: Index (x:r) x

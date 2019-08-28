@@ -32,6 +32,7 @@ module Data.Parameterized.Map
     -- * Query
   , null
   , lookup
+  , findWithDefault
   , member
   , notMember
   , size
@@ -64,6 +65,7 @@ module Data.Parameterized.Map
   , mapMaybeWithKey
   , traverseWithKey
   , traverseWithKey_
+  , traverseMaybeWithKey
     -- * Complex interface.
   , UpdateRequest(..)
   , Updated(..)
@@ -203,7 +205,8 @@ mapMaybe f = mapMaybeWithKey (\_ x -> f x)
 -- | Traverse elements in a map
 traverse :: Applicative m => (forall tp . f tp -> m (g tp)) -> MapF ktp f -> m (MapF ktp g)
 traverse _ Tip = pure Tip
-traverse f (Bin sx kx x l r) = Bin sx kx <$> f x <*> traverse f l <*> traverse f r
+traverse f (Bin sx kx x l r) =
+  (\l' x' r' -> Bin sx kx x' l' r') <$> traverse f l <*> f x <*> traverse f r
 
 -- | Traverse elements in a map
 traverseWithKey
@@ -213,7 +216,7 @@ traverseWithKey
   -> m (MapF ktp g)
 traverseWithKey _ Tip = pure Tip
 traverseWithKey f (Bin sx kx x l r) =
-   Bin sx kx <$> f kx x <*> traverseWithKey f l <*> traverseWithKey f r
+   (\l' x' r' -> Bin sx kx x' l' r') <$> traverseWithKey f l <*> f kx x <*> traverseWithKey f r
 
 -- | Traverse elements in a map without returning result.
 traverseWithKey_
@@ -221,9 +224,23 @@ traverseWithKey_
   => (forall tp . ktp tp -> f tp -> m ())
   -> MapF ktp f
   -> m ()
-traverseWithKey_ _ Tip = pure ()
-traverseWithKey_ f (Bin _ kx x l r) = f kx x *> traverseWithKey_ f l *> traverseWithKey_ f r
+traverseWithKey_ = \f -> foldrWithKey (\k v r -> f k v *> r) (pure ())
+{-# INLINABLE traverseWithKey_ #-}
 
+-- | Traverse keys\/values and collect the 'Just' results.
+traverseMaybeWithKey :: Applicative f
+                     => (forall tp . k tp -> a tp -> f (Maybe (b tp)))
+                     -> MapF k a -> f (MapF k b)
+traverseMaybeWithKey f Tip = pure Tip
+traverseMaybeWithKey f (Bin _ kx x Tip Tip) = maybe Tip (\x' -> Bin 1 kx x' Tip Tip) <$> f kx x
+traverseMaybeWithKey f (Bin _ kx x l r) =
+    liftA3 combine (traverseMaybeWithKey f l) (f kx x) (traverseMaybeWithKey f r)
+  where
+    combine l' mx r' = seq l' $ seq r' $
+      case mx of
+        Just x' -> Bin.link (Pair kx x') l' r'
+        Nothing -> Bin.merge l' r'
+{-# INLINABLE traverseMaybeWithKey #-}
 
 type instance IndexF   (MapF k v) = k
 type instance IxValueF (MapF k v) = v
@@ -251,6 +268,20 @@ lookup k0 = seq k0 (go k0)
         GTF -> go k r
         EQF -> Just x
 {-# INLINABLE lookup #-}
+
+-- | @findWithDefault d k m@ returns the value bound to @k@ in the map @m@, or @d@
+-- if @k@ is not bound in the map.
+findWithDefault :: OrdF k => a tp -> k tp -> MapF k a -> a tp
+findWithDefault = \def k -> seq k (go def k)
+  where
+    go :: OrdF k => a tp -> k tp -> MapF k a -> a tp
+    go d _ Tip = d
+    go d k (Bin _ kx x l r) =
+      case compareF k kx of
+        LTF -> go d k l
+        GTF -> go d k r
+        EQF -> x
+{-# INLINABLE findWithDefault #-}
 
 -- | Return true if key is bound in map.
 member :: OrdF k => k tp -> MapF k a -> Bool
@@ -312,9 +343,7 @@ foldlWithKey' f z (Bin _ kx x l r) =
 foldrWithKey :: (forall s . k s -> a s -> b -> b) -> b -> MapF k a -> b
 foldrWithKey _ z Tip = z
 foldrWithKey f z (Bin _ kx x l r) =
-  let rz = foldrWithKey f z r
-      kz = f kx x rz
-   in foldrWithKey f kz l
+  foldrWithKey f (f kx x (foldrWithKey f z r)) l
 
 -- | Perform a strict right fold with the key also provided.
 foldrWithKey' :: (forall s . k s -> a s -> b -> b) -> b -> MapF k a -> b
