@@ -99,9 +99,9 @@ not have the same type! One solution is to use the
 
 The type of the above expression is @[Some BitVector]@, which may be
 perfectly acceptable. However, there is nothing in this type that
-tells us what the widths of the bitvectors are. If we want to actually
-track that information on the type level, we can use the 'List' type
-from this module.
+tells us what the widths of the bitvectors are, or what the length of
+the overall list is. If we want to actually track that information on
+the type level, we can use the 'List' type from this module.
 
 @
 (bitVector 0xAB :: BitVector 8) :< (bitVector 0x1234 :: BitVector 16) :< Nil
