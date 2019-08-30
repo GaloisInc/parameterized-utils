@@ -17,7 +17,9 @@ module Data.Parameterized.TraversableF
   ( FunctorF(..)
   , FoldableF(..)
   , foldlMF
+  , foldlMF'
   , foldrMF
+  , foldrMF'
   , TraversableF(..)
   , traverseF_
   , forF_
@@ -92,10 +94,20 @@ foldlMF :: (FoldableF t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f ->
 foldlMF f z0 xs = foldrF f' return xs z0
   where f' x k z = f z x >>= k
 
+-- | Monadic strict fold over the elements of a structure from left to right.
+foldlMF' :: (FoldableF t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f -> m b
+foldlMF' f z0 xs = seq z0 (foldrF f' return xs z0)
+  where f' x k z = f z x >>= \r -> seq r (k r)
+
 -- | Monadic fold over the elements of a structure from right to left.
 foldrMF :: (FoldableF t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f -> m b
 foldrMF f z0 xs = foldlF f' return xs z0
   where f' k x z = f x z >>= k
+
+-- | Monadic strict fold over the elements of a structure from right to left.
+foldrMF' :: (FoldableF t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f -> m b
+foldrMF' f z0 xs = seq z0 $ foldlF f' return xs z0
+  where f' k x z = f x z >>= \r -> seq r (k r)
 
 -- | Return 'True' if all values satisfy the predicate.
 allF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
