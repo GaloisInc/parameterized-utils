@@ -20,7 +20,9 @@ module Data.Parameterized.TraversableFC
   , FunctorFC(..)
   , FoldableFC(..)
   , foldlMFC
+  , foldlMFC'
   , foldrMFC
+  , foldrMFC'
   , TraversableFC(..)
   , traverseFC_
   , forMFC_
@@ -121,16 +123,25 @@ class FoldableFC (t :: (k -> *) -> l -> *) where
   toListFC :: forall f a. (forall x. f x -> a) -> (forall x. t f x -> [a])
   toListFC f t = build (\c n -> foldrFC (\e v -> c (f e) v) n t)
 
-
 -- | Monadic fold over the elements of a structure from left to right.
 foldlMFC :: (FoldableFC t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f c -> m b
 foldlMFC f z0 xs = foldrFC f' return xs z0
   where f' x k z = f z x >>= k
 
+-- | Monadic strict fold over the elements of a structure from left to right.
+foldlMFC' :: (FoldableFC t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f c -> m b
+foldlMFC' f z0 xs = seq z0 $ foldrFC f' return xs z0
+  where f' x k z = f z x >>= \r -> seq r (k r)
+
 -- | Monadic fold over the elements of a structure from right to left.
 foldrMFC :: (FoldableFC t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f c -> m b
 foldrMFC f z0 xs = foldlFC f' return xs z0
   where f' k x z = f x z >>= k
+
+-- | Monadic strict fold over the elements of a structure from right to left.
+foldrMFC' :: (FoldableFC t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f c -> m b
+foldrMFC' f z0 xs = seq z0 (foldlFC f' return xs z0)
+  where f' k x z = f x z >>= \r -> seq r (k r)
 
 -- | Return 'True' if all values satisfy predicate.
 allFC :: FoldableFC t => (forall x. f x -> Bool) -> (forall x. t f x -> Bool)
