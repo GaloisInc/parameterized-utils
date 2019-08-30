@@ -460,7 +460,6 @@ matchHashCtor :: DatatypeInfo
               -> MatchQ
 matchHashCtor d pats s0 i c = do
   (pat,vars) <- conPat c "x"
-  let args = varE <$> vars
   let go s (e, tp) = do
         mr <- assocTypePats (datatypeInstTypes d) pats tp
         case mr of

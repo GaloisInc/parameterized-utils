@@ -45,7 +45,7 @@ module Data.Parameterized.Peano
      Peano
      , Z , S
 
-     -- * Basic arithmetic 
+     -- * Basic arithmetic
      , Plus, Minus, Mul,  Max, Min
      , plusP, minusP, mulP, maxP, minP
      , zeroP, succP, predP
@@ -53,7 +53,6 @@ module Data.Parameterized.Peano
      -- * Counting
      , Repeat, CtxSizeP
      , repeatP, ctxSizeP
-     
      -- * Comparisons
      , Le, Lt, Gt, Ge
      , leP, ltP, gtP, geP
@@ -64,7 +63,7 @@ module Data.Parameterized.Peano
      , PeanoView(..), peanoView, viewRepr
 
      -- * 'Some Peano'
-     , mkPeanoRepr, peanoValue     
+     , mkPeanoRepr, peanoValue
      , somePeano
      , maxPeano
      , minPeano
@@ -88,7 +87,6 @@ import           Data.Parameterized.DecidableEq
 import           Data.Parameterized.Some
 import           Data.Parameterized.Context
 
-import           Data.Hashable
 import           Data.Word
 
 #ifdef UNSAFE_OPS
@@ -185,7 +183,7 @@ peanoValue :: PeanoRepr n -> Word64
 peanoValue ZRepr     = 0
 peanoValue (SRepr m) = 1 + peanoValue m
 #endif
-                                    
+
 -- | When we have optimized the runtime representation,
 -- we need to have a "view" that decomposes the representation
 -- into the standard form.
@@ -227,13 +225,13 @@ instance TestEquality PeanoRepr where
   testEquality (PeanoRepr m) (PeanoRepr n)
     | m == n = Just (unsafeCoerce Refl)
     | otherwise = Nothing
-#else 
+#else
   testEquality ZRepr ZRepr = Just Refl
   testEquality (SRepr m1) (SRepr m2)
     | Just Refl <- testEquality m1 m2
     = Just Refl
   testEquality _ _ = Nothing
-  
+
 #endif
 
 instance DecidableEq PeanoRepr where
@@ -418,7 +416,7 @@ mkPeanoRepr n = Some (PeanoRepr n)
 mkPeanoRepr 0 = Some ZRepr
 mkPeanoRepr n = case mkPeanoRepr (n - 1) of
                  Some mr -> Some (SRepr mr)
-#endif                 
+#endif
 
 -- | Turn an @Integral@ value into a 'PeanoRepr'.  Returns @Nothing@
 --   if the given value is negative.
@@ -468,7 +466,7 @@ plusCtxSizeAxiom t1 t2 =
 -- | Minus distributes over plus
 --
 minusPlusAxiom :: forall n t t'.
-  PeanoRepr n -> PeanoRepr t -> PeanoRepr t' ->    
+  PeanoRepr n -> PeanoRepr t -> PeanoRepr t' ->
   Minus n (Plus t' t) :~: Minus (Minus n t') t
 #ifdef UNSAFE_OPS
 minusPlusAxiom _n _t _t' = unsafeCoerce Refl

@@ -231,7 +231,7 @@ traverseWithKey_ = \f -> foldrWithKey (\k v r -> f k v *> r) (pure ())
 traverseMaybeWithKey :: Applicative f
                      => (forall tp . k tp -> a tp -> f (Maybe (b tp)))
                      -> MapF k a -> f (MapF k b)
-traverseMaybeWithKey f Tip = pure Tip
+traverseMaybeWithKey _ Tip = pure Tip
 traverseMaybeWithKey f (Bin _ kx x Tip Tip) = maybe Tip (\x' -> Bin 1 kx x' Tip Tip) <$> f kx x
 traverseMaybeWithKey f (Bin _ kx x l r) =
     liftA3 combine (traverseMaybeWithKey f l) (f kx x) (traverseMaybeWithKey f r)
