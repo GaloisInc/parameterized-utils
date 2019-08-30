@@ -38,15 +38,13 @@ import           Data.Parameterized.DecidableEq
 import           Data.Parameterized.Some
 
 import           Data.Type.Bool
-import           Data.Hashable
 
--- | 
+-- | A Boolean flag
 data BoolRepr (b :: Bool) where
   FalseRepr :: BoolRepr 'False
   TrueRepr  :: BoolRepr 'True
 
-  
--- | conditional 
+-- | conditional
 ifRepr :: BoolRepr a -> BoolRepr b -> BoolRepr c -> BoolRepr (If a b c)
 ifRepr TrueRepr b _ = b
 ifRepr FalseRepr _ c = c
@@ -56,17 +54,17 @@ notRepr :: BoolRepr b -> BoolRepr (Not b)
 notRepr TrueRepr = FalseRepr
 notRepr FalseRepr = TrueRepr
 
--- | Conjunction 
+-- | Conjunction
 (%&&) :: BoolRepr a -> BoolRepr b -> BoolRepr (a && b)
 FalseRepr %&& _ = FalseRepr
 TrueRepr  %&& a = a
 infixr 3 %&&
 
--- | Disjunction 
+-- | Disjunction
 (%||) :: BoolRepr a -> BoolRepr b -> BoolRepr (a || b)
 FalseRepr %|| a = a
 TrueRepr  %|| _ = TrueRepr
-infixr 2 %||  
+infixr 2 %||
 
 instance Hashable (BoolRepr n) where
   hashWithSalt i TrueRepr  = hashWithSalt i True
@@ -99,12 +97,11 @@ instance PolyEq (BoolRepr m) (BoolRepr n) where
 instance Show (BoolRepr m) where
   show FalseRepr = "FalseRepr"
   show TrueRepr  = "TrueRepr"
-  
+
 instance ShowF BoolRepr
 
 instance HashableF BoolRepr where
   hashWithSaltF = hashWithSalt
-
 
 ----------------------------------------------------------
 -- * Implicit runtime booleans
