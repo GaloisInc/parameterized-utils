@@ -284,7 +284,7 @@ update vals (IndexThere th) upd =
     x :< rest -> x :< update rest th upd
 
 -- | Provides a lens for manipulating the element at the given index.
-indexed :: Index l x -> Lens.Simple Lens.Lens (List f l) (f x)
+indexed :: Index l x -> Lens.Lens' (List f l) (f x)
 indexed IndexHere      f (x :< rest) = (:< rest) <$> f x
 indexed (IndexThere i) f (x :< rest) = (x :<) <$> indexed i f rest
 
