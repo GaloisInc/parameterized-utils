@@ -36,18 +36,18 @@ source-repository head
 
 library
   build-depends: base >= 4.10 && < 5
-               , th-abstraction >=0.3 && <0.4
-               , constraints == 0.10.*
+               , th-abstraction >=0.3  && <0.4
+               , constraints    >=0.10 && <0.12
                , containers
                , deepseq
                , ghc-prim
-               , hashable == 1.2.*
-               , hashtables == 1.2.*
-               , lens >= 4.16 && <4.18
+               , hashable       >=1.2  && <1.4
+               , hashtables     ==1.2.*
+               , lens           >=4.16 && <4.19
                , mtl
                , template-haskell
                , text
-               , vector == 0.12.*
+               , vector         ==0.12.*
 
   hs-source-dirs: src
 
