@@ -1,5 +1,39 @@
 # Changelog for the `parameterized-utils` package
 
+## 2.0.1 -- *2019 Nov 06*
+
+  * Documentation updates
+  * Dependency constraint updates: constraints, lens, th-abstraction, hashable, hashtables, and vector.
+  * Now supports building under GHC 8.8.1.
+  * Added monadic folds and more traversals:
+      * lazy folds: `foldlMF`, `foldrMF`, `foldlMFC`, `foldrMFC`
+      * strict folds: `foldlMF'`, `foldrMF'`, `foldlMFC'`, `foldrMFC'`
+      * `forF`, `forF_`
+      * `forFC`, `forFC_`
+      * `lengthF`
+  * Added monadic folds, ascending or descending list conversions to `Parameterized.Map`:
+      * Added monadic folds: `foldlMWithKey`, `foldrMWithKey`
+      * Added ascending or descending list conversions: `toAscList` (equivalent to existing `toList`) and `toDescList`.
+      * Added `findWithDefault` to lookup a key or return a default value.
+      * Added `traverseMaybeWithKey`.
+      * Fixes traverse to do an in-order rather than a pre-order traversal.
+  * Added the `Data.Parameterized.All` module for universal quantification/parametricity over a type variable.
+  * Additions to `Data.Parameterized.Context`:
+      * Added `IndexView` type and `viewIndex` functions.
+      * Added `addDiff` function to explicitly describe the (flipped) binary operator for the `Diff` instance of the `Category` class from `Control.Category`.
+      * Added `traverseWithIndex_`
+  * Added `Data.Parameterized.DataKind` providing the `PairRepr` type with associated `fst` and `snd` functions.
+  * Added `TypeAp` to `Data.Parameterized.Classes`
+  * Added `runSTNonceGenerator` to `Data.Parameterized.Nonce` for a *global* ST generator.
+  * Added a `Hashable` instance for list `Index l x` types.
+  * Changes in GADT TH code generator:
+      * Added `structuralHashWithSalt` to
+      * Fixed off by one bug in output
+      * Fixed generation and constructor generation to use constructor type arguments, not type parameters.
+  * The `Some` type is now an instance of `FunctorF`, `FoldableF`, and `TraversableF`.
+  * Adjusted `structuralShowsPrec` precedence to match GHC derived `Show` instances.
+  * The `Data.Parameterized.Nonce.Unsafe module is now deprecated: clients should switch to `Data.Parameterized.Nonce`.
+
 ## 2.0 -- *2019 Apr 03*
 
   * Drop support for GHC versions prior to GHC 8.2
