@@ -11,7 +11,7 @@ License-file:  LICENSE
 category:      Data Structures, Dependent Types
 Synopsis: Classes and data structures for working with data-kind indexed types
 Description:
-  This packages contains collection classes and type representations
+  This package contains collection classes and type representations
   used for working with values that have a single parameter.  It's
   intended for things like expression libraries where one wishes
   to leverage the Haskell type-checker to improve type-safety by encoding
