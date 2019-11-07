@@ -32,7 +32,7 @@
       * Fixed generation and constructor generation to use constructor type arguments, not type parameters.
   * The `Some` type is now an instance of `FunctorF`, `FoldableF`, and `TraversableF`.
   * Adjusted `structuralShowsPrec` precedence to match GHC derived `Show` instances.
-  * The `Data.Parameterized.Nonce.Unsafe module is now deprecated: clients should switch to `Data.Parameterized.Nonce`.
+  * The `Data.Parameterized.Nonce.Unsafe` module is now deprecated: clients should switch to `Data.Parameterized.Nonce`.
 
 ## 2.0 -- *2019 Apr 03*
 
