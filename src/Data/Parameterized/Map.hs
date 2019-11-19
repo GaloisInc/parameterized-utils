@@ -29,6 +29,7 @@ module Data.Parameterized.Map
   , insertWith
   , delete
   , union
+  , intersectWithKeyMaybe
     -- * Query
   , null
   , lookup
@@ -71,6 +72,7 @@ module Data.Parameterized.Map
   , Updated(..)
   , updatedValue
   , updateAtKey
+  , mergeWithKey
   , mergeWithKeyM
   , module Data.Parameterized.Classes
     -- * Pair
@@ -176,7 +178,6 @@ instance (TestEquality k, EqF a) => Eq (MapF k a) where
        . traverse f xs >>= traverse g = traverse (\v -> f v >>= g) xs
  #-}
 #endif
-
 
 -- | Apply function to all elements in map.
 mapWithKey
@@ -448,10 +449,9 @@ delete = \k m -> seq k $ fromMaybeS m $ Bin.delete (p k) m
 {-# INLINABLE delete #-}
 {-# SPECIALIZE Bin.delete :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
 
--- | Left-biased union of two maps. The resulting map will
--- contain the union of the keys of the two arguments. When
--- a key is contained in both maps the value from the first
--- map will be preserved.
+-- | Left-biased union of two maps. The resulting map will contain the
+-- union of the keys of the two arguments. When a key is contained in
+-- both maps the value from the first map will be preserved.
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a
 union t1 t2 = Bin.union comparePairKeys t1 t2
 {-# INLINABLE union #-}
@@ -572,18 +572,66 @@ filterLtMaybe :: OrdF k => MaybeS (k x) -> MapF k a -> MapF k a
 filterLtMaybe NothingS m = m
 filterLtMaybe (JustS k) m = filterLt k m
 
--- | Merge bindings in two maps to get a third.
+-- | Returns only entries that are strictly between the two keys.
+filterMiddle :: OrdF k => k x -> k y -> MapF k a -> MapF k a
+filterMiddle lo hi (Bin _ k _ _ r)
+  | k `leqF` lo = filterMiddle lo hi r
+filterMiddle lo hi (Bin _ k _ l _)
+  | k `geqF` hi = filterMiddle lo hi l
+filterMiddle _  _  t = t
+{-# INLINABLE filterMiddle #-}
+
+{--------------------------------------------------------------------
+  [trim blo bhi t] trims away all subtrees that surely contain no
+  values between the range [blo] to [bhi]. The returned tree is either
+  empty or the key of the root is between @blo@ and @bhi@.
+--------------------------------------------------------------------}
+trim :: OrdF k => MaybeS (k x) -> MaybeS (k y) -> MapF k a -> MapF k a
+trim NothingS   NothingS   t = t
+trim (JustS lk) NothingS   t = filterGt lk t
+trim NothingS   (JustS hk) t = filterLt hk t
+trim (JustS lk) (JustS hk) t = filterMiddle lk hk t
+
+-- Helper function for 'mergeWithKeyM'. The @'trimLookupLo' lk hk t@ performs both
+-- @'trim' (JustS lk) hk t@ and @'lookup' lk t@.
+
+-- See Note: Type of local 'go' function
+trimLookupLo :: OrdF k => k tp -> MaybeS (k y) -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
+trimLookupLo lk NothingS t = greater lk t
+  where greater :: OrdF k => k tp -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
+        greater lo t'@(Bin _ kx x l r) =
+           case compareF lo kx of
+             LTF -> Bin.PairS (lookup lo l) t'
+             EQF -> Bin.PairS (Just x) r
+             GTF -> greater lo r
+        greater _ Tip = Bin.PairS Nothing Tip
+trimLookupLo lk (JustS hk) t = middle lk hk t
+  where middle :: OrdF k => k tp -> k y -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
+        middle lo hi t'@(Bin _ kx x l r) =
+          case compareF lo kx of
+            LTF | kx `ltF` hi -> Bin.PairS (lookup lo l) t'
+                | otherwise -> middle lo hi l
+            EQF -> Bin.PairS (Just x) (lesser hi r)
+            GTF -> middle lo hi r
+        middle _ _ Tip = Bin.PairS Nothing Tip
+
+        lesser :: OrdF k => k y -> MapF k a -> MapF k a
+        lesser hi (Bin _ k _ l _) | k `geqF` hi = lesser hi l
+        lesser _ t' = t'
+
+-- | Merge bindings in two maps using monadic actions to get a third.
 --
 -- The first function is used to merge elements that occur under the
 -- same key in both maps. Return Just to add an entry into the
 -- resulting map under this key or Nothing to remove this key from the
 -- resulting map.
 --
--- The second function will be applied to submaps of the first map argument
--- where no keys overlap with the second map argument. The result of this
--- function must be a map with a subset of the keys of its argument.
--- This means the function can alter the values of its argument and it can
--- remove key-value pairs from it, but it must not introduce new keys.
+-- The second function will be applied to submaps of the first map
+-- argument where no keys overlap with the second map argument. The
+-- result of this function must be a map with a subset of the keys of
+-- its argument.  This means the function can alter the values of its
+-- argument and it can remove key-value pairs from it, but it can
+-- break `MapF` ordering invariants if it introduces new keys.
 --
 -- Third function is analogous to the second function except that it applies
 -- to the second map argument of 'mergeWithKeyM' instead of the first.
@@ -626,53 +674,47 @@ mergeWithKeyM f g1 g2 = go
                           <*> hedgeMerge blo bmi l (trim blo bmi t2)
                           <*> hedgeMerge bmi bhi r trim_t2
       where bmi = JustS kx
+
 {-# INLINABLE mergeWithKeyM #-}
 
-{--------------------------------------------------------------------
-  [trim blo bhi t] trims away all subtrees that surely contain no
-  values between the range [blo] to [bhi]. The returned tree is either
-  empty or the key of the root is between @blo@ and @bhi@.
---------------------------------------------------------------------}
-trim :: OrdF k => MaybeS (k x) -> MaybeS (k y) -> MapF k a -> MapF k a
-trim NothingS   NothingS   t = t
-trim (JustS lk) NothingS   t = filterGt lk t
-trim NothingS   (JustS hk) t = filterLt hk t
-trim (JustS lk) (JustS hk) t = filterMiddle lk hk t
+-- | Merge bindings in two maps to get a third.
+--
+-- The first function is used to merge elements that occur under the
+-- same key in both maps. Return Just to add an entry into the
+-- resulting map under this key or Nothing to remove this key from the
+-- resulting map.
+--
+-- The second function will be applied to submaps of the first map
+-- argument where no keys overlap with the second map argument. The
+-- result of this function must be a map with a subset of the keys of
+-- its argument.  This means the function can alter the values of its
+-- argument and it can remove key-value pairs from it, but it can
+-- break `MapF` ordering invariants if it introduces new keys.
+--
+-- Third function is analogous to the second function except that it applies
+-- to the second map argument of 'mergeWithKeyM' instead of the first.
+--
+-- Common examples of the two functions include 'id' when constructing a union
+-- or 'const' 'empty' when constructing an intersection.
+mergeWithKey :: forall k a b c
+               . OrdF k
+              => (forall tp . k tp -> a tp -> b tp -> Maybe (c tp))
+              -> (MapF k a -> MapF k c)
+              -> (MapF k b -> MapF k c)
+              -> MapF k a
+              -> MapF k b
+              -> MapF k c
+mergeWithKey f g1 g2 x y = runIdentity $
+  mergeWithKeyM (\k a b -> pure $! f k a b) (pure . g1) (pure . g2) x y
 
--- | Returns only entries that are strictly between the two keys.
-filterMiddle :: OrdF k => k x -> k y -> MapF k a -> MapF k a
-filterMiddle lo hi (Bin _ k _ _ r)
-  | k `leqF` lo = filterMiddle lo hi r
-filterMiddle lo hi (Bin _ k _ l _)
-  | k `geqF` hi = filterMiddle lo hi l
-filterMiddle _  _  t = t
-{-# INLINABLE filterMiddle #-}
-
-
-
--- Helper function for 'mergeWithKeyM'. The @'trimLookupLo' lk hk t@ performs both
--- @'trim' (JustS lk) hk t@ and @'lookup' lk t@.
-
--- See Note: Type of local 'go' function
-trimLookupLo :: OrdF k => k tp -> MaybeS (k y) -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
-trimLookupLo lk NothingS t = greater lk t
-  where greater :: OrdF k => k tp -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
-        greater lo t'@(Bin _ kx x l r) =
-           case compareF lo kx of
-             LTF -> Bin.PairS (lookup lo l) t'
-             EQF -> Bin.PairS (Just x) r
-             GTF -> greater lo r
-        greater _ Tip = Bin.PairS Nothing Tip
-trimLookupLo lk (JustS hk) t = middle lk hk t
-  where middle :: OrdF k => k tp -> k y -> MapF k a -> Bin.PairS (Maybe (a tp)) (MapF k a)
-        middle lo hi t'@(Bin _ kx x l r) =
-          case compareF lo kx of
-            LTF | kx `ltF` hi -> Bin.PairS (lookup lo l) t'
-                | otherwise -> middle lo hi l
-            EQF -> Bin.PairS (Just x) (lesser hi r)
-            GTF -> middle lo hi r
-        middle _ _ Tip = Bin.PairS Nothing Tip
-
-        lesser :: OrdF k => k y -> MapF k a -> MapF k a
-        lesser hi (Bin _ k _ l _) | k `geqF` hi = lesser hi l
-        lesser _ t' = t'
+-- | Applies a function to the pairwise common elements of two maps.
+--
+-- Formally, we have that @intersectWithKeyMaybe f x y@ contains a
+-- binding from a key @k@ to a value @v@ if and only if @x@ and @y@
+-- bind @k@ to @x_k@ and @y_k@ and @f x_k y_k = Just v@.
+intersectWithKeyMaybe :: OrdF k
+                      => (forall tp . k tp -> a tp -> b tp -> Maybe (c tp))
+                      -> MapF k a
+                      -> MapF k b
+                      -> MapF k c
+intersectWithKeyMaybe f = mergeWithKey f (const empty) (const empty)
