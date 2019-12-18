@@ -6,6 +6,7 @@ packages:
 extra-deps:
 - ansi-terminal-0.9.1@sha256:48f53532d0f365ffa568c8cf0adc84c66f800a7d80d3329e4f04fa75392f4af1
 - ansi-wl-pprint-0.6.9
+- base-orphans-0.8.2@sha256:40ef37ed043aac2cbb6c538fdebfc62e601ee65ee161e4a6327452133b574d7e,2958
 - bifunctors-5.5.5
 - concurrent-output-1.10.10
 - generic-deriving-1.13
