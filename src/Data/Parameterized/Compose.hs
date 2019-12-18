@@ -16,12 +16,12 @@ https://github.com/haskell-compat/base-orphans/issues/49.
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Safe #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Data.Parameterized.Compose
   ( testEqualityComposeBare
   ) where
 
 import Data.Functor.Compose
+import Data.Orphans () -- For the TestEquality (Compose f g) instance
 import Data.Type.Equality
 
 -- | The deduction (via generativity) that if @g x :~: g y@ then @x :~: y@.
@@ -36,12 +36,3 @@ testEqualityComposeBare testEquality_ (Compose x) (Compose y) =
   case (testEquality_ x y :: Maybe (g x :~: g y)) of
     Just Refl -> Just (Refl :: x :~: y)
     Nothing   -> Nothing
-
-testEqualityCompose :: forall (f :: k -> *) (g :: l -> k) x y. (TestEquality f)
-                    => Compose f g x
-                    -> Compose f g y
-                    -> Maybe (x :~: y)
-testEqualityCompose = testEqualityComposeBare testEquality
-
-instance (TestEquality f) => TestEquality (Compose f g) where
-  testEquality = testEqualityCompose
