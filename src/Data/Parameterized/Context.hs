@@ -62,7 +62,7 @@ module Data.Parameterized.Context
   , fromList
   , traverseAndCollect
   , traverseWithIndex_
-  , splitPrefix
+  , dropPrefix
 
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
@@ -160,7 +160,7 @@ toVector a f = V.create $ do
 -- | Utility function for testing if @xs@ is an assignment with
 --   `prefix` as a prefix, and computing the tail of xs
 --   not in the prefix, if so.
-splitPrefix :: forall f xs prefix a.
+dropPrefix :: forall f xs prefix a.
   TestEquality f =>
   Assignment f xs     {- ^ Assignment to split -} ->
   Assignment f prefix {- ^ Expected prefix -} ->
@@ -168,7 +168,7 @@ splitPrefix :: forall f xs prefix a.
   (forall addl. (xs ~ (prefix <+> addl)) => Assignment f addl -> a)
     {- ^ success continuation -} ->
   a
-splitPrefix xs0 prefix err = go xs0 (sizeInt (size xs0))
+dropPrefix xs0 prefix err = go xs0 (sizeInt (size xs0))
   where
   sz_prefix = sizeInt (size prefix)
 
