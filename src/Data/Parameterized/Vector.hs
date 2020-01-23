@@ -38,6 +38,7 @@ module Data.Parameterized.Vector
   , uncons
   , slice
   , Data.Parameterized.Vector.take
+  , replace
 
     -- * Zipping
   , zipWith
@@ -196,6 +197,15 @@ take :: forall n x a. (1 <= n) => NatRepr n -> Vector (n + x) a -> Vector n a
 take | LeqProof <- prf = slice (knownNat @0)
   where
   prf = leqAdd (leqRefl (Proxy @n)) (Proxy @x)
+
+-- | Replace a sub-section of a vector with the given sub-vector.
+replace :: (i + w <= n, 1 <= w) =>
+            NatRepr i {- ^ Start index -} ->
+            Vector w a {- ^ sub-vector -} ->
+            Vector n a -> Vector n a 
+replace i (Vector vw) (Vector vn) =
+  let (vhead, vtail) = Vector.splitAt (widthVal i) vn
+  in Vector $ vhead Vector.++ vw Vector.++ Vector.drop (Vector.length vw) vtail 
 
 --------------------------------------------------------------------------------
 
