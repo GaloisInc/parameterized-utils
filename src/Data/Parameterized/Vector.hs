@@ -204,7 +204,7 @@ take | LeqProof <- prf = slice (knownNat @0)
 mapAtM :: Monad m => (i + w <= n, 1 <= w) =>
             NatRepr i {- ^ Start index -} ->
             NatRepr w {- ^ Section width -} ->
-            (Vector w a -> m (Vector w a)) {-^ map for the sub-vector -} ->       
+            (Vector w a -> m (Vector w a)) {-^ map for the sub-vector -} ->
             Vector n a -> m (Vector n a)
 mapAtM i w f (Vector vn) =
   let
@@ -212,13 +212,13 @@ mapAtM i w f (Vector vn) =
     (vsect, vend) = Vector.splitAt (widthVal w) vtail
   in do
     Vector vsect' <- f (Vector vsect)
-    return $ Vector $ vhead Vector.++ vsect' Vector.++ vend  
+    return $ Vector $ vhead Vector.++ vsect' Vector.++ vend
 
 -- | Scope a function to a sub-section of the given vector.
 mapAt :: (i + w <= n, 1 <= w) =>
             NatRepr i {- ^ Start index -} ->
             NatRepr w {- ^ Section width -} ->
-            (Vector w a -> Vector w a) {-^ map for the sub-vector -} ->       
+            (Vector w a -> Vector w a) {-^ map for the sub-vector -} ->
             Vector n a -> Vector n a 
 mapAt i w f vn = runIdentity $ mapAtM i w (pure . f) vn
 
@@ -227,7 +227,7 @@ replace :: (i + w <= n, 1 <= w) =>
               NatRepr i {- ^ Start index -} ->
               Vector w a {- ^ sub-vector -} ->
               Vector n a -> Vector n a
-replace i vw vn = mapAt i (length vw) (\_ -> vw) vn
+replace i vw vn = mapAt i (length vw) (const vw) vn
 
 --------------------------------------------------------------------------------
 
@@ -256,8 +256,6 @@ zipWithM f (Vector xs) (Vector ys) = Vector <$> Vector.zipWithM f xs ys
 zipWithM_ :: Monad m => (a -> b -> m ()) -> Vector n a -> Vector n b -> m ()
 zipWithM_ f (Vector xs) (Vector ys) = Vector.zipWithM_ f xs ys
 {-# Inline zipWithM_ #-}
-
- 
 
 {- | Interleave two vectors.  The elements of the first vector are
 at even indexes in the result, the elements of the second are at odd indexes. -}
