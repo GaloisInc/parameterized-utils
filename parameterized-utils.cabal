@@ -1,11 +1,11 @@
 Name:          parameterized-utils
-Version:       2.0.1.0.101
+Version:       2.0.2
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com, kquick@galois.com
 stability:     stable
 Build-type:    Simple
 Cabal-version: >= 1.9.2
-Copyright:     ©2016-2019 Galois, Inc.
+Copyright:     ©2016-2020 Galois, Inc.
 License:       BSD3
 License-file:  LICENSE
 category:      Data Structures, Dependent Types
@@ -19,7 +19,7 @@ Description:
 extra-source-files: Changelog.md
 homepage:      https://github.com/GaloisInc/parameterized-utils
 bug-reports:   https://github.com/GaloisInc/parameterized-utils/issues
-tested-with:   GHC==8.2.2, GHC==8.4.4, GHC==8.6.4
+tested-with:   GHC==8.2.2, GHC==8.4.4, GHC==8.6.4, GHC==8.8.2
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set

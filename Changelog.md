@@ -1,5 +1,14 @@
 # Changelog for the `parameterized-utils` package
 
+## 2.0.2 -- *2020 Feb 10*
+
+  * Add the `dropPrefix` operation to `Context` which splits an `Assignment`.
+  * Add `intersectWithKeyMaybe` and `mergeWithKey` to `Map`.
+  * Add `mapAt`, `mapAtM`, and `replace` to `Vector`.
+  * Add dependency on `base-orphans` to handle the `TestEquality`
+    instance for `Compose`; needed for GHC 8.10.
+  * Bump upper limit of `lens` dependency to allow 4.19.
+
 ## 2.0.1 -- *2019 Nov 06*
 
   * Documentation updates
