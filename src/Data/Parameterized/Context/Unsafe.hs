@@ -13,7 +13,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeInType #-}
+{-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
   , KnownContext(..)
@@ -31,6 +33,7 @@ module Data.Parameterized.Context.Unsafe
     -- * Diff
   , Diff
   , noDiff
+  , addDiff
   , extendRight
   , appendDiff
   , DiffView(..)
@@ -52,6 +55,8 @@ module Data.Parameterized.Context.Unsafe
   , forIndex
   , forIndexRange
   , intIndex
+  , IndexView(..)
+  , viewIndex
     -- ** IndexRange
   , IndexRange
   , allRange
@@ -134,6 +139,8 @@ viewSize (Size n) = assert (n > 0) (unsafeCoerce (IncSize (Size (n-1))))
 instance Show (Size ctx) where
   show (Size i) = show i
 
+instance ShowF Size
+
 -- | A context that can be determined statically at compiler time.
 class KnownContext (ctx :: Ctx k) where
   knownSize :: Size ctx
@@ -154,9 +161,16 @@ newtype Diff (l :: Ctx k) (r :: Ctx k)
 
 type role Diff nominal nominal
 
--- | The identity difference.
+-- | The identity difference. Identity element of 'Category' instance.
 noDiff :: Diff l l
 noDiff = Diff 0
+{-# INLINE noDiff #-}
+
+-- | The addition of differences. Flipped binary operation
+-- of 'Category' instance.
+addDiff :: Diff a b -> Diff b c -> Diff a c
+addDiff (Diff x) (Diff y) = Diff (x + y)
+{-# INLINE addDiff #-}
 
 -- | Extend the difference to a sub-context of the right side.
 extendRight :: Diff l r -> Diff l (r '::> tp)
@@ -165,9 +179,10 @@ extendRight (Diff i) = Diff (i+1)
 appendDiff :: Size r -> Diff l (l <+> r)
 appendDiff (Size r) = Diff r
 
+-- | Implemented with 'noDiff' and 'addDiff'
 instance Cat.Category Diff where
-  id = Diff 0
-  Diff j . Diff i = Diff (i + j)
+  id = noDiff
+  j . i = addDiff i j
 
 -- | Extend the size by a given difference.
 extSize :: Size l -> Diff l r -> Size r
@@ -276,8 +291,9 @@ caseIndexAppend (Size len1) _ (Index ix) =
   else
     Right (Index (ix - len1))
 
--- | Given a size 'n', an initial value 'v0', and a function 'f', 'forIndex n v0 f'
--- is equivalent to 'v0' when 'n' is zero, and 'f (forIndex (n-1) v0) (n-1)' otherwise.
+-- | Given a size @n@, an initial value @v0@, and a function @f@, the
+-- expression @forIndex n v0 f@ is equivalent to @v0@ when @n@ is
+-- zero, and @f (forIndex (n-1) v0) (n-1)@ otherwise.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
@@ -288,9 +304,10 @@ forIndex n f r =
     ZeroSize -> r
     IncSize p -> f (forIndex p (coerce f) r) (nextIndex p)
 
--- | Given an index 'i', size 'n', a function 'f', value 'v', and a function 'f',
--- 'forIndex i n f v' is equivalent to 'v' when 'i >= sizeInt n', and
--- 'f i (forIndexRange (i+1) n v0)' otherwise.
+-- | Given an index @i@, size @n@, a function @f@, value @v@, and a
+-- function @f@, the expression @forIndex i n f v@ is equivalent to
+-- @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n v)@
+-- otherwise.
 forIndexRange :: forall ctx r
                . Int
               -> Size ctx
@@ -311,6 +328,24 @@ instance Show (Index ctx tp) where
 
 instance ShowF (Index ctx)
 
+-- | View of indexes as pointing to the last element in the
+-- index range or pointing to an earlier element in a smaller
+-- range.
+data IndexView ctx tp where
+  IndexViewLast :: !(Size  ctx  ) -> IndexView (ctx '::> t) t
+  IndexViewInit :: !(Index ctx t) -> IndexView (ctx '::> u) t
+
+deriving instance Show (IndexView ctx tp)
+instance ShowF (IndexView ctx)
+
+-- | Project an index
+viewIndex :: Size ctx -> Index ctx tp -> IndexView ctx tp
+viewIndex (Size sz) (Index i)
+  | sz' == i  = unsafeCoerce (IndexViewLast (Size sz'))
+  | otherwise = unsafeCoerce (IndexViewInit (Index i))
+  where
+    sz' = sz-1
+
 ------------------------------------------------------------------------
 -- IndexRange
 
@@ -327,11 +362,11 @@ allRange (Size n) = IndexRange 0 n
 indexOfRange :: IndexRange ctx (EmptyCtx ::> e) -> Index ctx e
 indexOfRange (IndexRange i n) = assert (n == 1) $ Index i
 
--- | `dropTailRange r n` drops the last `n` elements in `r`.
+-- | @dropTailRange r n@ drops the last @n@ elements in @r@.
 dropTailRange :: IndexRange ctx (x <+> y) -> Size y -> IndexRange ctx x
 dropTailRange (IndexRange i n) (Size j) = assert (n >= j) $ IndexRange i (n - j)
 
--- | `dropHeadRange r n` drops the first `n` elements in `r`.
+-- | @dropHeadRange r n@ drops the first @n@ elements in @r@.
 dropHeadRange :: IndexRange ctx (x <+> y) -> Size x -> IndexRange ctx y
 dropHeadRange (IndexRange i n) (Size j) = assert (i' >= i && n >= j) $ IndexRange i' (n - j)
   where i' = i + j
@@ -345,7 +380,7 @@ type family Pred (k :: Height) :: Height
 type instance Pred ('Succ h) = h
 
 ------------------------------------------------------------------------
--- BalancedTree
+-- * BalancedTree
 
 -- | A balanced tree where all leaves are at the same height.
 --
@@ -495,12 +530,12 @@ bal_zipWithM f (BalPair x1 x2) (BalPair y1 y2) =
   BalPair <$> bal_zipWithM f x1 (unsafeCoerce y1)
           <*> bal_zipWithM f x2 (unsafeCoerce y2)
 #if !MIN_VERSION_base(4,9,0)
-bal_zipWithM _ _ _ = error "ilegal args to bal_zipWithM"
+bal_zipWithM _ _ _ = error "illegal args to bal_zipWithM"
 #endif
 {-# INLINABLE bal_zipWithM #-}
 
 ------------------------------------------------------------------------
--- BinomialTree
+-- * BinomialTree
 
 data BinomialTree (h::Height) (f :: k -> Type) :: Ctx k -> Type where
   Empty :: BinomialTree h f EmptyCtx
@@ -641,7 +676,7 @@ data DropResult f (ctx :: Ctx k) where
             -> f y
             -> DropResult f (x ::> y)
 
--- | 'bal_drop x y' returns the tree formed 'append x (init y)'
+-- | @bal_drop x y@ returns the tree formed @append x (init y)@
 bal_drop :: forall h f x y
           . BinomialTree h f x
             -- ^ Bina
@@ -722,10 +757,10 @@ tree_zipWithM _ _ _ = error "ilegal args to tree_zipWithM"
 {-# INLINABLE tree_zipWithM #-}
 
 ------------------------------------------------------------------------
--- Assignment
+-- * Assignment
 
--- | An assignment is a sequence that maps each index with type 'tp' to
--- a value of type 'f tp'.
+-- | An assignment is a sequence that maps each index with type @tp@ to
+-- a value of type @f tp@.
 --
 -- This assignment implementation uses a binomial tree implementation
 -- that offers lookups and updates in time and space logarithmic with
@@ -755,7 +790,7 @@ generate n f  = Assignment r
   where r = unsafe_bin_generate (sizeInt n) 0 f
 {-# NOINLINE generate #-}
 
--- | Generate an assignment
+-- | Generate an assignment in an 'Applicative' context
 generateM :: Applicative m
           => Size ctx
           -> (forall tp . Index ctx tp -> m (f tp))
@@ -849,7 +884,7 @@ instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
 unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'
 unsafeUpdate i (Assignment a) e = Assignment (runIdentity (unsafe_bin_adjust (\_ -> Identity e) a i 0))
 
--- | View an assignment as either empty or an assignment with one appended.
+-- | Represent an assignment as either empty or an assignment with one appended.
 data AssignView f ctx where
   AssignEmpty :: AssignView f EmptyCtx
   AssignExtend :: Assignment f ctx

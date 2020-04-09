@@ -1,8 +1,9 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.TH.GADT
--- Copyright        : (c) Galois, Inc 2013-2014
+-- Copyright        : (c) Galois, Inc 2013-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description : Template Haskell primitives for working with large GADTs
 --
 -- This module declares template Haskell primitives so that it is easier
 -- to work with GADTs that have many constructors.
@@ -22,6 +23,7 @@ module Data.Parameterized.TH.GADT
   , structuralTraversal
   , structuralShowsPrec
   , structuralHash
+  , structuralHashWithSalt
   , PolyEq(..)
     -- * Template haskell utilities that may be useful in other contexts.
   , DataD
@@ -79,7 +81,7 @@ conExpr = ConE . constructorName
 data TypePat
    = TypeApp TypePat TypePat -- ^ The application of a type.
    | AnyType       -- ^ Match any type.
-   | DataArg Int   -- ^ Match the ith argument of the data type we are traversing.
+   | DataArg Int   -- ^ Match the i'th argument of the data type we are traversing.
    | ConType TypeQ -- ^ Match a ground type.
 
 matchTypePat :: [Type] -> TypePat -> Type -> Q Bool
@@ -90,9 +92,8 @@ matchTypePat d (TypeApp p q) (AppT x y) = do
     False -> return False
 matchTypePat _ AnyType _ = return True
 matchTypePat tps (DataArg i) tp
-  | i < 0 || i > length tps = error $ "Illegal type pattern index " ++ show i
-  | otherwise = do
-    return $ stripSigT (tps !! i) == tp
+  | i < 0 || i >= length tps = error ("Type pattern index " ++ show i ++ " out of bounds")
+  | otherwise = return (stripSigT (tps !! i) == tp)
   where
     -- th-abstraction can annotate type parameters with their kinds,
     -- we ignore these for matching
@@ -103,11 +104,17 @@ matchTypePat _ (ConType tpq) tp = do
   return (tp' == tp)
 matchTypePat _ _ _ = return False
 
+-- | The dataParamTypes function returns the list of Type arguments
+-- for the constructor.  For example, if passed the DatatypeInfo for a
+-- @newtype Id a = MkId a@ then this would return @['SigT' ('VarT' a)
+-- 'StarT']@.  Note that there may be type *variables* not referenced
+-- in the returned array; this simply returns the type *arguments*.
 dataParamTypes :: DatatypeInfo -> [Type]
-dataParamTypes = datatypeVars
+dataParamTypes = datatypeInstTypes
+ -- see th-abstraction 'dataTypeVars' for the type variables if needed
 
 -- | Find value associated with first pattern that matches given pat if any.
-assocTypePats :: [Type] -> [(TypePat,v)] -> Type -> Q (Maybe v)
+assocTypePats :: [Type] -> [(TypePat, v)] -> Type -> Q (Maybe v)
 assocTypePats _ [] _ = return Nothing
 assocTypePats dTypes ((p,v):pats) tp = do
   r <- matchTypePat dTypes p tp
@@ -140,7 +147,7 @@ joinTestEquality f x y r =
 
 matchEqArguments :: [Type]
                     -- ^ Types bound by data arguments.
-                  -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
+                 -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
                  -> Name
                      -- ^ Name of constructor.
                  -> Set Name
@@ -192,13 +199,18 @@ mkEqF :: DatatypeInfo -- ^ Data declaration.
       -> Bool -- ^ wildcard case required
       -> ExpQ
 mkEqF d pats con =
-  let dVars = datatypeVars d
+  let dVars = dataParamTypes d  -- the type arguments for the constructor
+      -- bnd is the list of type arguments for this datatype.  Since
+      -- this is Functor equality, ignore the final type since this is
+      -- a higher-kinded equality.
       bnd | null dVars = Set.empty
           | otherwise  = typeVars (init dVars)
   in mkSimpleEqF dVars bnd pats con
 
 -- | @structuralTypeEquality f@ returns a function with the type:
---   forall x y . f x -> f y -> Maybe (x :~: y)
+--   @
+--     forall x y . f x -> f y -> Maybe (x :~: y)
+--   @
 structuralTypeEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
 structuralTypeEquality tpq pats = do
   d <- reifyDatatype =<< asTypeCon "structuralTypeEquality" =<< tpq
@@ -214,7 +226,9 @@ structuralTypeEquality tpq pats = do
     else [| \x y -> $(caseE [| x |] (trueEqs [| y |])) |]
 
 -- | @structuralTypeOrd f@ returns a function with the type:
---   forall x y . f x -> f y -> OrderingF x y
+--   @
+--     forall x y . f x -> f y -> OrderingF x y
+--   @
 --
 -- This implementation avoids matching on both the first and second
 -- parameters in a simple case expression in order to avoid stressing
@@ -256,12 +270,12 @@ structuralTypeOrd tpq l = do
       | (i,con) <- zip [0..] (datatypeCons d) ]
 
 -- | Generate a list of fresh names using the base name
--- numbered 1 to n to make them useful in conjunction with
--- @-dsuppress-unqiues@.
+-- and numbered 1 to @n@ to make them useful in conjunction with
+-- @-dsuppress-uniques@.
 newNames ::
   String   {- ^ base name                     -} ->
   Int      {- ^ quantity                      -} ->
-  Q [Name] {- ^ list of names: base1, base2.. -}
+  Q [Name] {- ^ list of names: @base1@, @base2@, ... -}
 newNames base n = traverse (\i -> newName (base ++ show i)) [1..n]
 
 
@@ -273,7 +287,7 @@ joinCompareF f x y r = do
       EQF -> $(r)
    |]
 
--- | Compare two variables and use following comparison if they are different.
+-- | Compare two variables, returning the third argument if they are equal.
 --
 -- This returns an 'OrdF' instance.
 joinCompareToOrdF :: Name -> Name -> ExpQ -> ExpQ
@@ -284,7 +298,7 @@ joinCompareToOrdF x y r =
       EQ -> $(r)
    |]
 
-  -- Match expression with given type to variables
+-- | Match expression with given type to variables
 matchOrdArguments :: [Type]
                      -- ^ Types bound by data arguments
                   -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
@@ -341,16 +355,19 @@ mkOrdF :: DatatypeInfo -- ^ Data declaration.
        -> Maybe ExpQ -- ^ optional right constructr index
        -> [Name]
        -> Q [MatchQ]
-mkOrdF d pats = mkSimpleOrdF (datatypeVars d) pats
+mkOrdF d pats = mkSimpleOrdF (datatypeInstTypes d) pats
 
--- | Find the first recurseArg f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
-recurseArg :: (Type -> Q (Maybe ExpQ))
-           -> ExpQ -- ^ Function to apply
-           -> ExpQ
-           -> Type
-           -> Q (Maybe Exp)
-recurseArg m f v tp = do
-  mr <- m tp
+-- | @genTraverseOfType f var tp@ applies @f@ to @var@ where @var@ has type @tp@.
+genTraverseOfType :: [Type]
+                    -- ^ Argument types for the data declaration.
+                 -> [(TypePat, ExpQ)]
+                    -- ^ Patterrns the user provided for overriding type lookup.
+                  -> ExpQ -- ^ Function to apply
+                  -> ExpQ -- ^ Expression denoting value of this constructor field.
+                  -> Type -- ^ Type bound for this constructor field.
+                  -> Q (Maybe Exp)
+genTraverseOfType dataArgs pats f v tp = do
+  mr <- assocTypePats dataArgs pats tp
   case mr of
     Just g ->  Just <$> [| $(g) $(f) $(v) |]
     Nothing ->
@@ -359,16 +376,18 @@ recurseArg m f v tp = do
         AppT (VarT _) _ -> Just <$> [| $(f) $(v) |]
         _ -> return Nothing
 
--- | @traverseAppMatch f c@ builds a case statement that matches a term with
+-- | @traverseAppMatch patMatch cexp @ builds a case statement that matches a term with
 -- the constructor @c@ and applies @f@ to each argument.
-traverseAppMatch :: (Type -> Q (Maybe ExpQ)) -- Pattern match function
-                 -> ExpQ -- ^ Function to apply to each argument recursively.
+traverseAppMatch :: [Type]
+                    -- ^ Argument types for the data declaration.
+                 -> [(TypePat, ExpQ)]
+                    -- ^ Patterrns the user provided for overriding type lookup.
+                 -> ExpQ -- ^ Function @f@ given to `traverse`
                  -> ConstructorInfo -- ^ Constructor to match.
-                 -> MatchQ -- ^ Match expression that
-traverseAppMatch pats fv c0 = do
+                 -> MatchQ
+traverseAppMatch dataArgs pats fv c0 = do
   (pat,patArgs) <- conPat c0 "p"
-  exprs <- zipWithM (recurseArg pats fv) (varE <$> patArgs) (constructorFields c0)
-
+  exprs <- zipWithM (genTraverseOfType dataArgs pats fv) (varE <$> patArgs) (constructorFields c0)
   let mkRes :: ExpQ -> [(Name, Maybe Exp)] -> ExpQ
       mkRes e [] = e
       mkRes e ((v,Nothing):r) =
@@ -400,28 +419,56 @@ structuralTraversal tpq pats0 = do
   a <- newName "a"
   lamE [varP f, varP a] $
       caseE (varE a)
-      (traverseAppMatch (assocTypePats (datatypeVars d) pats0) (varE f) <$> datatypeCons d)
+      (traverseAppMatch (datatypeInstTypes d) pats0 (varE f) <$> datatypeCons d)
 
-asTypeCon :: Monad m => String -> Type -> m Name
+asTypeCon :: String -> Type -> Q Name
 asTypeCon _ (ConT nm) = return nm
-asTypeCon fn _ = fail $ fn ++ " expected type constructor."
+asTypeCon fn _ = fail (fn ++ " expected type constructor.")
 
 -- | @structuralHash tp@ generates a function with the type
 -- @Int -> tp -> Int@ that hashes type.
+--
+-- All arguments use `hashable`, and `structuralHashWithSalt` can be
+-- used instead as it allows user-definable patterns to be used at
+-- specific types.
 structuralHash :: TypeQ -> ExpQ
-structuralHash tpq = do
+structuralHash tpq = structuralHashWithSalt tpq []
+{-# DEPRECATED structuralHash "Use structuralHashWithSalt" #-}
+
+-- | @structuralHashWithSalt tp@ generates a function with the type
+-- @Int -> tp -> Int@ that hashes type.
+--
+-- The second arguments is for generating user-defined patterns to replace
+-- `hashWithSalt` for specific types.
+structuralHashWithSalt :: TypeQ -> [(TypePat, ExpQ)] -> ExpQ
+structuralHashWithSalt tpq pats = do
   d <- reifyDatatype =<< asTypeCon "structuralHash" =<< tpq
   s <- newName "s"
   a <- newName "a"
   lamE [varP s, varP a] $
-    caseE (varE a) (zipWith (matchHashCtor (varE s)) [0..] (datatypeCons d))
+    caseE (varE a) (zipWith (matchHashCtor d pats (varE s)) [0..] (datatypeCons d))
 
-matchHashCtor :: ExpQ -> Integer  -> ConstructorInfo -> MatchQ
-matchHashCtor s0 i c = do
+-- | This matches one of the constructors in a datatype when generating
+-- a `hashWithSalt` function.
+matchHashCtor :: DatatypeInfo
+                 -- ^ Data declaration of type we are hashing.
+              -> [(TypePat, ExpQ)]
+                 -- ^ User provide type patterns
+              -> ExpQ -- ^ Initial salt expression
+              -> Integer -- ^ Index of constructor
+              -> ConstructorInfo -- ^ Constructor information
+              -> MatchQ
+matchHashCtor d pats s0 i c = do
   (pat,vars) <- conPat c "x"
-  let args = [| $(litE (IntegerL i)) :: Int |] : (varE <$> vars)
-  let go s e = [| hashWithSalt $(s) $(e) |]
-  let rhs = foldl go s0 args
+  let go s (e, tp) = do
+        mr <- assocTypePats (datatypeInstTypes d) pats tp
+        case mr of
+          Just f -> do
+            [| $(f) $(s) $(e) |]
+          Nothing ->
+            [| hashWithSalt $(s) $(e) |]
+  let s1 = [| hashWithSalt $(s0) ($(litE (IntegerL i)) :: Int) |]
+  let rhs = foldl go s1 (zip (varE <$> vars) (constructorFields c))
   match (pure pat) (normalB rhs) []
 
 -- | @structuralShow tp@ generates a function with the type
@@ -438,10 +485,10 @@ showCon :: ExpQ -> Name -> Int -> MatchQ
 showCon p nm n = do
   vars <- newNames "x" n
   let pat = ConP nm (VarP <$> vars)
-  let go s e = [| $(s) . showChar ' ' . showsPrec 10 $(varE e) |]
+  let go s e = [| $(s) . showChar ' ' . showsPrec 11 $(varE e) |]
   let ctor = [| showString $(return (LitE (StringL (nameBase nm)))) |]
   let rhs | null vars = ctor
-          | otherwise = [| showParen ($(p) >= 10) $(foldl go ctor vars) |]
+          | otherwise = [| showParen ($(p) >= 11) $(foldl go ctor vars) |]
   match (pure pat) (normalB rhs) []
 
 matchShowCtor :: ExpQ -> ConstructorInfo -> MatchQ

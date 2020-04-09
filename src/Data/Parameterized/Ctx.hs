@@ -1,10 +1,14 @@
 {-|
 Description      : Type-level lists.
-Copyright        : (c) Galois, Inc 2015
+Copyright        : (c) Galois, Inc 2015-2019
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
 
 This module defines type-level lists used for representing the type of
 variables in a context.
+
+A 'Ctx' is never intended to be manipulated at the value level; it is
+used purely as a type-level list, just like @'[]@. To see how it is
+used, see the module header for "Data.Parameterized.Context".
 -}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}

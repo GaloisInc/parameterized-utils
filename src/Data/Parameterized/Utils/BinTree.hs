@@ -1,6 +1,6 @@
 {-|
 Description      : Utilities for balanced binary trees.
-Copyright        : (c) Galois, Inc 2014
+Copyright        : (c) Galois, Inc 2014-2019
 Maintainer       : Joe Hendrix <jhendrix@galois.com>
 -}
 {-# LANGUAGE ConstraintKinds #-}
@@ -64,7 +64,7 @@ fromMaybeS _ (JustS v) = v
 ------------------------------------------------------------------------
 -- Updated
 
--- | Updated a contains a value that has been flagged on whether it was
+-- | @Updated a@ contains a value that has been flagged on whether it was
 -- modified by an operation.
 data Updated a
    = Updated   !a
@@ -92,7 +92,7 @@ delta,ratio :: Int
 delta = 3
 ratio = 2
 
--- `balanceL p l r` returns a balanced tree for the sequence @l ++ [p] ++ r@.
+-- | @balanceL p l r@ returns a balanced tree for the sequence @l ++ [p] ++ r@.
 --
 -- It assumes that @l@ and @r@ are close to being balanced, and that only
 -- @l@ may contain too many elements.
@@ -108,7 +108,7 @@ balanceL p l r = do
     _ -> bin p l r
 {-# INLINE balanceL #-}
 
--- `balanceR p l r` returns a balanced tree for the sequence @l ++ [p] ++ r@.
+-- | @balanceR p l r@ returns a balanced tree for the sequence @l ++ [p] ++ r@.
 --
 -- It assumes that @l@ and @r@ are close to being balanced, and that only
 -- @r@ may contain too many elements.
@@ -137,7 +137,7 @@ insertMin p t =
     TipTree -> bin p tip tip
     BinTree q l r -> balanceL q (insertMin p l) r
 
--- | link is called to insert a key and value between two disjoint subtrees.
+-- | @link@ is called to insert a key and value between two disjoint subtrees.
 link :: IsBinTree c e => e -> c -> c -> c
 link p l r =
   case (asBin l, asBin r) of
@@ -210,7 +210,7 @@ insert comp x t =
         EQ -> Unchanged (bin x l r)
 {-# INLINABLE insert #-}
 
--- | 'glue l r' concatenates @l@ and @r@.
+-- | @glue l r@ concatenates @l@ and @r@.
 --
 -- It assumes that @l@ and @r@ are already balanced with respect to each other.
 glue :: IsBinTree c e => c -> c -> c
@@ -247,7 +247,7 @@ delete k t =
 -- filter
 
 -- | Returns only entries that are less than predicate with respect to the ordering
--- and Nothing if no elements are discared.
+-- and Nothing if no elements are discarded.
 filterGt :: IsBinTree c e => (e -> Ordering) -> c -> MaybeS c
 filterGt k t =
   case asBin t of
@@ -260,7 +260,7 @@ filterGt k t =
 {-# INLINABLE filterGt #-}
 
 
--- | @filterLt' k m@ returns submap of @m@ that only contains entries
+-- | @filterLt k m@ returns submap of @m@ that only contains entries
 -- that are smaller than @k@.  If no entries are deleted then return Nothing.
 filterLt :: IsBinTree c e => (e -> Ordering) -> c -> MaybeS c
 filterLt k t =
@@ -276,8 +276,8 @@ filterLt k t =
 ------------------------------------------------------------------------
 -- Union
 
--- Insert a new key and value in the map if it is not already present.
--- Used by `union`.
+-- | Insert a new key and value in the map if it is not already present.
+-- Used by 'union'.
 insertR :: forall c e . (IsBinTree c e) => (e -> e -> Ordering) -> e -> c -> c
 insertR comp e m = fromMaybeS m (go e m)
   where

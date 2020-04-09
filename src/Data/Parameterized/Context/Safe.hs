@@ -42,6 +42,8 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx
     -- * Size
@@ -59,6 +61,7 @@ module Data.Parameterized.Context.Safe
     -- * Diff
   , Diff
   , noDiff
+  , addDiff
   , extendRight
   , appendDiff
   , DiffView(..)
@@ -80,6 +83,8 @@ module Data.Parameterized.Context.Safe
   , forIndex
   , forIndexRange
   , intIndex
+  , IndexView(..)
+  , viewIndex
     -- * Assignments
   , Assignment
   , size
@@ -129,6 +134,12 @@ import Data.Parameterized.TraversableFC
 data Size (ctx :: Ctx k) where
   SizeZero :: Size 'EmptyCtx
   SizeSucc :: !(Size ctx) -> Size (ctx '::> tp)
+
+-- | Renders as integer literal
+instance Show (Size ctx) where
+  show = show . sizeInt
+
+instance ShowF Size
 
 -- | Convert a context size to an 'Int'.
 sizeInt :: Size ctx -> Int
@@ -189,9 +200,15 @@ data Diff (l :: Ctx k) (r :: Ctx k) where
   DiffHere :: Diff ctx ctx
   DiffThere :: Diff ctx1 ctx2 -> Diff ctx1 (ctx2 '::> tp)
 
--- | The identity difference.
+-- | The identity difference. Identity element of 'Category' instance.
 noDiff :: Diff l l
 noDiff = DiffHere
+
+-- | The addition of differences. Flipped binary operation
+-- of 'Category' instance.
+addDiff :: Diff a b -> Diff b c -> Diff a c
+addDiff x DiffHere = x
+addDiff x (DiffThere y) = DiffThere (addDiff x y)
 
 -- | Extend the difference to a sub-context of the right side.
 extendRight :: Diff l r -> Diff l (r '::> tp)
@@ -201,13 +218,10 @@ appendDiff :: Size r -> Diff l (l <+> r)
 appendDiff SizeZero = DiffHere
 appendDiff (SizeSucc sz) = DiffThere (appendDiff sz)
 
-composeDiff :: Diff a b -> Diff b c -> Diff a c
-composeDiff x DiffHere = x
-composeDiff x (DiffThere y) = DiffThere (composeDiff x y)
-
+-- | Implemented with 'noDiff' and 'addDiff'
 instance Cat.Category Diff where
   id = DiffHere
-  d1 . d2 = composeDiff d2 d1
+  d1 . d2 = addDiff d2 d1
 
 -- | Extend the size by a given difference.
 extSize :: Size l -> Diff l r -> Size r
@@ -321,9 +335,10 @@ caseIndexAppend sz1 (SizeSucc sz2') (IndexThere i') =
     Left i -> Left i
     Right i -> Right $ IndexThere i
 
--- | Given a size @n@, an initial value @v0@, and a function @f@,
--- @forIndex n v0 f@ calls @f@ on each index less than @n@ starting
--- from @0@ and @v0@, with the value @v@ obtained from the last call.
+-- | Given a size @n@, an initial value @v0@, and a function @f@, the
+-- expression @forIndex n v0 f@ calls @f@ on each index less than @n@
+-- starting from @0@ and @v0@, with the value @v@ obtained from the
+-- last call.
 forIndex :: forall ctx r
           . Size ctx
          -> (forall tp . r -> Index ctx tp -> r)
@@ -362,9 +377,10 @@ forIndexRangeImpl _ SizeZero _ _ r = r
 forIndexRangeImpl i (SizeSucc sz) d f r =
   forIndexRangeImpl (i-1) sz (LDiffThere d) f r
 
--- | Given an index 'i', size 'n', a function 'f', value 'v', and a function 'f',
--- 'forIndex i n f v' is equivalent to 'v' when 'i >= sizeInt n', and
--- 'f i (forIndexRange (i+1) n v0)' otherwise.
+-- | Given an index @i@, size @n@, a function @f@, value @v@, and a
+-- function @f@, the expression @forIndexRange i n f v@ is equivalent
+-- to @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n v)@
+-- otherwise.
 forIndexRange :: Int
               -> Size ctx
               -> (forall tp . Index ctx tp -> r -> r)
@@ -385,10 +401,27 @@ indexList sz_top = go id [] sz_top
 intIndex :: Int -> Size ctx -> Maybe (Some (Index ctx))
 intIndex n sz = listToMaybe $ drop n $ indexList sz
 
+-- | Renders as integer literal
 instance Show (Index ctx tp) where
    show = show . indexVal
 
 instance ShowF (Index ctx)
+
+-- | View of indexes as pointing to the last element in the
+-- index range or pointing to an earlier element in a smaller
+-- range.
+data IndexView ctx tp where
+  IndexViewLast :: Size  ctx   -> IndexView (ctx '::> t) t
+  IndexViewInit :: Index ctx t -> IndexView (ctx '::> u) t
+
+instance ShowF (IndexView ctx)
+deriving instance Show (IndexView ctx tp)
+
+-- | Project an index
+viewIndex :: Size ctx -> Index ctx tp -> IndexView ctx tp
+viewIndex _ (IndexHere sz) = IndexViewLast sz
+viewIndex _ (IndexThere i) = IndexViewInit i
+-- NB: the unused size parameter is needed in the Unsafe module
 
 ------------------------------------------------------------------------
 -- Assignment
@@ -450,7 +483,7 @@ generateM sz_top f = go id sz_top
 replicate :: Size ctx -> (forall tp . f tp) -> Assignment f ctx
 replicate n c = generate n (\_ -> c)
 
--- | Create empty indexec vector.
+-- | Create empty indexed vector.
 empty :: Assignment f 'EmptyCtx
 empty = AssignmentEmpty
 

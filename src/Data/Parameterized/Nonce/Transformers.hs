@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2016
-Maintainer       : Eddy Westbrook <westbrook@galois.com>
+Description : A typeclass and monad transformers for generating nonces.
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Eddy Westbrook <westbrook@galois.com>
 
 This module provides a typeclass and monad transformers for generating
 nonces.

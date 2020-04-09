@@ -4,21 +4,22 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
 module Test.Context
-( contextTests
-) where
+  ( contextTests
+  )
+where
 
-import Test.Tasty
-import Test.QuickCheck
-import Test.Tasty.QuickCheck
-
-import Control.Lens
-import Data.Parameterized.Classes
-import Data.Parameterized.TraversableFC
-import Data.Parameterized.Some
-
+import           Control.Lens
+import           Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as C
 import qualified Data.Parameterized.Context.Safe as S
 import qualified Data.Parameterized.Context.Unsafe as U
+import           Data.Parameterized.Some
+import           Data.Parameterized.TraversableFC
+import           Hedgehog
+import qualified Hedgehog.Gen as HG
+import           Hedgehog.Range
+import           Test.Tasty
+import           Test.Tasty.Hedgehog
 
 data Payload (ty :: *) where
   IntPayload    :: Int -> Payload Int
@@ -38,12 +39,16 @@ instance Show (Payload tp) where
 
 instance ShowF Payload
 
-instance Arbitrary (Some Payload) where
-  arbitrary = oneof
-    [ Some . IntPayload <$> arbitrary
-    , Some . StringPayload <$> arbitrary
-    , Some . BoolPayload <$> arbitrary
-    ]
+genSomePayload :: Monad m => GenT m (Some Payload)
+genSomePayload = HG.choice [ Some . IntPayload    <$> HG.integral (linearBounded :: Range Int)
+                           , Some . StringPayload <$> HG.string (linear 1 32) HG.ascii
+                           , Some . BoolPayload   <$> HG.element [ True, False ]
+                           ]
+
+-- generate a non-empty list of payload entries
+genSomePayloadList :: Monad m => GenT m [Some Payload]
+genSomePayloadList = HG.list (linear 1 10) genSomePayload
+
 
 type UAsgn = U.Assignment Payload
 type SAsgn = S.Assignment Payload
@@ -60,109 +65,120 @@ mkSAsgn = go S.empty
        go a [] = Some a
        go a (Some x : xs) = go (S.extend a x) xs
 
-instance Arbitrary (Some UAsgn) where
-  arbitrary = mkUAsgn <$> arbitrary
-instance Arbitrary (Some SAsgn) where
-  arbitrary = mkSAsgn <$> arbitrary
 
 twiddle :: Payload a -> Payload a
 twiddle (IntPayload n) = IntPayload (n+1)
 twiddle (StringPayload str) = StringPayload (str++"asdf")
 twiddle (BoolPayload b) = BoolPayload (not b)
 
+
 contextTests :: IO TestTree
 contextTests = testGroup "Context" <$> return
-   [ testProperty "safe_index_eq" $ \v vs i -> ioProperty $ do
-         let vals = v:vs
-         let i' = min (max 0 i) (length vals - 1)
-         Some a <- return $ mkSAsgn vals
-         Just (Some idx) <- return $ S.intIndex i' (S.size a)
-         return (Some (a S.! idx) == vals !! i')
-   , testProperty "unsafe_index_eq" $ \v vs i -> ioProperty $ do
-         let vals = v:vs
-         let i' = min (max 0 i) (length vals - 1)
-         Some a <- return $ mkUAsgn vals
-         Just (Some idx) <- return $ U.intIndex i' (U.size a)
-         return (Some (a U.! idx) == vals !! i')
-   , testProperty "safe_tolist" $ \vals -> ioProperty $ do
-         Some a <- return $ mkSAsgn vals
-         let vals' = toListFC Some a
-         return (vals == vals')
-   , testProperty "unsafe_tolist" $ \vals -> ioProperty $ do
-         Some a <- return $ mkUAsgn vals
-         let vals' = toListFC Some a
-         return (vals == vals')
-   , testProperty "adjust test monadic" $ \v vs i -> ioProperty $ do
-         let vals = v:vs  -- ensures vals is not an empty array
-         Some x <- return $ mkUAsgn vals
-         Some y <- return $ mkSAsgn vals
-         let i' = min (max 0 i) (length vals - 1)
+   [ testProperty "safe_index_eq" $ property $
+     do vals <- forAll genSomePayloadList
+        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+        Some a <- return $ mkSAsgn vals
+        Just (Some idx) <- return $ S.intIndex i' (S.size a)
+        Some (a S.! idx) === vals !! i'
 
-         Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-         Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+   , testProperty "unsafe_index_eq" $ property $
+     do vals <- forAll genSomePayloadList
+        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+        Some a <- return $ mkUAsgn vals
+        Just (Some idx) <- return $ U.intIndex i' (U.size a)
+        Some (a U.! idx) === vals !! i'
 
-         x' <- U.adjustM (return . twiddle) idx_x x
-         y' <- S.adjustM (return . twiddle) idx_y y
+   , testProperty "safe_tolist" $ property $
+     do vals <- forAll genSomePayloadList
+        Some a <- return $ mkSAsgn vals
+        let vals' = toListFC Some a
+        vals === vals'
+   , testProperty "unsafe_tolist" $ property $
+     do vals <- forAll genSomePayloadList
+        Some a <- return $ mkUAsgn vals
+        let vals' = toListFC Some a
+        vals === vals'
 
-         return (toListFC Some x' == toListFC Some y')
+   , testProperty "adjust test monadic" $ property $
+     do vals <- forAll genSomePayloadList
+        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-   , testProperty "adjust test" $ \v vs i -> ioProperty $ do
-         let vals = v:vs  -- ensures vals is not an empty array
-         Some x <- return $ mkUAsgn vals
-         Some y <- return $ mkSAsgn vals
-         let i' = min (max 0 i) (length vals - 1)
+        Some x <- return $ mkUAsgn vals
+        Some y <- return $ mkSAsgn vals
 
-         Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-         Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-         let x' = x & ixF idx_x %~ twiddle
-             y' = y & ixF idx_y %~ twiddle
+        x' <- U.adjustM (return . twiddle) idx_x x
+        y' <- S.adjustM (return . twiddle) idx_y y
 
-         return (toListFC Some x' == toListFC Some y' &&
-                 -- adjust actually modified the entry
-                 toListFC Some x /= toListFC Some x' &&
-                 toListFC Some y /= toListFC Some y')
+        toListFC Some x' === toListFC Some y'
 
-   , testProperty "update test" $ \v vs i -> ioProperty $ do
-         let vals = v:vs  -- ensures vals is not an empty array
-         Some x <- return $ mkUAsgn vals
-         Some y <- return $ mkSAsgn vals
-         let i' = min (max 0 i) (length vals - 1)
+   , testProperty "adjust test" $ property $
+     do vals <- forAll genSomePayloadList
+        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-         Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-         Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+        Some x <- return $ mkUAsgn vals
+        Some y <- return $ mkSAsgn vals
 
-         let x' = over (ixF idx_x) twiddle x
-             y' = (ixF idx_y) %~ twiddle $ y
-             updX = x & ixF idx_x .~ x' U.! idx_x
-             updY = y & ixF idx_y .~ y' S.! idx_y
+        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-         return (toListFC Some updX == toListFC Some updY &&
-                 -- update actually modified the entry
-                 toListFC Some x /= toListFC Some updX &&
-                 toListFC Some y /= toListFC Some updY &&
-                 -- update modified the expected entry
-                 toListFC Some x' == toListFC Some updX &&
-                 toListFC Some y' == toListFC Some updY
-                )
+        let x' = x & ixF idx_x %~ twiddle
+            y' = y & ixF idx_y %~ twiddle
 
-   , testProperty "safe_eq" $ \vals1 vals2 -> ioProperty $ do
-         Some x <- return $ mkSAsgn vals1
-         Some y <- return $ mkSAsgn vals2
-         case testEquality x y of
-           Just Refl -> return $ vals1 == vals2
-           Nothing   -> return $ vals1 /= vals2
-   , testProperty "unsafe_eq" $ \vals1 vals2 -> ioProperty $ do
-         Some x <- return $ mkUAsgn vals1
-         Some y <- return $ mkUAsgn vals2
-         case testEquality x y of
-           Just Refl -> return $ vals1 == vals2
-           Nothing   -> return $ vals1 /= vals2
+        toListFC Some x' === toListFC Some y'
+        -- adjust actually modified the entry
+        toListFC Some x /== toListFC Some x'
+        toListFC Some y /== toListFC Some y'
 
-   , testProperty "append_take" $ \vals1 vals2 -> ioProperty $ do
-         Some x <- return $ mkUAsgn vals1
-         Some y <- return $ mkUAsgn vals2
-         let z = x U.<++> y
-         let x' = C.take (U.size x) (U.size y) z
-         return $ isJust $ testEquality x x'
+   , testProperty "update test" $ property $
+     do vals <- forAll genSomePayloadList
+        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+
+        Some x <- return $ mkUAsgn vals
+        Some y <- return $ mkSAsgn vals
+
+        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+
+        let x' = over (ixF idx_x) twiddle x
+            y' = (ixF idx_y) %~ twiddle $ y
+            updX = x & ixF idx_x .~ x' U.! idx_x
+            updY = y & ixF idx_y .~ y' S.! idx_y
+
+        toListFC Some updX === toListFC Some updY
+        -- update actually modified the entry
+        toListFC Some x /== toListFC Some updX
+        toListFC Some y /== toListFC Some updY
+        -- update modified the expected entry
+        toListFC Some x' === toListFC Some updX
+        toListFC Some y' === toListFC Some updY
+
+   , testProperty "safe_eq" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        Some x <- return $ mkSAsgn vals1
+        Some y <- return $ mkSAsgn vals2
+        case testEquality x y of
+          Just Refl -> vals1 === vals2
+          Nothing   -> vals1 /== vals2
+   , testProperty "unsafe_eq" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        Some x <- return $ mkUAsgn vals1
+        Some y <- return $ mkUAsgn vals2
+        case testEquality x y of
+          Just Refl -> vals1 === vals2
+          Nothing   -> vals1 /== vals2
+
+   , testProperty "append_take" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        Some x <- return $ mkUAsgn vals1
+        Some y <- return $ mkUAsgn vals2
+        let z = x U.<++> y
+        let x' = C.take (U.size x) (U.size y) z
+        assert $ isJust $ testEquality x x'
+
    ]

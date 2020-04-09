@@ -1,16 +1,25 @@
-------------------------------------------------------------------------
--- |
--- Module           : Data.Parameterized.Context
--- Copyright        : (c) Galois, Inc 2014-16
--- Maintainer       : Joe Hendrix <jhendrix@galois.com>
---
--- This module reexports either "Data.Parameterized.Context.Safe"
--- or "Data.Parameterized.Context.Unsafe" depending on the
--- the unsafe-operations compile-time flag.
---
--- It also defines some utility typeclasses for transforming
--- between curried and uncurried versions of functions over contexts.
-------------------------------------------------------------------------
+{-|
+Module           : Data.Parameterized.Context
+Copyright        : (c) Galois, Inc 2014-2019
+Maintainer       : Joe Hendrix <jhendrix@galois.com>
+
+This module reexports either "Data.Parameterized.Context.Safe"
+or "Data.Parameterized.Context.Unsafe" depending on the
+the unsafe-operations compile-time flag.
+
+It also defines some utility typeclasses for transforming
+between curried and uncurried versions of functions over contexts.
+
+The 'Assignment' type is isomorphic to the 'Data.Parameterized.List'
+type, except 'Assignment's construct lists from the right-hand side,
+and instead of using type-level @'[]@-style lists, an 'Assignment' is
+indexed by a type-level 'Data.Parameterized.Context.Ctx'. The
+implementation of 'Assignment's is also more efficent than
+'Data.Parameterized.List' for lists of many elements, as it uses a
+balanced binary tree representation rather than a linear-time
+list. For a motivating example, see 'Data.Parameterized.List'.
+
+-}
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
@@ -52,6 +61,7 @@ module Data.Parameterized.Context
   , generateSomeM
   , fromList
   , traverseAndCollect
+  , traverseWithIndex_
 
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
@@ -86,6 +96,7 @@ module Data.Parameterized.Context
 
 import           Control.Applicative (liftA2)
 import           Control.Lens hiding (Index, (:>), Empty)
+import           Data.Functor (void)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
@@ -321,7 +332,7 @@ instance {-# Overlaps #-} (KnownContext xs, Idx' (n-1) xs r) =>
 
 
 --------------------------------------------------------------------------------
--- CurryAssignment
+-- * CurryAssignment
 
 -- | This type family is used to define currying\/uncurrying operations
 -- on assignments.  It is best understood by seeing its evaluation on
@@ -380,6 +391,14 @@ traverseAndCollect ::
   m w
 traverseAndCollect f =
   runCollector . traverseWithIndex (\i x -> Collector (f i x))
+
+-- | Visit each of the elements in an @Assignment@ in order
+--   from left to right, executing an action with each.
+traverseWithIndex_ :: Applicative m
+                   => (forall tp . Index ctx tp -> f tp -> m ())
+                   -> Assignment f ctx
+                   -> m ()
+traverseWithIndex_ f = void . traverseAndCollect f
 
 --------------------------------------------------------------------------------
 -- Size and Index values

@@ -1,14 +1,124 @@
 {-|
-Copyright        : (c) Galois, Inc 2017
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : A type-indexed parameterized list
+Copyright   : (c) Galois, Inc 2017-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
 This module defines a list over two parameters.  The first
 is a fixed type-level function @k -> *@ for some kind @k@, and the
-second is a list of types with kind k that provide the indices for
+second is a list of types with kind @k@ that provide the indices for
 the values in the list.
 
-This type is closely related to the @Context@ type in
-@Data.Parameterized.Context@.
+This type is closely related to the
+'Data.Parameterized.Context.Assignment' type in
+"Data.Parameterized.Context".
+
+= Motivating example - the 'Data.Parameterized.List.List' type
+
+For this example, we need the following extensions:
+
+@
+\{\-\# LANGUAGE DataKinds \#\-\}
+\{\-\# LANGUAGE GADTs \#\-\}
+\{\-\# LANGUAGE KindSignatures \#\-\}
+\{\-\# LANGUAGE TypeOperators \#\-\}
+@
+
+We also require the following imports:
+
+@
+import Data.Parameterized
+import Data.Parameterized.List
+import GHC.TypeLits
+@
+
+Suppose we have a bitvector type:
+
+@
+data BitVector (w :: Nat) :: * where
+  BV :: NatRepr w -> Integer -> BitVector w
+@
+
+This type contains a 'Data.Parameterized.NatRepr.NatRepr', a value-level
+representative of the vector width, and an 'Integer', containing the
+actual value of the bitvector. We can create values of this type as
+follows:
+
+@
+BV (knownNat @8) 0xAB
+@
+
+We can also create a smart constructor to handle the
+'Data.Parameterized.NatRepr.NatRepr' automatically, when the width is known
+from the type context:
+
+@
+bitVector :: KnownNat w => Integer -> BitVector w
+bitVector x = BV knownNat x
+@
+
+Note that this does not check that the value can be represented in the
+given number of bits; that is not important for this example.
+
+If we wish to construct a list of @BitVector@s of a particular length,
+we can do:
+
+@
+[bitVector 0xAB, bitVector 0xFF, bitVector 0] :: BitVector 8
+@
+
+However, what if we wish to construct a list of 'BitVector's of
+different lengths? We could try:
+
+@
+[bitVector 0xAB :: BitVector 8, bitVector 0x1234 :: BitVector 16]
+@
+
+However, this gives us an error:
+
+@
+\<interactive\>:3:33: error:
+    • Couldn't match type ‘16’ with ‘8’
+      Expected type: BitVector 8
+        Actual type: BitVector 16
+    • In the expression: bitVector 0x1234 :: BitVector 16
+      In the expression:
+        [bitVector 0xAB :: BitVector 8, bitVector 0x1234 :: BitVector 16]
+      In an equation for ‘it’:
+          it
+            = [bitVector 0xAB :: BitVector 8, bitVector 0x1234 :: BitVector 16]
+@
+
+A vanilla Haskell list cannot contain two elements of different types,
+and even though the two elements here are both @BitVector@s, they do
+not have the same type! One solution is to use the
+'Data.Parameterized.Some.Some' type:
+
+@
+[Some (bitVector 0xAB :: BitVector 8), Some (bitVector 0x1234 :: BitVector 16)]
+@
+
+The type of the above expression is @[Some BitVector]@, which may be
+perfectly acceptable. However, there is nothing in this type that
+tells us what the widths of the bitvectors are, or what the length of
+the overall list is. If we want to actually track that information on
+the type level, we can use the 'List' type from this module.
+
+@
+(bitVector 0xAB :: BitVector 8) :< (bitVector 0x1234 :: BitVector 16) :< Nil
+@
+
+The type of the above expression is @List BitVector '[8, 16]@ -- That
+is, a two-element list of @BitVector@s, where the first element has
+width 8 and the second has width 16.
+
+== Summary
+
+In general, if we have a type constructor @Foo@ of kind @k -> *@ (in
+our example, @Foo@ is just @BitVector@, and we want to create a list
+of @Foo@s where the parameter @k@ varies, /and/ we wish to keep track
+of what each value of @k@ is inside the list at compile time, we can
+use the 'Data.Parameterized.List.List' type for this purpose.
+
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -39,10 +149,10 @@ module Data.Parameterized.List
   ) where
 
 import qualified Control.Lens as Lens
-import Prelude hiding ((!!))
+import           Prelude hiding ((!!))
 
-import Data.Parameterized.Classes
-import Data.Parameterized.TraversableFC
+import           Data.Parameterized.Classes
+import           Data.Parameterized.TraversableFC
 
 -- | Parameterized list of elements.
 data List :: (k -> *) -> [k] -> * where
@@ -99,7 +209,7 @@ instance (KnownRepr f s, KnownRepr (List f) sh) => KnownRepr (List f) (s ': sh) 
   knownRepr = knownRepr :< knownRepr
 
 --------------------------------------------------------------------------------
--- Indexed operations
+-- * Indexed operations
 
 
 -- | Represents an index into a type-level list. Used in place of integers to
@@ -136,6 +246,9 @@ indexValue = go 0
         go i (IndexThere x) = seq j $ go j x
           where j = i+1
 
+instance Hashable (Index l x) where
+  hashWithSalt s i = s `hashWithSalt` (indexValue i)
+
 -- | Index 0
 index0 :: Index (x:r) x
 index0 = IndexHere
@@ -171,7 +284,7 @@ update vals (IndexThere th) upd =
     x :< rest -> x :< update rest th upd
 
 -- | Provides a lens for manipulating the element at the given index.
-indexed :: Index l x -> Lens.Simple Lens.Lens (List f l) (f x)
+indexed :: Index l x -> Lens.Lens' (List f l) (f x)
 indexed IndexHere      f (x :< rest) = (:< rest) <$> f x
 indexed (IndexThere i) f (x :< rest) = (x :<) <$> indexed i f rest
 

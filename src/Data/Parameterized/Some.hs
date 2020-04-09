@@ -1,8 +1,9 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.Some
--- Copyright        : (c) Galois, Inc 2014
+-- Copyright        : (c) Galois, Inc 2014-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description : a GADT that hides a type parameter
 --
 -- This module provides 'Some', a GADT that hides a type parameter.
 ------------------------------------------------------------------------
@@ -20,6 +21,7 @@ module Data.Parameterized.Some
 
 import Data.Hashable
 import Data.Parameterized.Classes
+import Data.Parameterized.TraversableF
 
 
 data Some (f:: k -> *) = forall x . Some (f x)
@@ -57,3 +59,7 @@ traverseSome f (Some x) = Some `fmap` f x
 -- | Modify the inner value.
 traverseSome_ :: Functor m => (forall tp . f tp -> m ()) -> Some f -> m ()
 traverseSome_ f (Some x) = (\_ -> ()) `fmap` f x
+
+instance FunctorF     Some where fmapF     = mapSome
+instance FoldableF    Some where foldMapF  = foldMapFDefault
+instance TraversableF Some where traverseF = traverseSome

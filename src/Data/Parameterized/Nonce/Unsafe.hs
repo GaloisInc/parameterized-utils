@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------
 -- |
--- Module           : Data.Parameterized.NonceGenerator
+-- Module           : Data.Parameterized.Nonce.Unsafe
 -- Description      : A counter in the ST monad.
 -- Copyright        : (c) Galois, Inc 2014
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
@@ -19,28 +19,16 @@
 -- Nonces from different origins would allow users to build 'unsafeCoerce'
 -- via the 'testEquality' function.
 --
--- A somewhat safer API would be to brand the generated Nonces with the
--- state type variable of the NonceGenerator whence they came, and to only
--- provide NonceGenerators via a Rank-2 continuation-passing API, similar to
--- 'runST'. This would (via a meta-argument involving parametricity)
--- help to prevent nonces of different origin from being compared.
--- However, this would force us to push the 'ST' type brand into a significant
--- number of other structures and APIs.
---
--- Another alternative would be to use 'unsafePerformIO' magic to make
--- a global nonce generator, and make that the only way to generate nonces.
--- It is not clear that this is actually an improvement from a type safety
--- point of view, but an argument could be made.
---
--- For now, be careful using Nonces, and ensure that you do not mix
--- Nonces from different NonceGenerators.
-------------------------------------------------------------------------
+-- This module is deprecated, and should not be used in new code.
+-- Clients of this module should migrate to use "Data.Parameterized.Nonce".
+-------------------------------------------------------------------------
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE Unsafe #-}
 module Data.Parameterized.Nonce.Unsafe
+  {-# DEPRECATED "Migrate to use Data.Parameterized.Nonce instead, this module will be removed soon." #-}
   ( NonceGenerator
   , newNonceGenerator
   , freshNonce

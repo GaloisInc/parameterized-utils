@@ -1,68 +1,91 @@
+{-# LANGUAGE TypeApplications #-}
+{-# Language CPP #-}
 {-# Language DataKinds #-}
 {-# Language ExplicitForAll #-}
-{-# Language TypeOperators #-}
-{-# Language TypeFamilies #-}
 {-# Language FlexibleInstances #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
-{-# Language CPP #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 #if __GLASGOW_HASKELL__ >= 805
 {-# Language NoStarIsType #-}
 #endif
 module Test.Vector
-( vecTests
-) where
+  ( vecTests
+  )
+where
 
-import Test.Tasty
-import Test.Tasty.QuickCheck (Arbitrary(..), Gen, testProperty)
+import           Data.Parameterized.NatRepr
+import           Data.Parameterized.Vector
+import           Data.Semigroup
+import           GHC.TypeLits
+import           Hedgehog
+import qualified Hedgehog.Gen as HG
+import           Hedgehog.Range
+import           Prelude hiding (reverse)
+import           Test.Tasty
+import           Test.Tasty.Hedgehog
 
-import Data.Parameterized.NatRepr
-import Data.Parameterized.Vector
-import GHC.TypeLits
-import Prelude hiding (reverse)
 
-instance KnownNat n => Arbitrary (NatRepr n) where
-  arbitrary = return knownNat
+genVector :: (1 <= n, KnownNat n, Monad m) => GenT m a -> GenT m (Vector n a)
+genVector genElem =
+  do let n = knownNat
+         w = widthVal n
+     l <- HG.list (constant w w) genElem
+     case fromList n l of
+       Just v -> return v
+       Nothing -> error ("fromList failure for size " <> show w)
 
--- GHC thinks that this instances overlaps with the
--- "Arbitrary a => Arbitrary (Maybe a)" instance from QuickCheck, but it doesn't:
--- there is no "Arbitrary a => Arbitrary (Vector n a)".
---
--- While it might seem like this would just successfully generate a lot
--- of "Nothing", it does a pretty good job. Just try changing one of the tests!
-instance {-# OVERLAPS #-} forall a n. (1 <= n, Arbitrary a, KnownNat n)
-    => Arbitrary (Maybe (Vector n a)) where
-  arbitrary = do
-    n <- (arbitrary :: Gen (NatRepr n))
-    l <- (arbitrary :: Gen [a])
-    return $ fromList n l
+genOrdering :: Monad m => GenT m Ordering
+genOrdering = HG.element [ LT, EQ, GT ]
+
 
 instance Show (Int -> Ordering) where
   show _ = "unshowable"
 
+
 -- We use @Ordering@ just because it's simple
 vecTests :: IO TestTree
 vecTests = testGroup "Vector" <$> return
-  [ testProperty "reverse100" $
-      \n v -> fromList (n :: NatRepr 100) (v :: [Ordering]) ==
-              (reverse <$> (reverse <$> (fromList n v)))
-  , testProperty "reverseSingleton" $
-      \n v -> fromList (n :: NatRepr 1) (v :: [Ordering]) ==
-              (reverse <$> (fromList n v))
-  , testProperty "split-join" $
-      \n w v -> (v :: Maybe (Vector (5 * 5) Ordering)) ==
-                (join (n :: NatRepr 5) . split n (w :: NatRepr 5) <$> v)
+  [ testProperty "reverse100" $ property $
+    do v <- forAll $ genVector @100 genOrdering
+       v === (reverse $ reverse v)
+  , testProperty "reverseSingleton" $ property $
+    do l <- (:[]) <$> forAll genOrdering
+       Just v <- return $ fromList (knownNat @1) l
+       v === reverse v
+
+  , testProperty "split-join" $ property $
+    do let n = knownNat @5
+       v <- forAll $ genVector @(5 * 5) genOrdering
+       v === (join n $ split n (knownNat @5) v)
+
   -- @cons@ is the same for vectors or lists
-  , testProperty "cons" $
-      \n v x -> (cons x <$> fromList (n :: NatRepr 20) (v :: [Ordering])) ==
-                (fromList (incNat n) (x:v))
+  , testProperty "cons" $ property $
+    do let n = knownNat @20
+           w = widthVal n
+       l <- forAll $ HG.list (constant w w) genOrdering
+       x <- forAll genOrdering
+       (cons x <$> fromList n l) === fromList (incNat n) (x:l)
+
   -- @snoc@ is like appending to a list
-  , testProperty "snoc" $
-      \n v x -> (flip snoc x <$> fromList (n :: NatRepr 20) (v :: [Ordering])) ==
-                (fromList (incNat n) (v ++ [x]))
+  , testProperty "snoc" $ property $
+    do let n = knownNat @20
+           w = widthVal n
+       l <- forAll $ HG.list (constant w w) genOrdering
+       x <- forAll genOrdering
+       (flip snoc x <$> fromList n l) === fromList (incNat n) (l ++ [x])
+
   -- @generate@ is like mapping a function over indices
-  , testProperty "generate" $
-      \n f -> Just (generate (n :: NatRepr 55) ((f :: Int -> Ordering) . widthVal)) ==
-              (fromList (incNat n) (map f [0..widthVal n]) :: Maybe (Vector 56 Ordering))
+  , testProperty "generate" $ property $
+    do let n = knownNat @55
+           w = widthVal n
+           funs :: [ Int -> Ordering ]  -- some miscellaneous functions to generate Vector values
+           funs =  [ const EQ
+                   , \i -> if i < 10 then LT else if i > 15 then GT else EQ
+                   , \i -> if i == 0 then EQ else GT
+                   ]
+       f <- forAll $ HG.element funs
+       Just (generate n (f . widthVal)) === fromList (incNat n) (map f [0..w])
   ]

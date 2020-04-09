@@ -1,10 +1,11 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2018
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : Type level natural number representation at runtime
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
 This defines a type 'NatRepr' for representing a type-level natural
 at runtime.  This can be used to branch on a type-level value.  For
-each @n@, @NatRepr n@ contains a single value containing the vlaue
+each @n@, @NatRepr n@ contains a single value containing the value
 @n@.  This can be used to help use type-level variables on code
 with data dependendent types.
 
@@ -15,6 +16,7 @@ contained in a NatRepr value matches its static type.
 -}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE ExplicitNamespaces #-}
@@ -125,108 +127,30 @@ module Data.Parameterized.NatRepr
   , Equality.TestEquality(..)
   , (Equality.:~:)(..)
   , Data.Parameterized.Some.Some
-    -- * Backdoor, no touchy
-  , activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing
   ) where
 
 import Data.Bits ((.&.), bit)
-import Data.Hashable
-import Data.Proxy as Proxy
+import Data.Data
 import Data.Type.Equality as Equality
 import Data.Void as Void
 import Numeric.Natural
 import GHC.TypeNats as TypeNats
 import Unsafe.Coerce
 
-import Data.Parameterized.Classes
-import Data.Parameterized.DecidableEq
+import Data.Parameterized.NatRepr.Internal
 import Data.Parameterized.Some
 
 maxInt :: Natural
 maxInt = fromIntegral (maxBound :: Int)
 
-------------------------------------------------------------------------
--- Nat
-
--- | A runtime presentation of a type-level 'Nat'.
---
--- This can be used for performing dynamic checks on a type-level natural
--- numbers.
-newtype NatRepr (n::Nat) = NatRepr { natValue :: Natural
-                                     -- ^ The underlying natural value of the number.
-                                   }
-  deriving (Hashable)
-
-type role NatRepr nominal
-
 intValue :: NatRepr n -> Integer
 intValue n = toInteger (natValue n)
 {-# INLINE intValue #-}
-
--- | If you are not 110% sure what the consequences of using this are and
---   how to use it, don't.
-activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing :: ((Natural -> NatRepr n) -> a) -> a
-activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing k = k NatRepr
-{-# INLINE activateNatReprCoercionBackdoor_IPromiseIKnowWhatIAmDoing #-}
 
 -- | Return the value of the nat representation.
 widthVal :: NatRepr n -> Int
 widthVal (NatRepr i) | i <= maxInt = fromIntegral i
                      | otherwise   = error ("Width is too large: " ++ show i)
-
-instance Eq (NatRepr m) where
-  _ == _ = True
-
-instance TestEquality NatRepr where
-  testEquality (NatRepr m) (NatRepr n)
-    | m == n = Just (unsafeCoerce Refl)
-    | otherwise = Nothing
-
-instance DecidableEq NatRepr where
-  decEq (NatRepr m) (NatRepr n)
-    | m == n    = Left $ unsafeCoerce Refl
-    | otherwise = Right $
-        \x -> seq x $ error "Impossible [DecidableEq on NatRepr]"
-
--- | Result of comparing two numbers.
-data NatComparison m n where
-  -- First number is less than second.
-  NatLT :: x+1 <= x+(y+1) => !(NatRepr y) -> NatComparison x (x+(y+1))
-  NatEQ :: NatComparison x x
-  -- First number is greater than second.
-  NatGT :: x+1 <= x+(y+1) => !(NatRepr y) -> NatComparison (x+(y+1)) x
-
-compareNat :: NatRepr m -> NatRepr n -> NatComparison m n
-compareNat m n =
-  case compare (natValue m) (natValue n) of
-    LT -> unsafeCoerce (NatLT @0 @0) (NatRepr (natValue n - natValue m - 1))
-    EQ -> unsafeCoerce  NatEQ
-    GT -> unsafeCoerce (NatGT @0 @0) (NatRepr (natValue m - natValue n - 1))
-
-instance OrdF NatRepr where
-  compareF x y =
-    case compareNat x y of
-      NatLT _ -> LTF
-      NatEQ -> EQF
-      NatGT _ -> GTF
-
-instance PolyEq (NatRepr m) (NatRepr n) where
-  polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
-
-instance Show (NatRepr n) where
-  show (NatRepr n) = show n
-
-instance ShowF NatRepr
-
-instance HashableF NatRepr where
-  hashWithSaltF = hashWithSalt
-
--- | This generates a NatRepr from a type-level context.
-knownNat :: forall n . KnownNat n => NatRepr n
-knownNat = NatRepr (natVal (Proxy :: Proxy n))
-
-instance (KnownNat n) => KnownRepr NatRepr n where
-  knownRepr = knownNat
 
 withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =
@@ -319,11 +243,11 @@ minUnsigned _ = 0
 maxUnsigned :: NatRepr w -> Integer
 maxUnsigned w = bit (widthVal w) - 1
 
--- | Return minimum value for bitvector in 2s complement with given width.
+-- | Return minimum value for bitvector in two's complement with given width.
 minSigned :: (1 <= w) => NatRepr w -> Integer
 minSigned w = negate (bit (widthVal w - 1))
 
--- | Return maximum value for bitvector in 2s complement with given width.
+-- | Return maximum value for bitvector in two's complement with given width.
 maxSigned :: (1 <= w) => NatRepr w -> Integer
 maxSigned w = bit (widthVal w - 1) - 1
 
@@ -377,11 +301,11 @@ maxNat x y
 ------------------------------------------------------------------------
 -- Arithmetic
 
--- | Produce evidence that + is commutative.
+-- | Produce evidence that @+@ is commutative.
 plusComm :: forall f m g n . f m -> g n -> m+n :~: n+m
 plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
 
--- | Produce evidence that * is commutative.
+-- | Produce evidence that @*@ is commutative.
 mulComm :: forall f m g n. f m -> g n -> (m * n) :~: (n * m)
 mulComm _ _ = unsafeCoerce Refl
 
@@ -389,7 +313,7 @@ mul2Plus :: forall f n. f n -> (n + n) :~: (2 * n)
 mul2Plus n = case addMulDistribRight (Proxy @1) (Proxy @1) n of
                Refl -> Refl
 
--- | Cancel an add followed b a subtract
+-- | Cancel an add followed by a subtract
 plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
 plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
 

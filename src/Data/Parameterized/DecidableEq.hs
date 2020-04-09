@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2014-2018
-Maintainer       : Langston Barrett <langston@galois.com>
+Description : Decideable equality (i.e. evidence of non-equality) on type families
+Copyright   : (c) Galois, Inc 2014-2019
+Maintainer  : Langston Barrett <langston@galois.com>
 
 This defines a class @DecidableEq@, which represents decidable equality on a
 type family.

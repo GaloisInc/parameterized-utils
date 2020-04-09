@@ -1,8 +1,9 @@
 ------------------------------------------------------------------------
 -- |
 -- Module           : Data.Parameterized.TraversableF
--- Copyright        : (c) Galois, Inc 2014-2015
+-- Copyright        : (c) Galois, Inc 2014-2019
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description      : Traversing structures having a single parametric type
 --
 -- This module declares classes for working with structures that accept
 -- a single parametric type parameter.
@@ -15,12 +16,19 @@
 module Data.Parameterized.TraversableF
   ( FunctorF(..)
   , FoldableF(..)
+  , foldlMF
+  , foldlMF'
+  , foldrMF
+  , foldrMF'
   , TraversableF(..)
   , traverseF_
+  , forF_
+  , forF
   , fmapFDefault
   , foldMapFDefault
   , allF
   , anyF
+  , lengthF
   ) where
 
 import Control.Applicative
@@ -47,7 +55,7 @@ instance FunctorF (Const x) where
 (#.) :: Coercible b c => (b -> c) -> (a -> b) -> (a -> c)
 (#.) _f = coerce
 
--- | This is a generalization of the @Foldable@ class to
+-- | This is a generalization of the 'Foldable' class to
 -- structures over parameterized terms.
 class FoldableF (t :: (k -> *) -> *) where
   {-# MINIMAL foldMapF | foldrF #-}
@@ -81,13 +89,37 @@ class FoldableF (t :: (k -> *) -> *) where
   toListF :: (forall tp . f tp -> a) -> t f -> [a]
   toListF f t = build (\c n -> foldrF (\e v -> c (f e) v) n t)
 
--- | Return 'True' if all values satisfy predicate.
+-- | Monadic fold over the elements of a structure from left to right.
+foldlMF :: (FoldableF t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f -> m b
+foldlMF f z0 xs = foldrF f' return xs z0
+  where f' x k z = f z x >>= k
+
+-- | Monadic strict fold over the elements of a structure from left to right.
+foldlMF' :: (FoldableF t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f -> m b
+foldlMF' f z0 xs = seq z0 (foldrF f' return xs z0)
+  where f' x k z = f z x >>= \r -> seq r (k r)
+
+-- | Monadic fold over the elements of a structure from right to left.
+foldrMF :: (FoldableF t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f -> m b
+foldrMF f z0 xs = foldlF f' return xs z0
+  where f' k x z = f x z >>= k
+
+-- | Monadic strict fold over the elements of a structure from right to left.
+foldrMF' :: (FoldableF t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f -> m b
+foldrMF' f z0 xs = seq z0 $ foldlF f' return xs z0
+  where f' k x z = f x z >>= \r -> seq r (k r)
+
+-- | Return 'True' if all values satisfy the predicate.
 allF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 allF p = getAll #. foldMapF (All #. p)
 
--- | Return 'True' if any values satisfy predicate.
+-- | Return 'True' if any values satisfy the predicate.
 anyF :: FoldableF t => (forall tp . f tp -> Bool) -> t f -> Bool
 anyF p = getAny #. foldMapF (Any #. p)
+
+-- | Return number of elements that we fold over.
+lengthF :: FoldableF t => t f -> Int
+lengthF = foldrF (const (+1)) 0
 
 instance FoldableF (Const x) where
   foldMapF _ _ = mempty
@@ -104,6 +136,11 @@ class (FunctorF t, FoldableF t) => TraversableF t where
 instance TraversableF (Const x) where
   traverseF _ (Const x) = pure (Const x)
 
+-- | Flipped 'traverseF'
+forF :: (TraversableF t, Applicative m) => t e -> (forall s . e s -> m (f s)) -> m (t f)
+forF f x = traverseF x f
+{-# INLINE forF #-}
+
 -- | This function may be used as a value for `fmapF` in a `FunctorF`
 -- instance.
 fmapFDefault :: TraversableF t => (forall s . e s -> f s) -> t e -> t f
@@ -119,6 +156,13 @@ foldMapFDefault f = getConst #. traverseF (Const #. f)
 -- these actions from left to right, and ignore the results.
 traverseF_ :: (FoldableF t, Applicative f) => (forall s . e s  -> f a) -> t e -> f ()
 traverseF_ f = foldrF (\e r -> f e *> r) (pure ())
+
+
+-- | Map each element of a structure to an action, evaluate
+-- these actions from left to right, and ignore the results.
+forF_ :: (FoldableF t, Applicative m) => t f -> (forall x. f x -> m a) -> m ()
+forF_ v f = traverseF_ f v
+{-# INLINE forF_ #-}
 
 ------------------------------------------------------------------------
 -- TraversableF (Compose s t)

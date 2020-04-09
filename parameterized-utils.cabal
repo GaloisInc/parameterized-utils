@@ -1,20 +1,25 @@
 Name:          parameterized-utils
-Version:       1.0.8
+Version:       2.0.1.0.99
 Author:        Galois Inc.
-Maintainer:    jhendrix@galois.com
+Maintainer:    jhendrix@galois.com, kquick@galois.com
+stability:     stable
 Build-type:    Simple
 Cabal-version: >= 1.9.2
-license: BSD3
-license-file: LICENSE
-category: Data Structures, Dependent Types
+Copyright:     ©2016-2019 Galois, Inc.
+License:       BSD3
+License-file:  LICENSE
+category:      Data Structures, Dependent Types
 Synopsis: Classes and data structures for working with data-kind indexed types
 Description:
-  This packages contains collection classes and type representations
+  This package contains collection classes and type representations
   used for working with values that have a single parameter.  It's
   intended for things like expression libraries where one wishes
   to leverage the Haskell type-checker to improve type-safety by encoding
   the object language type system into data kinds.
-tested-with: GHC==8.4.3, GHC==8.6.1
+extra-source-files: Changelog.md
+homepage:      https://github.com/GaloisInc/parameterized-utils
+bug-reports:   https://github.com/GaloisInc/parameterized-utils/issues
+tested-with:   GHC==8.2.2, GHC==8.4.4, GHC==8.6.4
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set
@@ -22,7 +27,7 @@ tested-with: GHC==8.4.3, GHC==8.6.1
 -- Unsafe.Coerce and Data.Coerce.  These alternate implementations
 -- impose a significant performance hit.
 flag unsafe-operations
-  Description: Use unsafe operations to improve performance
+  Description: Use unsafe operations (e.g. coercions) to improve performance
   Default: True
 
 source-repository head
@@ -30,25 +35,26 @@ source-repository head
   location: https://github.com/GaloisInc/parameterized-utils
 
 library
-  build-depends:
-    base >= 4.10 && < 4.13,
-    th-abstraction >=0.1 && <0.3,
-    constraints >= 0.10 && < 0.11,
-    containers,
-    deepseq,
-    ghc-prim,
-    hashable,
-    hashtables,
-    lens,
-    mtl,
-    template-haskell,
-    text,
-    vector
+  build-depends: base >= 4.10 && < 5
+               , th-abstraction >=0.3  && <0.4
+               , constraints    >=0.10 && <0.12
+               , containers
+               , deepseq
+               , ghc-prim
+               , hashable       >=1.2  && <1.4
+               , hashtables     ==1.2.*
+               , lens           >=4.16 && <4.19
+               , mtl
+               , template-haskell
+               , text
+               , vector         ==0.12.*
 
   hs-source-dirs: src
 
   exposed-modules:
     Data.Parameterized
+    Data.Parameterized.All
+    Data.Parameterized.BoolRepr
     Data.Parameterized.Classes
     Data.Parameterized.ClassesC
     Data.Parameterized.Compose
@@ -57,6 +63,7 @@ library
     Data.Parameterized.Context.Unsafe
     Data.Parameterized.Ctx
     Data.Parameterized.Ctx.Proofs
+    Data.Parameterized.DataKind
     Data.Parameterized.DecidableEq
     Data.Parameterized.HashTable
     Data.Parameterized.List
@@ -75,6 +82,10 @@ library
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
+    Data.Parameterized.WithRepr
+
+  other-modules:
+    Data.Parameterized.NatRepr.Internal
 
   ghc-options: -Wall
 
@@ -88,22 +99,21 @@ test-suite parameterizedTests
 
   ghc-options: -Wall
 
-  main-is:UnitTest.hs
+  main-is: UnitTest.hs
   other-modules:
     Test.Context
     Test.NatRepr
     Test.Vector
 
-  build-depends:
-    base,
-    hashable,
-    hashtables,
-    ghc-prim,
-    lens,
-    mtl,
-    parameterized-utils,
-    tasty,
-    tasty-ant-xml >= 1.1.0,
-    tasty-hunit,
-    tasty-quickcheck >= 0.8.1,
-    QuickCheck >= 2.7
+  build-depends: base
+               , hashable
+               , hashtables
+               , hedgehog
+               , ghc-prim
+               , lens
+               , mtl
+               , parameterized-utils
+               , tasty == 1.2.*
+               , tasty-ant-xml == 1.1.*
+               , tasty-hunit >= 0.9 && < 0.11
+               , tasty-hedgehog

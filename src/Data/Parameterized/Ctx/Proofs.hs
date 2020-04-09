@@ -1,6 +1,7 @@
 {-|
-Copyright        : (c) Galois, Inc 2015
-Maintainer       : Joe Hendrix <jhendrix@galois.com>
+Description : type-level proofs involving contexts
+Copyright   : (c) Galois, Inc 2015-2019
+Maintainer  : Joe Hendrix <jhendrix@galois.com>
 
 This reflects type level proofs involving contexts.
 -}

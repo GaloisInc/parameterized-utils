@@ -3,6 +3,7 @@
 -- Module           : Data.Parameterized.TraversableFC
 -- Copyright        : (c) Galois, Inc 2014-2015
 -- Maintainer       : Joe Hendrix <jhendrix@galois.com>
+-- Description      : Traversing structures having a single parametric type followed by a fixed kind.
 --
 -- This module declares classes for working with structures that accept
 -- a parametric type parameter followed by some fixed kind.
@@ -18,9 +19,15 @@ module Data.Parameterized.TraversableFC
   , HashableFC(..)
   , FunctorFC(..)
   , FoldableFC(..)
+  , foldlMFC
+  , foldlMFC'
+  , foldrMFC
+  , foldrMFC'
   , TraversableFC(..)
   , traverseFC_
   , forMFC_
+  , forFC_
+  , forFC
   , fmapFCDefault
   , foldMapFCDefault
   , allFC
@@ -77,12 +84,12 @@ class TestEqualityFC t => OrdFC (t :: (k -> *) -> l -> *) where
 ------------------------------------------------------------------------
 -- FoldableF
 
--- | This is a coercision used to avoid overhead associated
+-- | This is a coercion used to avoid overhead associated
 -- with function composition.
 (#.) :: Coercible b c => (b -> c) -> (a -> b) -> (a -> c)
 (#.) _f = coerce
 
--- | This is a generalization of the @Foldable@ class to
+-- | This is a generalization of the 'Foldable' class to
 -- structures over parameterized terms.
 class FoldableFC (t :: (k -> *) -> l -> *) where
   {-# MINIMAL foldMapFC | foldrFC #-}
@@ -116,6 +123,26 @@ class FoldableFC (t :: (k -> *) -> l -> *) where
   toListFC :: forall f a. (forall x. f x -> a) -> (forall x. t f x -> [a])
   toListFC f t = build (\c n -> foldrFC (\e v -> c (f e) v) n t)
 
+-- | Monadic fold over the elements of a structure from left to right.
+foldlMFC :: (FoldableFC t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f c -> m b
+foldlMFC f z0 xs = foldrFC f' return xs z0
+  where f' x k z = f z x >>= k
+
+-- | Monadic strict fold over the elements of a structure from left to right.
+foldlMFC' :: (FoldableFC t, Monad m) => (forall x . b -> f x -> m b) -> b -> t f c -> m b
+foldlMFC' f z0 xs = seq z0 $ foldrFC f' return xs z0
+  where f' x k z = f z x >>= \r -> seq r (k r)
+
+-- | Monadic fold over the elements of a structure from right to left.
+foldrMFC :: (FoldableFC t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f c -> m b
+foldrMFC f z0 xs = foldlFC f' return xs z0
+  where f' k x z = f x z >>= k
+
+-- | Monadic strict fold over the elements of a structure from right to left.
+foldrMFC' :: (FoldableFC t, Monad m) => (forall x . f x -> b -> m b) -> b -> t f c -> m b
+foldrMFC' f z0 xs = seq z0 (foldlFC f' return xs z0)
+  where f' k x z = f x z >>= \r -> seq r (k r)
+
 -- | Return 'True' if all values satisfy predicate.
 allFC :: FoldableFC t => (forall x. f x -> Bool) -> (forall x. t f x -> Bool)
 allFC p = getAll #. foldMapFC (All #. p)
@@ -124,7 +151,7 @@ allFC p = getAll #. foldMapFC (All #. p)
 anyFC :: FoldableFC t => (forall x. f x -> Bool) -> (forall x. t f x -> Bool)
 anyFC p = getAny #. foldMapFC (Any #. p)
 
--- | Return number of elements in list.
+-- | Return number of elements that we fold over.
 lengthFC :: FoldableFC t => t f x -> Int
 lengthFC = foldrFC (const (+1)) 0
 
@@ -159,3 +186,17 @@ traverseFC_ f = foldrFC (\e r -> f e *> r) (pure ())
 forMFC_ :: (FoldableFC t, Applicative m) => t f c -> (forall x. f x -> m a) -> m ()
 forMFC_ v f = traverseFC_ f v
 {-# INLINE forMFC_ #-}
+{-# DEPRECATED forMFC_ "Use forFC_" #-}
+
+-- | Map each element of a structure to an action, evaluate
+-- these actions from left to right, and ignore the results.
+forFC_ :: (FoldableFC t, Applicative m) => t f c -> (forall x. f x -> m a) -> m ()
+forFC_ v f = traverseFC_ f v
+{-# INLINE forFC_ #-}
+
+-- | Flipped 'traverseFC'
+forFC ::
+  (TraversableFC t, Applicative m) =>
+  t f x -> (forall y. f y -> m (g y)) -> m (t g x)
+forFC v f = traverseFC f v
+{-# INLINE forFC #-}
