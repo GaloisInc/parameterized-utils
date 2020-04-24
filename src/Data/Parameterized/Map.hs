@@ -247,12 +247,12 @@ type instance IndexF   (MapF k v) = k
 type instance IxValueF (MapF k v) = v
 
 -- | Turn a map key into a traversal that visits the indicated element in the map, if it exists.
-instance forall (k:: a -> Type) v. OrdF k => IxedF a (MapF k v) where
+instance forall a (k:: a -> Type) v. OrdF k => IxedF a (MapF k v) where
   ixF :: k x -> Traversal' (MapF k v) (v x)
   ixF i f m = updatedValue <$> updateAtKey i (pure Nothing) (\x -> Set <$> f x) m
 
 -- | Turn a map key into a lens that points into the indicated position in the map.
-instance forall (k:: a -> Type) v. OrdF k => AtF a (MapF k v) where
+instance forall a (k:: a -> Type) v. OrdF k => AtF a (MapF k v) where
   atF :: k x -> Lens' (MapF k v) (Maybe (v x))
   atF i f m = updatedValue <$> updateAtKey i (f Nothing) (\x -> maybe Delete Set <$> f (Just x)) m
 
@@ -540,7 +540,7 @@ toList = toAscList
 
 -- | Generate a map from a foldable collection of keys and a
 -- function from keys to values.
-fromKeys :: forall m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
+fromKeys :: forall k m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
           .  (Monad m, Foldable t, OrdF a)
             => (forall tp . a tp -> m (v tp))
             -- ^ Function for evaluating a register value.
@@ -553,7 +553,7 @@ fromKeys f = foldM go empty
 
 -- | Generate a map from a foldable collection of keys and a monadic
 -- function from keys to values.
-fromKeysM :: forall m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
+fromKeysM :: forall k m (t :: Type -> Type) (a :: k -> Type) (v :: k -> Type)
           .  (Monad m, Foldable t, OrdF a)
            => (forall tp . a tp -> m (v tp))
            -- ^ Function for evaluating an input value to store the result in the map.

@@ -147,7 +147,7 @@ fromOrdering GT = GTF
 
 -- | @joinOrderingF x y@ first compares on @x@, returning an
 -- equivalent value if it is not `EQF`.  If it is `EQF`, it returns @y@.
-joinOrderingF :: forall (a :: j) (b :: j) (c :: k) (d :: k)
+joinOrderingF :: forall j k (a :: j) (b :: j) (c :: k) (d :: k)
               .  OrderingF a b
               -> (a ~ b => OrderingF c d)
               -> OrderingF c d
@@ -197,7 +197,7 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
 
 -- | Compare two values, and if they are equal compare the next values,
 -- otherwise return LTF or GTF
-lexCompareF :: forall (f :: j -> *) (a :: j) (b :: j) (c :: k) (d :: k)
+lexCompareF :: forall j k (f :: j -> *) (a :: j) (b :: j) (c :: k) (d :: k)
              .  OrdF f
             => f a
             -> f b
@@ -208,7 +208,7 @@ lexCompareF x y = joinOrderingF (compareF x y)
 -- | If the \"outer\" functor has an 'OrdF' instance, then one can be generated
 -- for the \"inner\" functor. The type-level evidence of equality is deduced
 -- via generativity of @g@, e.g. the inference @g x ~ g y@ implies @x ~ y@.
-ordFCompose :: forall (f :: k -> *) (g :: l -> k) x y.
+ordFCompose :: forall k l (f :: k -> *) (g :: l -> k) x y.
                 (forall w z. f w -> f z -> OrderingF w z)
             -> Compose f g x
             -> Compose f g y

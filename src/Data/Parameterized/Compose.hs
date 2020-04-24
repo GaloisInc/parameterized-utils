@@ -27,7 +27,7 @@ import Data.Type.Equality
 -- | The deduction (via generativity) that if @g x :~: g y@ then @x :~: y@.
 --
 -- See https://gitlab.haskell.org/ghc/ghc/merge_requests/273.
-testEqualityComposeBare :: forall (f :: k -> *) (g :: l -> k) x y.
+testEqualityComposeBare :: forall k l (f :: k -> *) (g :: l -> k) x y.
                            (forall w z. f w -> f z -> Maybe (w :~: z))
                         -> Compose f g x
                         -> Compose f g y

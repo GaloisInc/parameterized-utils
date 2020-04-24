@@ -491,11 +491,11 @@ adjustM f = go (\x -> x)
 type instance IndexF   (Assignment (f :: k -> Type) ctx) = Index ctx
 type instance IxValueF (Assignment (f :: k -> Type) ctx) = f
 
-instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
   ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF idx f = adjustM f idx
 
-instance forall (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
@@ -590,7 +590,7 @@ instance TraversableFC Assignment where
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
 map = fmapFC
 
-traverseF :: forall (f:: k -> Type) (g::k -> Type) (m:: Type -> Type) (c::Ctx k)
+traverseF :: forall k (f:: k -> Type) (g::k -> Type) (m:: Type -> Type) (c::Ctx k)
            . Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c
