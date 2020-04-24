@@ -101,7 +101,6 @@ import           Data.Functor (void)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
-import           Data.Monoid ((<>))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some

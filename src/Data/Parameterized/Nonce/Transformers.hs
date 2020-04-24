@@ -34,7 +34,7 @@ import Data.Parameterized.Nonce
 -- set that the 'Nonce' came from).
 class Monad m => MonadNonce m where
   type NonceSet m :: *
-  freshNonceM :: forall (tp :: k) . m (Nonce (NonceSet m) tp)
+  freshNonceM :: forall k (tp :: k) . m (Nonce (NonceSet m) tp)
 
 -- | This transformer adds a nonce generator to a given monad.
 newtype NonceT s m a =

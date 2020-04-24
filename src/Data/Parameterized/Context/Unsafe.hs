@@ -853,11 +853,11 @@ adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
 type instance IndexF       (Assignment f ctx) = Index ctx
 type instance IxValueF     (Assignment f ctx) = f
 
-instance forall (f :: k -> Type) ctx. IxedF' k (Assignment (f :: k -> Type) ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment (f :: k -> Type) ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
-instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
   ixF = ixF'
 
 -- This is an unsafe version of update that changes the type of the expression.
