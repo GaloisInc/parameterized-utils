@@ -109,6 +109,7 @@ module Data.Parameterized.NatRepr
   , leqMulMono
     -- * Arithmetic proof
   , plusComm
+  , plusAssoc
   , mulComm
   , plusMinusCancel
   , minusPlusCancel
@@ -304,6 +305,10 @@ maxNat x y
 -- | Produce evidence that @+@ is commutative.
 plusComm :: forall f m g n . f m -> g n -> m+n :~: n+m
 plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
+
+-- | Produce evidence that @+@ is associative.
+plusAssoc :: forall f m g n h o . f m -> g n -> h o -> m+(n+o) :~: (m+n)+o
+plusAssoc = unsafeCoerce (Refl :: m+(n+o) :~: m+(n+o))
 
 -- | Produce evidence that @*@ is commutative.
 mulComm :: forall f m g n. f m -> g n -> (m * n) :~: (n * m)
