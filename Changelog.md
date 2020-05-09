@@ -3,7 +3,7 @@
 ## 2.1.0 -- *2020 May 08*
 
   * Added `plusAssoc` to the `NatRepr` module to produce `+` associativity evidence.
-  * Changed the `HashTable` module to use the Basic instead of Linear
+  * Changed the `HashTable` module to use the Basic instead of the Cuckoo
     implementation strategy.
   * Added explicit kind parameters to various definitions to support
     GHC 8.10's adoption of [proposal 103](https://github.com/ghc-proposals/ghc-proposals/blob/master/proposals/0103-no-kind-vars.rst).
