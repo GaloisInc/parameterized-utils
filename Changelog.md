@@ -12,6 +12,8 @@
     uses of
     [`TypeApplications`](https://gitlab.haskell.org/ghc/ghc/-/wikis/type-application).
   * No longer verifying support for GHC 8.2 or earlier.
+  * Updated the minimum cabal version to 1.10 and specify the
+    default-language as Haskell2010.
 
 ## 2.0.2 -- *2020 Feb 10*
 
