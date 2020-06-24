@@ -65,6 +65,8 @@ module Data.Parameterized.Context
   , traverseWithIndex_
   , dropPrefix
   , unzip
+  , flattenAssignment
+  , flattenSize
 
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
@@ -201,6 +203,28 @@ unzip fgs =
     AssignExtend rest (Pair f g) ->
       let (fs, gs) = unzip rest
       in (extend fs f, extend gs g)
+
+-- | Flattens a nested assignment over a context of contexts @ctxs :: Ctx (Ctx
+-- a)@ into a flat assignment over the flattened context @CtxFlatten ctxs@.
+flattenAssignment ::
+  Assignment (Assignment f) ctxs ->
+  Assignment f (CtxFlatten ctxs)
+flattenAssignment ctxs =
+  case viewAssign ctxs of
+    AssignEmpty -> empty
+    AssignExtend ctxs' ctx -> flattenAssignment ctxs' <++> ctx
+
+-- | Given the size of each context in @ctxs@, returns the size of @CtxFlatten
+-- ctxs@.  You can obtain the former from any nested assignment @Assignment
+-- (Assignment f) ctxs@, by calling @fmapFC size@.
+flattenSize ::
+  Assignment Size ctxs ->
+  Size (CtxFlatten ctxs)
+flattenSize a =
+  case viewAssign a of
+    AssignEmpty -> zeroSize
+    AssignExtend b s -> addSize (flattenSize b) s
+
 
 --------------------------------------------------------------------------------
 -- Patterns
