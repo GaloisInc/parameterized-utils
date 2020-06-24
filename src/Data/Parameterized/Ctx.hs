@@ -31,6 +31,7 @@ module Data.Parameterized.Ctx
   , CtxUpdate
   , CtxLookupRight
   , CtxUpdateRight
+  , CtxFlatten
   , CheckIx
   , ValidIx
   , FromLeft
@@ -101,3 +102,8 @@ type CtxLookup (n :: Nat) (ctx :: Ctx k)
 --   is out of range, the context is unchanged.
 type CtxUpdate (n :: Nat) (x :: k) (ctx :: Ctx k)
   = CtxUpdateRight (FromLeft ctx n) x ctx
+
+-- | Flatten a nested context
+type family CtxFlatten (ctx :: Ctx (Ctx a)) :: Ctx a where
+  CtxFlatten EmptyCtx = EmptyCtx
+  CtxFlatten (ctxs ::> ctx) = CtxFlatten ctxs <+> ctx
