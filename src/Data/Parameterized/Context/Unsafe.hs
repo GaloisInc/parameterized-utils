@@ -47,6 +47,8 @@ module Data.Parameterized.Context.Unsafe
   , skipIndex
   , lastIndex
   , nextIndex
+  , leftIndex
+  , rightIndex
   , extendIndex
   , extendIndex'
   , forIndex
@@ -262,6 +264,14 @@ nextIndex n = Index (sizeInt n)
 -- | Return the last index of a element.
 lastIndex :: Size (ctx ::> tp) -> Index (ctx ::> tp) tp
 lastIndex n = Index (sizeInt n - 1)
+
+-- | Adapts an index in the left hand context of an append operation.
+leftIndex :: Size r -> Index l tp -> Index (l <+> r) tp
+leftIndex _ (Index il) = Index il
+
+-- | Adapts an index in the right hand context of an append operation.
+rightIndex :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
+rightIndex (Size sl) _ (Index ir) = Index (sl + ir)
 
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
