@@ -38,7 +38,7 @@ library
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.9
                , th-abstraction >=0.3  && <0.4
-               , constraints    >=0.10 && <0.12
+               , constraints    >=0.10 && <0.13
                , containers
                , deepseq
                , ghc-prim
