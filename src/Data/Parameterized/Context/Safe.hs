@@ -77,6 +77,7 @@ module Data.Parameterized.Context.Safe
   , nextIndex
   , extendIndex
   , extendIndex'
+  , extendIndexAppendLeft
   , forIndex
   , forIndexRange
   , intIndex
@@ -311,6 +312,12 @@ extendIndex = extendIndex' knownDiff
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' DiffHere idx = idx
 extendIndex' (DiffThere diff) idx = IndexThere (extendIndex' diff idx)
+
+{-# INLINE extendIndexAppendLeft #-}
+extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
+extendIndexAppendLeft sz sz' idx = case viewIndex sz' idx of
+  IndexViewLast _ -> lastIndex (addSize sz sz')
+  IndexViewInit idx' -> skipIndex (extendIndexAppendLeft sz (decSize sz') idx')
 
 -- | Given a size @n@, an initial value @v0@, and a function @f@, the
 -- expression @forIndex n v0 f@ calls @f@ on each index less than @n@

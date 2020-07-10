@@ -56,6 +56,7 @@ module Data.Parameterized.Context
   , Data.Parameterized.Context.last
   , Data.Parameterized.Context.view
   , Data.Parameterized.Context.take
+  , Data.Parameterized.Context.drop
   , forIndexM
   , generateSome
   , generateSomeM
@@ -75,6 +76,7 @@ module Data.Parameterized.Context
   , extendEmbeddingRight
   , extendEmbeddingBoth
   , appendEmbedding
+  , appendEmbeddingLeft
   , ctxeSize
   , ctxeAssignment
 
@@ -243,6 +245,9 @@ take sz sz' asgn =
   let diff = appendDiff sz' in
   generate sz (\i -> asgn ! extendIndex' diff i)
 
+drop :: forall f ctx ctx'. Size ctx -> Size ctx' -> Assignment f (ctx <+> ctx') -> Assignment f ctx'
+drop sz sz' asgn = generate sz' (\i -> asgn ! extendIndexAppendLeft sz sz' i)
+
 --------------------------------------------------------------------------------
 -- Context embedding.
 
@@ -314,6 +319,9 @@ appendEmbedding :: Size ctx -> Size ctx' -> CtxEmbedding ctx (ctx <+> ctx')
 appendEmbedding sz sz' = CtxEmbedding (addSize sz sz') (generate sz (extendIndex' diff))
   where
   diff = appendDiff sz'
+
+appendEmbeddingLeft :: Size ctx -> Size ctx' -> CtxEmbedding ctx' (ctx <+> ctx')
+appendEmbeddingLeft sz sz' = CtxEmbedding (addSize sz sz') (generate sz' (extendIndexAppendLeft sz sz'))
 
 extendEmbeddingBoth :: forall ctx ctx' tp. CtxEmbedding ctx ctx' -> CtxEmbedding (ctx ::> tp) (ctx' ::> tp)
 extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (ctxe ^. ctxeSize))

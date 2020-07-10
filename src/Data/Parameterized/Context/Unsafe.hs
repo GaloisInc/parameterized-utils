@@ -49,6 +49,7 @@ module Data.Parameterized.Context.Unsafe
   , nextIndex
   , extendIndex
   , extendIndex'
+  , extendIndexAppendLeft
   , forIndex
   , forIndexRange
   , intIndex
@@ -270,6 +271,10 @@ extendIndex = extendIndex' knownDiff
 {-# INLINE extendIndex' #-}
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' _ = unsafeCoerce
+
+{-# INLINE extendIndexAppendLeft #-}
+extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
+extendIndexAppendLeft (Size l) _ (Index idx) = Index (idx + l)
 
 -- | Given a size @n@, an initial value @v0@, and a function @f@, the
 -- expression @forIndex n v0 f@ is equivalent to @v0@ when @n@ is

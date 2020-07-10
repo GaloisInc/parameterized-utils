@@ -180,5 +180,14 @@ contextTests = testGroup "Context" <$> return
         let z = x U.<++> y
         let x' = C.take (U.size x) (U.size y) z
         assert $ isJust $ testEquality x x'
-
+   , testProperty "append_take_drop" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        Some x <- return $ mkUAsgn vals1
+        Some y <- return $ mkUAsgn vals2
+        let z = x U.<++> y
+        let x' = C.take (U.size x) (U.size y) z
+        let y' = C.drop (U.size x) (U.size y) z
+        assert $ isJust $ testEquality x x'
+        assert $ isJust $ testEquality y y'
    ]
