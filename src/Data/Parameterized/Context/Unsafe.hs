@@ -269,10 +269,14 @@ extendIndex :: KnownDiff l r => Index l tp -> Index r tp
 extendIndex = extendIndex' knownDiff
 
 {-# INLINE extendIndex' #-}
+-- | Compute an 'Index' into a context @r@ from an 'Index' into
+-- a sub-context @l@ of @r@.
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' _ = unsafeCoerce
 
 {-# INLINE extendIndexAppendLeft #-}
+-- | Compute an 'Index' into an appended context from an 'Index' into
+-- its suffix.
 extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
 extendIndexAppendLeft (Size l) _ (Index idx) = Index (idx + l)
 

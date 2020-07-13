@@ -240,11 +240,13 @@ last x =
 view :: forall f ctx . Assignment f ctx -> AssignView f ctx
 view = viewAssign
 
+-- | Return the prefix of an appended 'Assignment'
 take :: forall f ctx ctx'. Size ctx -> Size ctx' -> Assignment f (ctx <+> ctx') -> Assignment f ctx
 take sz sz' asgn =
   let diff = appendDiff sz' in
   generate sz (\i -> asgn ! extendIndex' diff i)
 
+-- | Return the suffix of an appended 'Assignment'
 drop :: forall f ctx ctx'. Size ctx -> Size ctx' -> Assignment f (ctx <+> ctx') -> Assignment f ctx'
 drop sz sz' asgn = generate sz' (\i -> asgn ! extendIndexAppendLeft sz sz' i)
 
@@ -315,11 +317,13 @@ extendEmbeddingRightDiff diff (CtxEmbedding sz' assgn) = CtxEmbedding (extSize s
 extendEmbeddingRight :: CtxEmbedding ctx ctx' -> CtxEmbedding ctx (ctx' ::> tp)
 extendEmbeddingRight = extendEmbeddingRightDiff knownDiff
 
+-- | Prove that the prefix of an appended context is embeddable in it
 appendEmbedding :: Size ctx -> Size ctx' -> CtxEmbedding ctx (ctx <+> ctx')
 appendEmbedding sz sz' = CtxEmbedding (addSize sz sz') (generate sz (extendIndex' diff))
   where
   diff = appendDiff sz'
 
+-- | Prove that the suffix of an appended context is embeddable in it
 appendEmbeddingLeft :: Size ctx -> Size ctx' -> CtxEmbedding ctx' (ctx <+> ctx')
 appendEmbeddingLeft sz sz' = CtxEmbedding (addSize sz sz') (generate sz' (extendIndexAppendLeft sz sz'))
 
