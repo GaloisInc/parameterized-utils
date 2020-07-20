@@ -1,12 +1,12 @@
+Cabal-version: 2.2
 Name:          parameterized-utils
 Version:       2.1.0.99
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com, kquick@galois.com
 stability:     stable
 Build-type:    Simple
-Cabal-version: >= 1.10
 Copyright:     ©2016-2020 Galois, Inc.
-License:       BSD3
+License:       BSD-3-Clause
 License-file:  LICENSE
 category:      Data Structures, Dependent Types
 Synopsis: Classes and data structures for working with data-kind indexed types
@@ -34,56 +34,33 @@ source-repository head
   type: git
   location: https://github.com/GaloisInc/parameterized-utils
 
-library
+
+library pu-core-lib
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.9
-               , th-abstraction >=0.3  && <0.4
-               , constraints    >=0.10 && <0.13
-               , containers
-               , deepseq
-               , ghc-prim
                , hashable       >=1.2  && <1.4
-               , hashtables     ==1.2.*
                , lens           >=4.16 && <4.20
                , mtl
-               , template-haskell
                , text
                , vector         ==0.12.*
 
-  hs-source-dirs: src
+  hs-source-dirs: src/core
 
   exposed-modules:
-    Data.Parameterized
-    Data.Parameterized.All
     Data.Parameterized.BoolRepr
     Data.Parameterized.Classes
-    Data.Parameterized.ClassesC
     Data.Parameterized.Compose
-    Data.Parameterized.Context
-    Data.Parameterized.Context.Safe
-    Data.Parameterized.Context.Unsafe
     Data.Parameterized.Ctx
     Data.Parameterized.Ctx.Proofs
-    Data.Parameterized.DataKind
     Data.Parameterized.DecidableEq
-    Data.Parameterized.HashTable
     Data.Parameterized.List
-    Data.Parameterized.Map
     Data.Parameterized.NatRepr
-    Data.Parameterized.Nonce
-    Data.Parameterized.Nonce.Transformers
-    Data.Parameterized.Nonce.Unsafe
-    Data.Parameterized.Pair
-    Data.Parameterized.Peano
     Data.Parameterized.Some
     Data.Parameterized.SymbolRepr
-    Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
-    Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
-    Data.Parameterized.WithRepr
 
   other-modules:
     Data.Parameterized.NatRepr.Internal
@@ -91,11 +68,135 @@ library
   ghc-options: -Wall
   default-language: Haskell2010
 
+
+common defs
+  build-depends: base >= 4.10 && < 5
+               , hashable       >=1.2  && <1.4
+               , lens           >=4.16 && <4.20
+               , mtl
+  ghc-options: -Wall
+  default-language: Haskell2010
+
+
+library pu-unsafe-lib
+  import: defs
+  build-depends: pu-core-lib
+               , constraints    >=0.10 && <0.13
+               , deepseq
+               , vector         ==0.12.*
+
+  hs-source-dirs: src/metasafe
+                , src/unsafe
+
+  exposed-modules:
+    Data.Parameterized.Context
+    Data.Parameterized.Peano
+    Data.Parameterized.WithRepr
+
+  other-modules:
+    Data.Parameterized.Context.Unsafe
+
+  reexported-modules:
+      Data.Parameterized.BoolRepr
+    , Data.Parameterized.Classes
+    , Data.Parameterized.Compose
+    , Data.Parameterized.Ctx
+    , Data.Parameterized.Ctx.Proofs
+    , Data.Parameterized.DecidableEq
+    , Data.Parameterized.List
+    , Data.Parameterized.NatRepr
+    , Data.Parameterized.Some
+    , Data.Parameterized.SymbolRepr
+    , Data.Parameterized.TraversableF
+    , Data.Parameterized.TraversableFC
+    , Data.Parameterized.Utils.Endian
+    , Data.Parameterized.Vector
+
+  cpp-options: -DUNSAFE_OPS
+
+library pu-safe-lib
+  import: defs
+  build-depends: pu-core-lib
+               , deepseq
+               , vector         ==0.12.*
+
+  hs-source-dirs: src/metasafe
+                , src/safe
+
+  exposed-modules:
+    Data.Parameterized.Context
+    Data.Parameterized.Peano
+    Data.Parameterized.WithRepr
+
+  other-modules:
+    Data.Parameterized.Context.Safe
+
+  reexported-modules:
+      Data.Parameterized.BoolRepr
+    , Data.Parameterized.Classes
+    , Data.Parameterized.Compose
+    , Data.Parameterized.Ctx
+    , Data.Parameterized.Ctx.Proofs
+    , Data.Parameterized.DecidableEq
+    , Data.Parameterized.List
+    , Data.Parameterized.NatRepr
+    , Data.Parameterized.Some
+    , Data.Parameterized.SymbolRepr
+    , Data.Parameterized.TraversableF
+    , Data.Parameterized.TraversableFC
+    , Data.Parameterized.Utils.Endian
+    , Data.Parameterized.Vector
+
+
+library
+  import: defs
+  build-depends: containers
+               , hashtables     ==1.2.*
+               , template-haskell
+               , th-abstraction >=0.3  && <0.4
+
+  hs-source-dirs: src
+
+  exposed-modules:
+    Data.Parameterized
+    Data.Parameterized.All
+    Data.Parameterized.ClassesC
+    Data.Parameterized.DataKind
+    Data.Parameterized.HashTable
+    Data.Parameterized.Map
+    Data.Parameterized.Nonce
+    Data.Parameterized.Nonce.Transformers
+    Data.Parameterized.Nonce.Unsafe
+    Data.Parameterized.Pair
+    Data.Parameterized.TH.GADT
+    Data.Parameterized.Utils.BinTree
+
+  reexported-modules:
+      Data.Parameterized.BoolRepr
+    , Data.Parameterized.Classes
+    , Data.Parameterized.Compose
+    , Data.Parameterized.Context
+    , Data.Parameterized.Ctx
+    , Data.Parameterized.Ctx.Proofs
+    , Data.Parameterized.DecidableEq
+    , Data.Parameterized.List
+    , Data.Parameterized.NatRepr
+    , Data.Parameterized.Peano
+    , Data.Parameterized.Some
+    , Data.Parameterized.SymbolRepr
+    , Data.Parameterized.TraversableF
+    , Data.Parameterized.TraversableFC
+    , Data.Parameterized.Utils.Endian
+    , Data.Parameterized.Vector
+    , Data.Parameterized.WithRepr
+
   if flag(unsafe-operations)
-    cpp-options: -DUNSAFE_OPS
+    build-depends: pu-unsafe-lib
+  else
+    build-depends: pu-safe-lib
 
 
-test-suite parameterizedTests
+test-suite parameterizedTestsSafe
   type: exitcode-stdio-1.0
   hs-source-dirs: test
 
@@ -109,6 +210,8 @@ test-suite parameterizedTests
     Test.Vector
 
   build-depends: base
+               , pu-safe-lib
+               , parameterized-utils
                , hashable
                , hashtables
                , hedgehog
@@ -120,3 +223,38 @@ test-suite parameterizedTests
                , tasty-ant-xml == 1.1.*
                , tasty-hunit >= 0.9 && < 0.11
                , tasty-hedgehog
+
+  mixins:
+      parameterized-utils (Data.Parameterized.Context as Data.Parameterized.UnusedContext)
+
+test-suite parameterizedTestsUnsafe
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+
+  ghc-options: -Wall
+  cpp-options: -DUNSAFE_OPS
+  default-language: Haskell2010
+
+  main-is: UnitTest.hs
+  other-modules:
+    Test.Context
+    Test.NatRepr
+    Test.Vector
+
+  build-depends: base
+               , pu-unsafe-lib
+               , parameterized-utils
+               , hashable
+               , hashtables
+               , hedgehog
+               , ghc-prim
+               , lens
+               , mtl
+               , parameterized-utils
+               , tasty == 1.2.*
+               , tasty-ant-xml == 1.1.*
+               , tasty-hunit >= 0.9 && < 0.11
+               , tasty-hedgehog
+
+  mixins:
+      parameterized-utils (Data.Parameterized.Context as Data.Parameterized.UnusedContext)
