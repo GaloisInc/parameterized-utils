@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 module Test.Context
   ( contextTests
   )
@@ -12,8 +13,6 @@ import           Control.Lens
 import           Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as C
 import qualified Data.Parameterized.Ctx.Proofs as P
-import qualified Data.Parameterized.Context.Safe as S
-import qualified Data.Parameterized.Context.Unsafe as U
 import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
 import           Hedgehog
@@ -51,20 +50,13 @@ genSomePayloadList :: Monad m => GenT m [Some Payload]
 genSomePayloadList = HG.list (linear 1 10) genSomePayload
 
 
-type UAsgn = U.Assignment Payload
-type SAsgn = S.Assignment Payload
+type Asgn = C.Assignment Payload
 
-mkUAsgn :: [Some Payload] -> Some UAsgn
-mkUAsgn = go U.empty
- where go :: UAsgn ctx -> [Some Payload] -> Some UAsgn
+mkAsgn :: [Some Payload] -> Some Asgn
+mkAsgn = go C.empty
+ where go :: Asgn ctx -> [Some Payload] -> Some Asgn
        go a [] = Some a
-       go a (Some x : xs) = go (U.extend a x) xs
-
-mkSAsgn :: [Some Payload] -> Some SAsgn
-mkSAsgn = go S.empty
- where go :: SAsgn ctx -> [Some Payload] -> Some SAsgn
-       go a [] = Some a
-       go a (Some x : xs) = go (S.extend a x) xs
+       go a (Some x : xs) = go (C.extend a x) xs
 
 
 twiddle :: Payload a -> Payload a
@@ -72,31 +64,25 @@ twiddle (IntPayload n) = IntPayload (n+1)
 twiddle (StringPayload str) = StringPayload (str++"asdf")
 twiddle (BoolPayload b) = BoolPayload (not b)
 
+grpName :: String
+#ifdef UNSAFE_OPS
+grpName = "Unsafe Context"
+#else
+grpName = "Safe Context"
+#endif
 
 contextTests :: IO TestTree
-contextTests = testGroup "Context" <$> return
-   [ testProperty "safe_index_eq" $ property $
+contextTests = testGroup grpName <$> return
+   [ testProperty "index_eq" $ property $
      do vals <- forAll genSomePayloadList
         i' <- forAll $ HG.int (linear 0 $ length vals - 1)
-        Some a <- return $ mkSAsgn vals
-        Just (Some idx) <- return $ S.intIndex i' (S.size a)
-        Some (a S.! idx) === vals !! i'
+        Some a <- return $ mkAsgn vals
+        Just (Some idx) <- return $ C.intIndex i' (C.size a)
+        Some (a C.! idx) === vals !! i'
 
-   , testProperty "unsafe_index_eq" $ property $
+   , testProperty "tolist" $ property $
      do vals <- forAll genSomePayloadList
-        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
-        Some a <- return $ mkUAsgn vals
-        Just (Some idx) <- return $ U.intIndex i' (U.size a)
-        Some (a U.! idx) === vals !! i'
-
-   , testProperty "safe_tolist" $ property $
-     do vals <- forAll genSomePayloadList
-        Some a <- return $ mkSAsgn vals
-        let vals' = toListFC Some a
-        vals === vals'
-   , testProperty "unsafe_tolist" $ property $
-     do vals <- forAll genSomePayloadList
-        Some a <- return $ mkUAsgn vals
+        Some a <- return $ mkAsgn vals
         let vals' = toListFC Some a
         vals === vals'
 
@@ -104,49 +90,58 @@ contextTests = testGroup "Context" <$> return
      do vals <- forAll genSomePayloadList
         i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-        Some x <- return $ mkUAsgn vals
-        Some y <- return $ mkSAsgn vals
+        Some x <- return $ mkAsgn vals
+        Some y <- return $ mkAsgn vals
+        Some z <- return $ mkAsgn vals
 
-        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+        Just (Some idx_x) <- return $ C.intIndex i' (C.size x)
+        Just (Some idx_y) <- return $ C.intIndex i' (C.size y)
 
-        x' <- U.adjustM (return . twiddle) idx_x x
-        y' <- S.adjustM (return . twiddle) idx_y y
+        x' <- C.adjustM (return . twiddle) idx_x x
+        y' <- C.adjustM (return . twiddle) idx_y y
 
+        toListFC Some x  === toListFC Some z
+        toListFC Some y  === toListFC Some z
+        toListFC Some z  === toListFC Some z
+        toListFC Some x' /== toListFC Some x
+        toListFC Some y' /== toListFC Some y
         toListFC Some x' === toListFC Some y'
 
-   , testProperty "adjust test" $ property $
+   , testProperty "adjust test lensed" $ property $
      do vals <- forAll genSomePayloadList
         i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-        Some x <- return $ mkUAsgn vals
-        Some y <- return $ mkSAsgn vals
+        Some x <- return $ mkAsgn vals
+        Some y <- return $ mkAsgn vals
+        Some z <- return $ mkAsgn vals
 
-        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+        Just (Some idx_x) <- return $ C.intIndex i' (C.size x)
+        Just (Some idx_y) <- return $ C.intIndex i' (C.size y)
 
         let x' = x & ixF idx_x %~ twiddle
             y' = y & ixF idx_y %~ twiddle
 
+        toListFC Some x  === toListFC Some z
+        toListFC Some y  === toListFC Some z
+        toListFC Some z  === toListFC Some z
+        toListFC Some x' /== toListFC Some x
+        toListFC Some y' /== toListFC Some y
         toListFC Some x' === toListFC Some y'
-        -- adjust actually modified the entry
-        toListFC Some x /== toListFC Some x'
-        toListFC Some y /== toListFC Some y'
 
    , testProperty "update test" $ property $
      do vals <- forAll genSomePayloadList
         i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-        Some x <- return $ mkUAsgn vals
-        Some y <- return $ mkSAsgn vals
+        Some x <- return $ mkAsgn vals
+        Some y <- return $ mkAsgn vals
 
-        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+        Just (Some idx_x) <- return $ C.intIndex i' (C.size x)
+        Just (Some idx_y) <- return $ C.intIndex i' (C.size y)
 
         let x' = over (ixF idx_x) twiddle x
             y' = (ixF idx_y) %~ twiddle $ y
-            updX = x & ixF idx_x .~ x' U.! idx_x
-            updY = y & ixF idx_y .~ y' S.! idx_y
+            updX = x & ixF idx_x .~ x' C.! idx_x
+            updY = y & ixF idx_y .~ y' C.! idx_y
 
         toListFC Some updX === toListFC Some updY
         -- update actually modified the entry
@@ -156,19 +151,11 @@ contextTests = testGroup "Context" <$> return
         toListFC Some x' === toListFC Some updX
         toListFC Some y' === toListFC Some updY
 
-   , testProperty "safe_eq" $ property $
+   , testProperty "testEquality" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkSAsgn vals1
-        Some y <- return $ mkSAsgn vals2
-        case testEquality x y of
-          Just Refl -> vals1 === vals2
-          Nothing   -> vals1 /== vals2
-   , testProperty "unsafe_eq" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkUAsgn vals1
-        Some y <- return $ mkUAsgn vals2
+        Some x <- return $ mkAsgn vals1
+        Some y <- return $ mkAsgn vals2
         case testEquality x y of
           Just Refl -> vals1 === vals2
           Nothing   -> vals1 /== vals2
@@ -177,82 +164,98 @@ contextTests = testGroup "Context" <$> return
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
         vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
+        Some w <- return $ mkAsgn vals1
+        Some x <- return $ mkAsgn vals2
+        Some y <- return $ mkAsgn vals3
+        let z = w C.<++> x C.<++> y
         case P.leftId z of
-          Refl -> let r = C.take U.zeroSize (U.size z) z in
-                    assert $ isJust $ testEquality U.empty r
+          Refl -> let r = C.take C.zeroSize (C.size z) z in
+                    assert $ isJust $ testEquality C.empty r
    , testProperty "drop none" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
         vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
+        Some w <- return $ mkAsgn vals1
+        Some x <- return $ mkAsgn vals2
+        Some y <- return $ mkAsgn vals3
+        let z = w C.<++> x C.<++> y
         case P.leftId z of
-          Refl -> let r = C.drop U.zeroSize (U.size z) z in
+          Refl -> let r = C.drop C.zeroSize (C.size z) z in
                     assert $ isJust $ testEquality z r
    , testProperty "take all" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
         vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
-        let r = C.take (U.size z) U.zeroSize z
+        Some w <- return $ mkAsgn vals1
+        Some x <- return $ mkAsgn vals2
+        Some y <- return $ mkAsgn vals3
+        let z = w C.<++> x C.<++> y
+        let r = C.take (C.size z) C.zeroSize z
         assert $ isJust $ testEquality z r
    , testProperty "drop all" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
         vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
-        let r = C.drop (U.size z) U.zeroSize z
-        assert $ isJust $ testEquality U.empty r
+        Some w <- return $ mkAsgn vals1
+        Some x <- return $ mkAsgn vals2
+        Some y <- return $ mkAsgn vals3
+        let z = w C.<++> x C.<++> y
+        let r = C.drop (C.size z) C.zeroSize z
+        assert $ isJust $ testEquality C.empty r
    , testProperty "append_take" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkUAsgn vals1
-        Some y <- return $ mkUAsgn vals2
-        let z = x U.<++> y
-        let x' = C.take (U.size x) (U.size y) z
+        Some x <- return $ mkAsgn vals1
+        Some y <- return $ mkAsgn vals2
+        let z = x C.<++> y
+        let x' = C.take (C.size x) (C.size y) z
         assert $ isJust $ testEquality x x'
    , testProperty "append_take_drop" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkUAsgn vals1
-        Some y <- return $ mkUAsgn vals2
-        let z = x U.<++> y
-        let x' = C.take (U.size x) (U.size y) z
-        let y' = C.drop (U.size x) (U.size y) z
+        Some x <- return $ mkAsgn vals1
+        Some y <- return $ mkAsgn vals2
+        let z = x C.<++> y
+        let x' = C.take (C.size x) (C.size y) z
+        let y' = C.drop (C.size x) (C.size y) z
         assert $ isJust $ testEquality x x'
         assert $ isJust $ testEquality y y'
+
+   , testProperty "append_take_drop 2" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        Some x <- return $ mkAsgn vals1
+        Some y <- return $ mkAsgn vals2
+        let z = x C.<++> y
+        let x' = C.take (C.size x) (C.size y) z
+        let y' = C.drop (C.size x) (C.size y) z
+        let withYTail = C.dropPrefix z x (error "failed dropPrefix")
+        -- let yt = C.dropPrefix z x (error "failed dropPrefix") (\t -> t)
+        assert $ isJust $ testEquality x x'
+        assert $ isJust $ testEquality y y'
+        withYTail $ \t -> assert $ isJust $ testEquality y t
+        -- assert $ isJust $ testEquality y yt
+
    , testProperty "append_take_drop_multiple" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
         vals3 <- forAll genSomePayloadList
         vals4 <- forAll genSomePayloadList
         vals5 <- forAll genSomePayloadList
-        Some u <- return $ mkUAsgn vals1
-        Some v <- return $ mkUAsgn vals2
-        Some w <- return $ mkUAsgn vals3
-        Some x <- return $ mkUAsgn vals4
-        Some y <- return $ mkUAsgn vals5
-        let uv = u U.<++> v
-        let wxy = w U.<++> x U.<++> y
+        Some u <- return $ mkAsgn vals1
+        Some v <- return $ mkAsgn vals2
+        Some w <- return $ mkAsgn vals3
+        Some x <- return $ mkAsgn vals4
+        Some y <- return $ mkAsgn vals5
+        let uv = u C.<++> v
+        let wxy = w C.<++> x C.<++> y
         -- let z = u C.<++> v C.<++> w C.<++> x C.<++> y
-        let z = uv U.<++> wxy
-        let uv' = C.take (U.size uv) (U.size wxy) z
-        let wxy' = C.drop (U.size uv) (U.size wxy) z
+        let z = uv C.<++> wxy
+        let uv' = C.take (C.size uv) (C.size wxy) z
+        let wxy' = C.drop (C.size uv) (C.size wxy) z
         let withWXY = C.dropPrefix z uv (error "failed dropPrefix")
-        assert $ isJust $ testEquality (u U.<++> v) uv'
-        assert $ isJust $ testEquality (w U.<++> x U.<++> y) wxy'
+        assert $ isJust $ testEquality (u C.<++> v) uv'
+        assert $ isJust $ testEquality (w C.<++> x C.<++> y) wxy'
         assert $ isJust $ testEquality uv uv'
         assert $ isJust $ testEquality wxy wxy'
         withWXY $ \t -> assert $ isJust $ testEquality wxy' t
