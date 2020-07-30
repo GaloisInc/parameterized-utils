@@ -116,7 +116,7 @@ test-suite parameterizedTests
                , lens
                , mtl
                , parameterized-utils
-               , tasty == 1.2.*
+               , tasty >= 1.2 && < 1.4
                , tasty-ant-xml == 1.1.*
                , tasty-hunit >= 0.9 && < 0.11
                , tasty-hedgehog
