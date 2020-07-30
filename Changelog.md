@@ -1,5 +1,11 @@
 # Changelog for the `parameterized-utils` package
 
+## 2.1.1 -- *2020 Jul 30*
+
+  * Added `drop` and `appendEmbeddingLeft` functions to the `Context` module.
+  * Fixes/updates to haddock documentation (fixing Issue #74).
+  * Allow tasty v1.3 for testing (thanks to felixonmars)
+
 ## 2.1.0 -- *2020 May 08*
 
   * Added `plusAssoc` to the `NatRepr` module to produce `+` associativity evidence.
