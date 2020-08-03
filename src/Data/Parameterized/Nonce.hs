@@ -24,9 +24,7 @@ if their values are equal.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE Trustworthy #-}
-#if MIN_VERSION_base(4,9,0)
 {-# LANGUAGE TypeInType #-}
-#endif
 module Data.Parameterized.Nonce
   ( -- * NonceGenerator
     NonceGenerator
@@ -58,7 +56,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
 
-#if MIN_VERSION_base(4,9,0) && __GLASGOW_HASKELL__ < 805
+#if __GLASGOW_HASKELL__ < 805
 import Data.Kind
 #endif
 
@@ -70,12 +68,7 @@ data NonceGenerator (m :: * -> *) (s :: *) where
   STNG :: !(STRef t Word64) -> NonceGenerator (ST t) s
   IONG :: !(IORef Word64) -> NonceGenerator IO s
 
-#if MIN_VERSION_base(4,9,0)
--- We have to make the k explicit in GHC 8.0 to avoid a warning.
 freshNonce :: forall m s k (tp :: k) . NonceGenerator m s -> m (Nonce s tp)
-#else
-freshNonce :: forall m s (tp :: k) . NonceGenerator m s -> m (Nonce s tp)
-#endif
 freshNonce (IONG r) =
   atomicModifyIORef' r $ \n -> (n+1, Nonce n)
 freshNonce (STNG r) = do

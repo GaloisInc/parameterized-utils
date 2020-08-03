@@ -115,11 +115,6 @@ import Data.Type.Equality
 import Prelude hiding (init, map, null, replicate, succ, zipWith)
 import Data.Kind(Type)
 
-#if !MIN_VERSION_base(4,8,0)
-import Data.Functor
-import Control.Applicative (Applicative(..))
-#endif
-
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
 import Data.Parameterized.Some
@@ -492,12 +487,6 @@ adjustM f = go (\x -> x)
   go :: (forall tp'. g tp' -> f tp') -> Index ctx' tp -> Assignment g ctx' -> m (Assignment f ctx')
   go g (IndexHere _)     (AssignmentExtend asgn x) = AssignmentExtend (map g asgn) <$> f (g x)
   go g (IndexThere idx)  (AssignmentExtend asgn x) = flip AssignmentExtend (g x)   <$> go g idx asgn
-#if !MIN_VERSION_base(4,9,0)
--- GHC 7.10.3 and early does not recognize that the above definition is complete,
--- and so need the equation below.  GHC 8.0.1 does not require the additional
--- equation.
-  go _ _ _ = error "SafeTypeContext.adjustM: impossible!"
-#endif
 
 type instance IndexF   (Assignment (f :: k -> Type) ctx) = Index ctx
 type instance IxValueF (Assignment (f :: k -> Type) ctx) = f

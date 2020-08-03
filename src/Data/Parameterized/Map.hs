@@ -85,6 +85,7 @@ import           Control.Monad.Identity
 import           Data.Kind (Type)
 import           Data.List (intercalate, foldl')
 import           Data.Monoid
+import           Prelude hiding (filter, lookup, map, traverse, null)
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
@@ -103,12 +104,6 @@ import           Data.Parameterized.Utils.BinTree
   , glue
   )
 import qualified Data.Parameterized.Utils.BinTree as Bin
-
-#if MIN_VERSION_base(4,8,0)
-import           Prelude hiding (filter, lookup, map, traverse, null)
-#else
-import           Prelude hiding (filter, lookup, map, null)
-#endif
 
 ------------------------------------------------------------------------
 -- * Pair

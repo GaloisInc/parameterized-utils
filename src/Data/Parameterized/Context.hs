@@ -205,10 +205,7 @@ pattern (:>) :: () => ctx' ~ (ctx ::> tp) => Assignment f ctx -> f tp -> Assignm
 pattern (:>) a v <- (viewAssign -> AssignExtend a v)
   where a :> v = extend a v
 
--- The COMPLETE pragma was not defined until ghc 8.2.*
-#if MIN_VERSION_base(4,10,0)
 {-# COMPLETE (:>), Empty :: Assignment  #-}
-#endif
 
 --------------------------------------------------------------------------------
 -- Views
