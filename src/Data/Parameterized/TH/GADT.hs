@@ -36,7 +36,6 @@ module Data.Parameterized.TH.GADT
   ) where
 
 import Control.Monad
-import Data.Hashable (hashWithSalt)
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set

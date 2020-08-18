@@ -1,5 +1,35 @@
 # Changelog for the `parameterized-utils` package
 
+## 2.1.1 -- *2020 Jul 30*
+
+  * Added `drop` and `appendEmbeddingLeft` functions to the `Context` module.
+  * Fixes/updates to haddock documentation (fixing Issue #74).
+  * Allow tasty v1.3 for testing (thanks to felixonmars)
+
+## 2.1.0 -- *2020 May 08*
+
+  * Added `plusAssoc` to the `NatRepr` module to produce `+` associativity evidence.
+  * Changed the `HashTable` module to use the Basic instead of the Cuckoo
+    implementation strategy.
+  * Added explicit kind parameters to various definitions to support
+    GHC 8.10's adoption of [proposal 103](https://github.com/ghc-proposals/ghc-proposals/blob/master/proposals/0103-no-kind-vars.rst).
+    This is a modification to the type signatures which _may impact_
+    backward-compatibility and require updates, especially for any
+    uses of
+    [`TypeApplications`](https://gitlab.haskell.org/ghc/ghc/-/wikis/type-application).
+  * No longer verifying support for GHC 8.2 or earlier.
+  * Updated the minimum cabal version to 1.10 and specify the
+    default-language as Haskell2010.
+
+## 2.0.2 -- *2020 Feb 10*
+
+  * Add the `dropPrefix` operation to `Context` which splits an `Assignment`.
+  * Add `intersectWithKeyMaybe` and `mergeWithKey` to `Map`.
+  * Add `mapAt`, `mapAtM`, and `replace` to `Vector`.
+  * Add dependency on `base-orphans` to handle the `TestEquality`
+    instance for `Compose`; needed for GHC 8.10.
+  * Bump upper limit of `lens` dependency to allow 4.19.
+
 ## 2.0.1 -- *2019 Nov 06*
 
   * Documentation updates

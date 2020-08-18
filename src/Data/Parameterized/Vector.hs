@@ -38,6 +38,9 @@ module Data.Parameterized.Vector
   , uncons
   , slice
   , Data.Parameterized.Vector.take
+  , replace
+  , mapAt
+  , mapAtM
 
     -- * Zipping
   , zipWith
@@ -196,6 +199,35 @@ take :: forall n x a. (1 <= n) => NatRepr n -> Vector (n + x) a -> Vector n a
 take | LeqProof <- prf = slice (knownNat @0)
   where
   prf = leqAdd (leqRefl (Proxy @n)) (Proxy @x)
+
+-- | Scope a monadic function to a sub-section of the given vector.
+mapAtM :: Monad m => (i + w <= n, 1 <= w) =>
+            NatRepr i {- ^ Start index -} ->
+            NatRepr w {- ^ Section width -} ->
+            (Vector w a -> m (Vector w a)) {-^ map for the sub-vector -} ->
+            Vector n a -> m (Vector n a)
+mapAtM i w f (Vector vn) =
+  let
+    (vhead, vtail) = Vector.splitAt (widthVal i) vn
+    (vsect, vend) = Vector.splitAt (widthVal w) vtail
+  in do
+    Vector vsect' <- f (Vector vsect)
+    return $ Vector $ vhead Vector.++ vsect' Vector.++ vend
+
+-- | Scope a function to a sub-section of the given vector.
+mapAt :: (i + w <= n, 1 <= w) =>
+            NatRepr i {- ^ Start index -} ->
+            NatRepr w {- ^ Section width -} ->
+            (Vector w a -> Vector w a) {-^ map for the sub-vector -} ->
+            Vector n a -> Vector n a 
+mapAt i w f vn = runIdentity $ mapAtM i w (pure . f) vn
+
+-- | Replace a sub-section of a vector with the given sub-vector.
+replace :: (i + w <= n, 1 <= w) =>
+              NatRepr i {- ^ Start index -} ->
+              Vector w a {- ^ sub-vector -} ->
+              Vector n a -> Vector n a
+replace i vw vn = mapAt i (length vw) (const vw) vn
 
 --------------------------------------------------------------------------------
 

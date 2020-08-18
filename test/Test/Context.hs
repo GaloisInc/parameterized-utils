@@ -11,6 +11,7 @@ where
 import           Control.Lens
 import           Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as C
+import qualified Data.Parameterized.Ctx.Proofs as P
 import qualified Data.Parameterized.Context.Safe as S
 import qualified Data.Parameterized.Context.Unsafe as U
 import           Data.Parameterized.Some
@@ -172,6 +173,48 @@ contextTests = testGroup "Context" <$> return
           Just Refl -> vals1 === vals2
           Nothing   -> vals1 /== vals2
 
+   , testProperty "take none" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        vals3 <- forAll genSomePayloadList
+        Some w <- return $ mkUAsgn vals1
+        Some x <- return $ mkUAsgn vals2
+        Some y <- return $ mkUAsgn vals3
+        let z = w U.<++> x U.<++> y
+        case P.leftId z of
+          Refl -> let r = C.take U.zeroSize (U.size z) z in
+                    assert $ isJust $ testEquality U.empty r
+   , testProperty "drop none" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        vals3 <- forAll genSomePayloadList
+        Some w <- return $ mkUAsgn vals1
+        Some x <- return $ mkUAsgn vals2
+        Some y <- return $ mkUAsgn vals3
+        let z = w U.<++> x U.<++> y
+        case P.leftId z of
+          Refl -> let r = C.drop U.zeroSize (U.size z) z in
+                    assert $ isJust $ testEquality z r
+   , testProperty "take all" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        vals3 <- forAll genSomePayloadList
+        Some w <- return $ mkUAsgn vals1
+        Some x <- return $ mkUAsgn vals2
+        Some y <- return $ mkUAsgn vals3
+        let z = w U.<++> x U.<++> y
+        let r = C.take (U.size z) U.zeroSize z
+        assert $ isJust $ testEquality z r
+   , testProperty "drop all" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        vals3 <- forAll genSomePayloadList
+        Some w <- return $ mkUAsgn vals1
+        Some x <- return $ mkUAsgn vals2
+        Some y <- return $ mkUAsgn vals3
+        let z = w U.<++> x U.<++> y
+        let r = C.drop (U.size z) U.zeroSize z
+        assert $ isJust $ testEquality U.empty r
    , testProperty "append_take" $ property $
      do vals1 <- forAll genSomePayloadList
         vals2 <- forAll genSomePayloadList
@@ -180,5 +223,37 @@ contextTests = testGroup "Context" <$> return
         let z = x U.<++> y
         let x' = C.take (U.size x) (U.size y) z
         assert $ isJust $ testEquality x x'
-
+   , testProperty "append_take_drop" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        Some x <- return $ mkUAsgn vals1
+        Some y <- return $ mkUAsgn vals2
+        let z = x U.<++> y
+        let x' = C.take (U.size x) (U.size y) z
+        let y' = C.drop (U.size x) (U.size y) z
+        assert $ isJust $ testEquality x x'
+        assert $ isJust $ testEquality y y'
+   , testProperty "append_take_drop_multiple" $ property $
+     do vals1 <- forAll genSomePayloadList
+        vals2 <- forAll genSomePayloadList
+        vals3 <- forAll genSomePayloadList
+        vals4 <- forAll genSomePayloadList
+        vals5 <- forAll genSomePayloadList
+        Some u <- return $ mkUAsgn vals1
+        Some v <- return $ mkUAsgn vals2
+        Some w <- return $ mkUAsgn vals3
+        Some x <- return $ mkUAsgn vals4
+        Some y <- return $ mkUAsgn vals5
+        let uv = u U.<++> v
+        let wxy = w U.<++> x U.<++> y
+        -- let z = u C.<++> v C.<++> w C.<++> x C.<++> y
+        let z = uv U.<++> wxy
+        let uv' = C.take (U.size uv) (U.size wxy) z
+        let wxy' = C.drop (U.size uv) (U.size wxy) z
+        let withWXY = C.dropPrefix z uv (error "failed dropPrefix")
+        assert $ isJust $ testEquality (u U.<++> v) uv'
+        assert $ isJust $ testEquality (w U.<++> x U.<++> y) wxy'
+        assert $ isJust $ testEquality uv uv'
+        assert $ isJust $ testEquality wxy wxy'
+        withWXY $ \t -> assert $ isJust $ testEquality wxy' t
    ]

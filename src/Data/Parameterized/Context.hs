@@ -56,12 +56,14 @@ module Data.Parameterized.Context
   , Data.Parameterized.Context.last
   , Data.Parameterized.Context.view
   , Data.Parameterized.Context.take
+  , Data.Parameterized.Context.drop
   , forIndexM
   , generateSome
   , generateSomeM
   , fromList
   , traverseAndCollect
   , traverseWithIndex_
+  , dropPrefix
 
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
@@ -74,6 +76,7 @@ module Data.Parameterized.Context
   , extendEmbeddingRight
   , extendEmbeddingBoth
   , appendEmbedding
+  , appendEmbeddingLeft
   , ctxeSize
   , ctxeAssignment
 
@@ -100,7 +103,6 @@ import           Data.Functor (void)
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
-import           Data.Monoid ((<>))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
@@ -155,6 +157,39 @@ toVector a f = V.create $ do
   return vm
 {-# INLINABLE toVector #-}
 
+
+-- | Utility function for testing if @xs@ is an assignment with
+--   `prefix` as a prefix, and computing the tail of xs
+--   not in the prefix, if so.
+dropPrefix :: forall f xs prefix a.
+  TestEquality f =>
+  Assignment f xs     {- ^ Assignment to split -} ->
+  Assignment f prefix {- ^ Expected prefix -} ->
+  a {- ^ error continuation -} ->
+  (forall addl. (xs ~ (prefix <+> addl)) => Assignment f addl -> a)
+    {- ^ success continuation -} ->
+  a
+dropPrefix xs0 prefix err = go xs0 (sizeInt (size xs0))
+  where
+  sz_prefix = sizeInt (size prefix)
+
+  go :: forall ys.
+   Assignment f ys ->
+   Int ->
+   (forall addl. (ys ~ (prefix <+> addl)) => Assignment f addl -> a) ->
+   a
+
+  go (xs' :> z) sz_x success | sz_x > sz_prefix =
+    go xs' (sz_x-1) (\zs -> success (zs :> z))
+
+  go xs _ success =
+    case testEquality xs prefix of
+      Just Refl -> success Empty
+      Nothing   -> err
+
+
+
+
 --------------------------------------------------------------------------------
 -- Patterns
 
@@ -205,10 +240,15 @@ last x =
 view :: forall f ctx . Assignment f ctx -> AssignView f ctx
 view = viewAssign
 
+-- | Return the prefix of an appended 'Assignment'
 take :: forall f ctx ctx'. Size ctx -> Size ctx' -> Assignment f (ctx <+> ctx') -> Assignment f ctx
 take sz sz' asgn =
   let diff = appendDiff sz' in
   generate sz (\i -> asgn ! extendIndex' diff i)
+
+-- | Return the suffix of an appended 'Assignment'
+drop :: forall f ctx ctx'. Size ctx -> Size ctx' -> Assignment f (ctx <+> ctx') -> Assignment f ctx'
+drop sz sz' asgn = generate sz' (\i -> asgn ! extendIndexAppendLeft sz sz' i)
 
 --------------------------------------------------------------------------------
 -- Context embedding.
@@ -277,10 +317,15 @@ extendEmbeddingRightDiff diff (CtxEmbedding sz' assgn) = CtxEmbedding (extSize s
 extendEmbeddingRight :: CtxEmbedding ctx ctx' -> CtxEmbedding ctx (ctx' ::> tp)
 extendEmbeddingRight = extendEmbeddingRightDiff knownDiff
 
+-- | Prove that the prefix of an appended context is embeddable in it
 appendEmbedding :: Size ctx -> Size ctx' -> CtxEmbedding ctx (ctx <+> ctx')
 appendEmbedding sz sz' = CtxEmbedding (addSize sz sz') (generate sz (extendIndex' diff))
   where
   diff = appendDiff sz'
+
+-- | Prove that the suffix of an appended context is embeddable in it
+appendEmbeddingLeft :: Size ctx -> Size ctx' -> CtxEmbedding ctx' (ctx <+> ctx')
+appendEmbeddingLeft sz sz' = CtxEmbedding (addSize sz sz') (generate sz' (extendIndexAppendLeft sz sz'))
 
 extendEmbeddingBoth :: forall ctx ctx' tp. CtxEmbedding ctx ctx' -> CtxEmbedding (ctx ::> tp) (ctx' ::> tp)
 extendEmbeddingBoth ctxe = updated & ctxeAssignment %~ flip extend (nextIndex (ctxe ^. ctxeSize))

@@ -80,6 +80,7 @@ module Data.Parameterized.Context.Safe
   , extendIndex'
   , extendIndexLeft
   , caseIndexAppend
+  , extendIndexAppendLeft
   , forIndex
   , forIndexRange
   , intIndex
@@ -317,6 +318,8 @@ extendIndex :: KnownDiff l r => Index l tp -> Index r tp
 extendIndex = extendIndex' knownDiff
 
 {-# INLINE extendIndex' #-}
+-- | Compute an 'Index' into a context @r@ from an 'Index' into
+-- a sub-context @l@ of @r@.
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' DiffHere idx = idx
 extendIndex' (DiffThere diff) idx = IndexThere (extendIndex' diff idx)
@@ -334,6 +337,15 @@ caseIndexAppend sz1 (SizeSucc sz2') (IndexThere i') =
   case caseIndexAppend sz1 sz2' i' of
     Left i -> Left i
     Right i -> Right $ IndexThere i
+
+{-# INLINE extendIndexAppendLeft #-}
+-- | Compute an 'Index' into an appended context from an 'Index' into
+-- its suffix.
+extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
+extendIndexAppendLeft sz sz' idx = case viewIndex sz' idx of
+  IndexViewLast _ -> lastIndex (addSize sz sz')
+  IndexViewInit idx' -> skipIndex (extendIndexAppendLeft sz (decSize sz') idx')
+
 
 -- | Given a size @n@, an initial value @v0@, and a function @f@, the
 -- expression @forIndex n v0 f@ calls @f@ on each index less than @n@
@@ -514,11 +526,11 @@ adjustM f = go (\x -> x)
 type instance IndexF   (Assignment (f :: k -> Type) ctx) = Index ctx
 type instance IxValueF (Assignment (f :: k -> Type) ctx) = f
 
-instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
   ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF idx f = adjustM f idx
 
-instance forall (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
@@ -613,7 +625,7 @@ instance TraversableFC Assignment where
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
 map = fmapFC
 
-traverseF :: forall (f:: k -> Type) (g::k -> Type) (m:: Type -> Type) (c::Ctx k)
+traverseF :: forall k (f:: k -> Type) (g::k -> Type) (m:: Type -> Type) (c::Ctx k)
            . Applicative m
           => (forall tp . f tp -> m (g tp))
           -> Assignment f c

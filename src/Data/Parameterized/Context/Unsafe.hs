@@ -52,6 +52,7 @@ module Data.Parameterized.Context.Unsafe
   , extendIndex'
   , extendIndexLeft
   , caseIndexAppend
+  , extendIndexAppendLeft
   , forIndex
   , forIndexRange
   , intIndex
@@ -275,6 +276,8 @@ extendIndex :: KnownDiff l r => Index l tp -> Index r tp
 extendIndex = extendIndex' knownDiff
 
 {-# INLINE extendIndex' #-}
+-- | Compute an 'Index' into a context @r@ from an 'Index' into
+-- a sub-context @l@ of @r@.
 extendIndex' :: Diff l r -> Index l tp -> Index r tp
 extendIndex' _ = unsafeCoerce
 
@@ -290,6 +293,12 @@ caseIndexAppend (Size len1) _ (Index ix) =
     Left (Index ix)
   else
     Right (Index (ix - len1))
+
+{-# INLINE extendIndexAppendLeft #-}
+-- | Compute an 'Index' into an appended context from an 'Index' into
+-- its suffix.
+extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
+extendIndexAppendLeft (Size l) _ (Index idx) = Index (idx + l)
 
 -- | Given a size @n@, an initial value @v0@, and a function @f@, the
 -- expression @forIndex n v0 f@ is equivalent to @v0@ when @n@ is
@@ -873,11 +882,11 @@ adjustM f (Index i) (Assignment a) = Assignment <$> (unsafe_bin_adjust f a i 0)
 type instance IndexF       (Assignment f ctx) = Index ctx
 type instance IxValueF     (Assignment f ctx) = f
 
-instance forall (f :: k -> Type) ctx. IxedF' k (Assignment (f :: k -> Type) ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment (f :: k -> Type) ctx) where
   ixF' :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
   ixF' idx f = adjustM f idx
 
-instance forall (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
+instance forall k (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
   ixF = ixF'
 
 -- This is an unsafe version of update that changes the type of the expression.

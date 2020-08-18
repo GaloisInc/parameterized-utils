@@ -113,17 +113,17 @@ runSTNonceGenerator :: (forall s . NonceGenerator (ST s) s -> ST s a)
                     -> a
 runSTNonceGenerator f = runST $ f . STNG =<< newSTRef 0
 
--- | Create a new nonce generator in the 'ST' monad.
+-- | Create a new nonce generator in the 'IO' monad.
 newIONonceGenerator :: IO (Some (NonceGenerator IO))
 newIONonceGenerator = Some . IONG <$> newIORef (toEnum 0)
 
--- | Run a 'ST' computation with a new nonce generator in the 'ST' monad.
+-- | Run an 'ST' computation with a new nonce generator in the 'ST' monad.
 withSTNonceGenerator :: (forall s . NonceGenerator (ST t) s -> ST t r) -> ST t r
 withSTNonceGenerator f = do
   Some r <- newSTNonceGenerator
   f r
 
--- | Create a new nonce generator in the 'IO' monad.
+-- | Run an 'IO' computation with a new nonce generator in the 'IO' monad.
 withIONonceGenerator :: (forall s . NonceGenerator IO s -> IO r) -> IO r
 withIONonceGenerator f = do
   Some r <- newIONonceGenerator
