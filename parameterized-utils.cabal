@@ -37,7 +37,7 @@ source-repository head
 library
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.9
-               , th-abstraction >=0.3  && <0.4
+               , th-abstraction >=0.3  && <0.5
                , constraints    >=0.10 && <0.13
                , containers
                , deepseq
