@@ -158,14 +158,40 @@ joinOrderingF GTF _ = GTF
 ------------------------------------------------------------------------
 -- OrdF
 
--- | A parameterized type that can be compared on distinct instances.
+-- | The `OrdF` class is a total ordering over parameterized types so
+-- that types with different parameters can be compared.
+--
+-- Instances of `OrdF` are expected to satisfy the following laws:
+--
+-- [__Transitivity__]: if @leqF x y && leqF y z@ = 'True', then @leqF x = z@ = @True@
+-- [__Reflexivity__]: @leqF x x@ = @True@
+-- [__Antisymmetry__]: if @leqF x y && leqF y x@ = 'True', then @testEquality x y@ = @Just Refl@
+--
+-- Note that the following operator interactions are expected to hold:
+--
+-- * @geqF x y@ iff @leqF y x@
+-- * @ltF  x y@ iff @leqF x y && testEquality x y = Nothing@
+-- * @gtF  x y@ iff @ltF y x@
+-- * @ltF  x y@ iff @compareF x y == LTF@
+-- * @gtF  x y@ iff @compareF x y == GTF@
+-- * @isJust (testEquality x y)@ iff @compareF x y == EQF@
+--
+-- Furthermore, when @x@ and @y@ both have type @(k tp)@, we expect:
+--
+-- * @compareF x y == EQF@ equals @compare x y@ when @Ord (k tp)@ has an instance.
+-- * @isJust (testEquality x y)@ equals @x == y@ when @Eq (k tp)@ has an instance.
+--
+-- Minimal complete definition: either 'compareF' or 'leqF'.
+-- Using 'compareF' can be more efficient for complex types.
 class TestEquality ktp => OrdF (ktp :: k -> *) where
-  {-# MINIMAL compareF #-}
+  {-# MINIMAL compareF | leqF #-}
 
-  -- | compareF compares two keys with different type parameters.
-  -- Instances must ensure that keys are only equal if the type
-  -- parameters are equal.
   compareF :: ktp x -> ktp y -> OrderingF x y
+  compareF x y =
+    case testEquality x y of
+      Just Refl -> EQF
+      Nothing | leqF x y -> LTF
+              | otherwise -> GTF
 
   leqF :: ktp x -> ktp y -> Bool
   leqF x y =
