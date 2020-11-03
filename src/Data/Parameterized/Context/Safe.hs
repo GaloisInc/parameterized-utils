@@ -27,6 +27,7 @@
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -502,7 +503,7 @@ instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
 idxlookup :: (forall tp. a tp -> b tp) -> Assignment a ctx -> forall tp. Index ctx tp -> b tp
 idxlookup f (AssignmentExtend _   x) (IndexHere _) = f x
 idxlookup f (AssignmentExtend ctx _) (IndexThere idx) = idxlookup f ctx idx
-idxlookup _ AssignmentEmpty _ = error "Data.Parameterized.Context.Safe.lookup: impossible case"
+idxlookup _ AssignmentEmpty idx = case idx of {}
 
 -- | Return value of assignment.
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
