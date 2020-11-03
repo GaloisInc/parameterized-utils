@@ -33,9 +33,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeApplications #-}
-#if MIN_VERSION_base(4,9,0)
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
-#endif
 #if __GLASGOW_HASKELL__ >= 805
 {-# LANGUAGE NoStarIsType #-}
 #endif

@@ -394,17 +394,10 @@ instance TestEqualityFC (BalancedTree h) where
     Refl <- testEqualityFC test x1 y1
     Refl <- testEqualityFC test x2 y2
     return Refl
-#if !MIN_VERSION_base(4,9,0)
-  testEqualityFC _ _ _ = Nothing
-#endif
 
 instance OrdFC (BalancedTree h) where
   compareFC test (BalLeaf x) (BalLeaf y) =
     joinOrderingF (test x y) $ EQF
-#if !MIN_VERSION_base(4,9,0)
-  compareFC _ BalLeaf{} _ = LTF
-  compareFC _ _ BalLeaf{} = GTF
-#endif
   compareFC test (BalPair x1 x2) (BalPair y1 y2) =
     joinOrderingF (compareFC test x1 y1) $
     joinOrderingF (compareFC test x2 y2) $
@@ -518,9 +511,6 @@ bal_zipWithM f (BalLeaf x) (BalLeaf y) = BalLeaf <$> f x y
 bal_zipWithM f (BalPair x1 x2) (BalPair y1 y2) =
   BalPair <$> bal_zipWithM f x1 (unsafeCoerce y1)
           <*> bal_zipWithM f x2 (unsafeCoerce y2)
-#if !MIN_VERSION_base(4,9,0)
-bal_zipWithM _ _ _ = error "illegal args to bal_zipWithM"
-#endif
 {-# INLINABLE bal_zipWithM #-}
 
 ------------------------------------------------------------------------
