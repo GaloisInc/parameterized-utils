@@ -103,3 +103,19 @@ instance Show (SymbolRepr nm) where
   show (SymbolRepr nm) = Text.unpack nm
 
 instance ShowF SymbolRepr
+
+
+-- | The SomeSym hides a Symbol parameter but preserves a
+-- KnownSymbol constraint on the hidden parameter.
+
+data SomeSym (c :: GHC.Symbol -> Type) =
+  forall (s :: GHC.Symbol) . GHC.KnownSymbol s => SomeS (c s)
+
+
+-- | Projects a value out of a SomeSym into a function, re-ifying the
+-- Symbol type parameter to the called function, along with the
+-- KnownSymbol constraint on that Symbol value.
+
+viewSomeSym :: (forall (s :: GHC.Symbol) . GHC.KnownSymbol s => c s -> r) ->
+               SomeSym c -> r
+viewSomeSym f (SomeS x) = f x
