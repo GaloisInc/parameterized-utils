@@ -29,7 +29,7 @@ module Data.Parameterized.SymbolRepr
   , symbolRepr
   , knownSymbol
   , someSymbol
-  , SomeSym(SomeS)
+  , SomeSym(SomeSym)
   , viewSomeSym
     -- * Re-exports
   , type GHC.Symbol
@@ -112,7 +112,7 @@ instance ShowF SymbolRepr
 -- KnownSymbol constraint on the hidden parameter.
 
 data SomeSym (c :: GHC.Symbol -> Type) =
-  forall (s :: GHC.Symbol) . GHC.KnownSymbol s => SomeS (c s)
+  forall (s :: GHC.Symbol) . GHC.KnownSymbol s => SomeSym (c s)
 
 
 -- | Projects a value out of a SomeSym into a function, re-ifying the
@@ -121,4 +121,4 @@ data SomeSym (c :: GHC.Symbol -> Type) =
 
 viewSomeSym :: (forall (s :: GHC.Symbol) . GHC.KnownSymbol s => c s -> r) ->
                SomeSym c -> r
-viewSomeSym f (SomeS x) = f x
+viewSomeSym f (SomeSym x) = f x
