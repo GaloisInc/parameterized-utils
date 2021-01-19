@@ -29,6 +29,8 @@ module Data.Parameterized.SymbolRepr
   , symbolRepr
   , knownSymbol
   , someSymbol
+  , SomeSym(SomeS)
+  , viewSomeSym
     -- * Re-exports
   , type GHC.Symbol
   , GHC.KnownSymbol
