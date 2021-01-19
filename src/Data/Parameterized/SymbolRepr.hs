@@ -34,15 +34,16 @@ module Data.Parameterized.SymbolRepr
   , GHC.KnownSymbol
   ) where
 
-import GHC.TypeLits as GHC
-import Unsafe.Coerce (unsafeCoerce)
+import           GHC.TypeLits as GHC
+import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Hashable
-import Data.Proxy
+import           Data.Hashable
+import           Data.Kind ( Type )
+import           Data.Proxy
 import qualified Data.Text as Text
 
-import Data.Parameterized.Classes
-import Data.Parameterized.Some
+import           Data.Parameterized.Classes
+import           Data.Parameterized.Some
 
 -- | A runtime representation of a GHC type-level symbol.
 newtype SymbolRepr (nm::GHC.Symbol)
