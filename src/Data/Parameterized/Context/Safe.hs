@@ -76,6 +76,8 @@ module Data.Parameterized.Context.Safe
   , skipIndex
   , lastIndex
   , nextIndex
+  , leftIndex
+  , rightIndex
   , extendIndex
   , extendIndex'
   , extendIndexAppendLeft
@@ -299,6 +301,17 @@ nextIndex sz = IndexHere sz
 -- | Return the last index of a element.
 lastIndex :: Size (ctx ::> tp) -> Index (ctx ::> tp) tp
 lastIndex (SizeSucc s) = IndexHere s
+
+-- | Adapts an index in the left hand context of an append operation.
+leftIndex :: Size r -> Index l tp -> Index (l <+> r) tp
+leftIndex sr il = extendIndex' (appendDiff sr) il
+
+-- | Adapts an index in the right hand context of an append operation.
+rightIndex :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
+rightIndex sl sr ir =
+  case viewIndex sr ir of
+    IndexViewInit i -> skipIndex (rightIndex sl (decSize sr) i)
+    IndexViewLast s -> lastIndex (incSize (addSize sl s))
 
 {-# INLINE extendIndex #-}
 extendIndex :: KnownDiff l r => Index l tp -> Index r tp
