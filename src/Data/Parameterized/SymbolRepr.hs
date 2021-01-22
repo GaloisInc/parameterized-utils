@@ -29,20 +29,23 @@ module Data.Parameterized.SymbolRepr
   , symbolRepr
   , knownSymbol
   , someSymbol
+  , SomeSym(SomeSym)
+  , viewSomeSym
     -- * Re-exports
   , type GHC.Symbol
   , GHC.KnownSymbol
   ) where
 
-import GHC.TypeLits as GHC
-import Unsafe.Coerce (unsafeCoerce)
+import           GHC.TypeLits as GHC
+import           Unsafe.Coerce (unsafeCoerce)
 
-import Data.Hashable
-import Data.Proxy
+import           Data.Hashable
+import           Data.Kind ( Type )
+import           Data.Proxy
 import qualified Data.Text as Text
 
-import Data.Parameterized.Classes
-import Data.Parameterized.Some
+import           Data.Parameterized.Classes
+import           Data.Parameterized.Some
 
 -- | A runtime representation of a GHC type-level symbol.
 newtype SymbolRepr (nm::GHC.Symbol)
@@ -103,3 +106,19 @@ instance Show (SymbolRepr nm) where
   show (SymbolRepr nm) = Text.unpack nm
 
 instance ShowF SymbolRepr
+
+
+-- | The SomeSym hides a Symbol parameter but preserves a
+-- KnownSymbol constraint on the hidden parameter.
+
+data SomeSym (c :: GHC.Symbol -> Type) =
+  forall (s :: GHC.Symbol) . GHC.KnownSymbol s => SomeSym (c s)
+
+
+-- | Projects a value out of a SomeSym into a function, re-ifying the
+-- Symbol type parameter to the called function, along with the
+-- KnownSymbol constraint on that Symbol value.
+
+viewSomeSym :: (forall (s :: GHC.Symbol) . GHC.KnownSymbol s => c s -> r) ->
+               SomeSym c -> r
+viewSomeSym f (SomeSym x) = f x
