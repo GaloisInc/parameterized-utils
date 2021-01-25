@@ -1,0 +1,52 @@
+name: GH-Build-and-Test
+on:
+  - push
+  - pull_request
+jobs:
+  linux:
+    name: Testing ${{ matrix.os }} GHC-${{ matrix.ghc }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.allow-failure }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        include:
+          - ghc: 9.0
+            allow-failure: true
+          - ghc: 8.10.3
+            allow-failure: false
+          - ghc: 8.8.4
+            allow-failure: false
+          - ghc: 8.6.5
+            allow-failure: false
+          - ghc: 8.4.4
+            allow-failure: false
+      fail-false: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-haskell@v2
+        id: setup-haskell
+        with:
+          ghc-version: ${{ matrix.ghc }}
+      - uses: actions/cache@v2
+        name: Cache builds
+        with:
+          path: |
+            ${{ steps.setup-haskell.outputs.cabal-store }}
+            dist-newstyle
+          key: |
+            cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles(format('cabal.GHC-{0}.config', matrix.ghc)) }}-${{ github.sha }}
+          restore-keys: |
+            cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles(format('cabal.GHC-{0}.config', matrix.ghc)) }}-
+      - name: Cabal check
+        shell: bash
+        run: cabal check
+      - name: Build
+        shell: bash
+        run: cabal build
+      - name: Test
+        shell: bash
+        run: cabal test
+      - name: Documentation
+        shell: bash
+        run: cabal haddock
