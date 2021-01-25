@@ -32,6 +32,9 @@ jobs:
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
           restore-keys: |
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-
+      - name: Cabal update
+        shell: bash
+        run: cabal update
       - name: Cabal check
         shell: bash
         run: cabal check
