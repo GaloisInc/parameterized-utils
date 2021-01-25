@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        ghc: [9.0.1, 8.10.3, 8.8.4, 8.6.5, 8.4.4]
+        ghc: [8.10.3, 8.8.4, 8.6.5, 8.4.4]
         allow-failure: [false]
       fail-fast: false
     steps:
