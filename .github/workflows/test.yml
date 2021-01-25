@@ -1,4 +1,4 @@
-name: GH-Build-and-Test
+name: Build and Test
 on:
   - push
   - pull_request
