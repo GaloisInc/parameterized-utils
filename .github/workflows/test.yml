@@ -21,7 +21,7 @@ jobs:
             allow-failure: false
           - ghc: 8.4.4
             allow-failure: false
-      fail-false: false
+      fail-fast: false
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-haskell@v2
