@@ -19,6 +19,7 @@ jobs:
         id: setup-haskell
         with:
           ghc-version: ${{ matrix.ghc }}
+          enable-stack: false
       - uses: actions/cache@v2
         name: Cache builds
         with:
