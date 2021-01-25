@@ -24,11 +24,13 @@ jobs:
         with:
           path: |
             ${{ steps.setup-haskell.outputs.cabal-store }}
+            ~/.cabal/packages
+            ~/.cabal/store
             dist-newstyle
           key: |
-            cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles(format('cabal.GHC-{0}.config', matrix.ghc)) }}-${{ github.sha }}
+            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.branch }}
           restore-keys: |
-            cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles(format('cabal.GHC-{0}.config', matrix.ghc)) }}-
+            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-
       - name: Cabal check
         shell: bash
         run: cabal check
