@@ -29,7 +29,7 @@ jobs:
             ~/.cabal/store
             dist-newstyle
           key: |
-            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.branch }}
+            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
           restore-keys: |
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-
       - name: Cabal check
