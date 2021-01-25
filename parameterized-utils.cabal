@@ -1,11 +1,11 @@
 Name:          parameterized-utils
-Version:       2.1.1.0.99
+Version:       2.1.2.0
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com, kquick@galois.com
 stability:     stable
 Build-type:    Simple
 Cabal-version: >= 1.10
-Copyright:     ©2016-2020 Galois, Inc.
+Copyright:     ©2016-2021 Galois, Inc.
 License:       BSD3
 License-file:  LICENSE
 category:      Data Structures, Dependent Types

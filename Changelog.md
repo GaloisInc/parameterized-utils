@@ -1,5 +1,14 @@
 # Changelog for the `parameterized-utils` package
 
+## 2.1.2 -- *2021 Jan 25*
+
+  * Added `SomeSym` and `viewSomeSym` for existentially hidden Symbol
+    values which retain the `KnownSymbol` constraint.
+  * Added `leftIndex` and `rightIndex` for re-casting indexes of the
+    individual parts of an Assignment into the concatenated
+    Assignment.
+  * Additional tests and updated documentation.
+
 ## 2.1.1 -- *2020 Jul 30*
 
   * Added `drop` and `appendEmbeddingLeft` functions to the `Context` module.
