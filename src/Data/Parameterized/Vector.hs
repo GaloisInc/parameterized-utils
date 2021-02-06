@@ -20,6 +20,10 @@ module Data.Parameterized.Vector
   , fromList
   , toList
 
+    -- * Assignments
+  , fromAssignment
+  , toAssignment
+
     -- * Length
   , length
   , nonEmpty
@@ -79,6 +83,7 @@ module Data.Parameterized.Vector
 
 import qualified Data.Vector as Vector
 import Data.Functor.Compose
+import Data.Functor.Const (Const(..))
 import Data.Coerce
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
@@ -90,6 +95,7 @@ import Data.Proxy
 import Prelude hiding (length,reverse,zipWith)
 import Numeric.Natural
 
+import qualified Data.Parameterized.Context as Ctx
 import Data.Parameterized.Utils.Endian
 
 -- | Fixed-size non-empty vectors.
@@ -185,6 +191,33 @@ fromList n xs
   v = Vector.fromList xs
 {-# INLINE fromList #-}
 
+-- | Convert a non-empty 'Ctx.Assignment' to a fixed-size 'Vector'.
+--
+-- This function uses the same ordering convention as 'Ctx.toVector'.
+fromAssignment ::
+  forall f ctx tp e.
+  (forall tp'. f tp' -> e) ->
+  Ctx.Assignment f (ctx Ctx.::> tp) ->
+  Vector (Ctx.CtxSize (ctx Ctx.::> tp)) e
+fromAssignment f assign =
+  case Ctx.viewAssign assign of
+    Ctx.AssignExtend assign' _ ->
+      case leqAdd (leqRefl (knownNat @1)) (Ctx.sizeToNatRepr (Ctx.size assign')) of
+        LeqProof -> Vector (Ctx.toVector assign f)
+
+-- | Convert a 'Vector' into a 'Ctx.Assignment'.
+--
+-- This function uses the same ordering convention as 'Ctx.toVector'.
+toAssignment ::
+  Ctx.Size ctx ->
+  (forall tp. Ctx.Index ctx tp -> e -> f tp) ->
+  Vector (Ctx.CtxSize ctx) e ->
+  Ctx.Assignment f ctx
+toAssignment sz g vec =
+  -- The unsafe indexing here relies on the safety of the rest of the Vector
+  -- API, specifically the inability to construct vectors that have an
+  -- underlying size that differs from the size in their type.
+  Ctx.generate sz (\idx -> g idx (elemAtUnsafe (Ctx.indexVal idx) vec))
 
 -- | Extract a subvector of the given vector.
 slice :: (i + w <= n, 1 <= w) =>

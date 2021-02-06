@@ -106,6 +106,7 @@ import           GHC.TypeLits (Nat, type (-))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
+import           Data.Parameterized.NatRepr (NatRepr, knownNat, plusComm)
 import           Data.Parameterized.TraversableFC
 
 #ifdef UNSAFE_OPS
@@ -156,7 +157,6 @@ toVector a f = V.create $ do
     MV.write vm (indexVal i) (f (a ! i))
   return vm
 {-# INLINABLE toVector #-}
-
 
 -- | Utility function for testing if @xs@ is an assignment with
 --   `prefix` as a prefix, and computing the tail of xs

@@ -9,6 +9,9 @@
 
 module Test.Context
   ( contextTests
+  , genSomePayloadList
+  , mkUAsgn
+  , mkSAsgn
   )
 where
 
