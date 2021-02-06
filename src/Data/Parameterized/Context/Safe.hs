@@ -57,6 +57,7 @@ module Data.Parameterized.Context.Safe
   , addSize
   , SizeView(..)
   , viewSize
+  , sizeToNatRepr
   , KnownContext(..)
     -- * Diff
   , Diff
@@ -120,6 +121,7 @@ import Data.Kind(Type)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx
+import Data.Parameterized.NatRepr
 import Data.Parameterized.Some
 import Data.Parameterized.TraversableFC
 
@@ -167,6 +169,16 @@ data SizeView (ctx :: Ctx k) where
 viewSize :: Size ctx -> SizeView ctx
 viewSize SizeZero = ZeroSize
 viewSize (SizeSucc s) = IncSize s
+
+-- | Convert a 'Size' into a 'NatRepr'.
+sizeToNatRepr :: Size items -> NatRepr (CtxSize items)
+sizeToNatRepr sz =
+  case viewSize sz of
+    ZeroSize -> knownRepr
+    IncSize sz' ->
+      let oldRep = sizeToNatRepr sz'
+      in case plusComm (knownRepr :: NatRepr 1) oldRep of
+           Refl -> incNat oldRep
 
 ------------------------------------------------------------------------
 -- Size

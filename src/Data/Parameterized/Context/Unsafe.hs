@@ -29,6 +29,7 @@ module Data.Parameterized.Context.Unsafe
   , addSize
   , SizeView(..)
   , viewSize
+  , sizeToNatRepr
     -- * Diff
   , Diff
   , noDiff
@@ -100,6 +101,8 @@ import           Data.Kind(Type)
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Ctx
 import           Data.Parameterized.Ctx.Proofs
+import           Data.Parameterized.NatRepr
+import           Data.Parameterized.NatRepr.Internal (NatRepr(NatRepr))
 import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
 
@@ -135,6 +138,10 @@ data SizeView (ctx :: Ctx k) where
 viewSize :: Size ctx -> SizeView ctx
 viewSize (Size 0) = unsafeCoerce ZeroSize
 viewSize (Size n) = assert (n > 0) (unsafeCoerce (IncSize (Size (n-1))))
+
+-- | Convert a 'Size' into a 'NatRepr'.
+sizeToNatRepr :: Size items -> NatRepr (CtxSize items)
+sizeToNatRepr (Size n) = NatRepr (fromIntegral n)
 
 instance Show (Size ctx) where
   show (Size i) = show i
