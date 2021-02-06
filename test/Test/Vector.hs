@@ -16,7 +16,11 @@ module Test.Vector
   )
 where
 
+import           Data.Functor.Const (Const(..))
+import           Data.Maybe (isJust)
+import qualified Data.Parameterized.Context as Ctx
 import           Data.Parameterized.NatRepr
+import           Data.Parameterized.Some
 import           Data.Parameterized.Vector
 import           Data.Semigroup
 import           GHC.TypeLits
@@ -26,6 +30,7 @@ import           Hedgehog.Range
 import           Prelude hiding (reverse)
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
+import           Test.Context (genSomePayloadList, mkUAsgn)
 
 
 genVector :: (1 <= n, KnownNat n, Monad m) => GenT m a -> GenT m (Vector n a)
@@ -88,4 +93,30 @@ vecTests = testGroup "Vector" <$> return
                    ]
        f <- forAll $ HG.element funs
        Just (generate n (f . widthVal)) === fromList (incNat n) (map f [0..w])
-  ]
+
+  -- Converting to and from assignments preserves size and last element
+  , testProperty "to-from-assignment" $ property $
+    do vals <- forAll genSomePayloadList
+       Some a <- return $ mkUAsgn vals
+       let sz = Ctx.size a
+       case Ctx.viewSize sz of
+         Ctx.ZeroSize -> pure ()
+         Ctx.IncSize _ ->
+           let a' =
+                 toAssignment
+                   sz
+                   (\_idx val -> Const val)
+                   (fromAssignment Some a)
+           in do assert $
+                   isJust $
+                     testEquality
+                       (Ctx.sizeToNatRepr sz)
+                       (Ctx.sizeToNatRepr (Ctx.size a'))
+                 viewSome
+                   (\lastElem ->
+                      assert $
+                        isJust $
+                          testEquality
+                            (a Ctx.! Ctx.lastIndex sz) lastElem)
+                   (getConst (a' Ctx.! Ctx.lastIndex sz))
+    ]
