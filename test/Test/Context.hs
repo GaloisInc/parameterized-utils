@@ -16,6 +16,7 @@ module Test.Context
 where
 
 import           Control.Lens
+import           Data.Functor.Product (Product(Pair))
 import           Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as C
 import qualified Data.Parameterized.Context.Safe as S
@@ -313,6 +314,13 @@ contextTests = testGroup "Context" <$> return
         assert $ isJust $ testEquality uv uv'
         assert $ isJust $ testEquality wxy wxy'
         withWXY $ \t -> assert $ isJust $ testEquality wxy' t
+
+   , testProperty "zip/unzip" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        let zipped = C.zipWith Pair x x
+        let (x', x'') = C.unzip zipped
+        assert $ isJust $ testEquality x x'
+        assert $ isJust $ testEquality x x''
 
    , testCaseSteps "explicit indexing (unsafe)" $ \step -> do
        let mkUPayload :: U.Assignment Payload TestCtx

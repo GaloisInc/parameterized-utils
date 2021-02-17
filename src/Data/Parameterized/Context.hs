@@ -64,6 +64,7 @@ module Data.Parameterized.Context
   , traverseAndCollect
   , traverseWithIndex_
   , dropPrefix
+  , unzip
 
     -- * Context extension and embedding utilities
   , CtxEmbedding(..)
@@ -97,9 +98,12 @@ module Data.Parameterized.Context
   , i1of6, i2of6, i3of6, i4of6, i5of6, i6of6
   ) where
 
+import           Prelude hiding (unzip)
+
 import           Control.Applicative (liftA2)
 import           Control.Lens hiding (Index, (:>), Empty)
 import           Data.Functor (void)
+import           Data.Functor.Product (Product(Pair))
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
@@ -187,8 +191,16 @@ dropPrefix xs0 prefix err = go xs0 (sizeInt (size xs0))
       Just Refl -> success Empty
       Nothing   -> err
 
-
-
+-- | Unzip an assignment of pairs into a pair of assignments.
+--
+-- This is the inverse of @'zipWith' 'Pair'@.
+unzip :: Assignment (Product f g) ctx -> (Assignment f ctx, Assignment g ctx)
+unzip fgs =
+  case viewAssign fgs of
+    AssignEmpty -> (empty, empty)
+    AssignExtend rest (Pair f g) ->
+      let (fs, gs) = unzip rest
+      in (extend fs f, extend gs g)
 
 --------------------------------------------------------------------------------
 -- Patterns
