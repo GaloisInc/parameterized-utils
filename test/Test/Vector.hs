@@ -3,6 +3,7 @@
 {-# Language DataKinds #-}
 {-# Language ExplicitForAll #-}
 {-# Language FlexibleInstances #-}
+{-# Language LambdaCase #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TypeFamilies #-}
@@ -18,6 +19,7 @@ where
 
 import           Data.Functor.Const (Const(..))
 import           Data.Maybe (isJust)
+import qualified Data.List as List
 import qualified Data.Parameterized.Context as Ctx
 import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Some
@@ -27,7 +29,8 @@ import           GHC.TypeLits
 import           Hedgehog
 import qualified Hedgehog.Gen as HG
 import           Hedgehog.Range
-import           Prelude hiding (reverse)
+import           Prelude hiding (take, reverse)
+import qualified Prelude as P
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Context (genSomePayloadList, mkUAsgn)
@@ -46,7 +49,7 @@ genOrdering :: Monad m => GenT m Ordering
 genOrdering = HG.element [ LT, EQ, GT ]
 
 
-instance Show (Int -> Ordering) where
+instance Show (a -> b) where
   show _ = "unshowable"
 
 
@@ -82,6 +85,14 @@ vecTests = testGroup "Vector" <$> return
        x <- forAll genOrdering
        (flip snoc x <$> fromList n l) === fromList (incNat n) (l ++ [x])
 
+  -- @snoc@ and @unsnoc@ are inverses
+  , testProperty "snoc/unsnoc" $ property $
+    do let n = knownNat @20
+           w = widthVal n
+       l <- forAll $ HG.list (constant w w) genOrdering
+       x <- forAll genOrdering
+       (fst  . unsnoc . flip snoc x <$> fromList n l) === Just x
+
   -- @generate@ is like mapping a function over indices
   , testProperty "generate" $ property $
     do let n = knownNat @55
@@ -93,6 +104,21 @@ vecTests = testGroup "Vector" <$> return
                    ]
        f <- forAll $ HG.element funs
        Just (generate n (f . widthVal)) === fromList (incNat n) (map f [0..w])
+
+  -- @unfold@ works like @unfold@ on lists
+  , testProperty "unfold" $ property $
+    do let n = knownNat @55
+           w = widthVal n
+           funs :: [ Ordering -> (Ordering, Ordering) ]  -- some miscellaneous functions to generate Vector values
+           funs =  [ const (EQ, EQ)
+                   , \case
+                       LT -> (LT, GT)
+                       GT -> (GT, LT)
+                       EQ -> (EQ, EQ)
+                   ]
+       f <- forAll $ HG.element funs
+       o <- forAll $ HG.element [EQ, LT, GT]
+       Just (unfoldr n f o) === fromList (incNat n) (P.take (w + 1) (List.unfoldr (Just . f) o))
 
   -- Converting to and from assignments preserves size and last element
   , testProperty "to-from-assignment" $ property $
