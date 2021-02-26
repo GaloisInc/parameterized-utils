@@ -1,6 +1,8 @@
 {-# Language GADTs, DataKinds, TypeOperators, BangPatterns #-}
 {-# Language PatternGuards #-}
+{-# Language PolyKinds #-}
 {-# Language TypeApplications, ScopedTypeVariables #-}
+{-# Language TupleSections #-}
 {-# Language Rank2Types, RoleAnnotations #-}
 {-# Language CPP #-}
 #if __GLASGOW_HASKELL__ >= 805
@@ -40,6 +42,7 @@ module Data.Parameterized.Vector
 
     -- * Sub sequences
   , uncons
+  , unsnoc
   , slice
   , Data.Parameterized.Vector.take
   , replace
@@ -66,6 +69,11 @@ module Data.Parameterized.Vector
   , snoc
   , generate
   , generateM
+  -- ** Unfolding
+  , unfoldr
+  , unfoldrM
+  , unfoldrWithIndex
+  , unfoldrWithIndexM
 
     -- * Splitting and joining
     -- ** General
@@ -83,7 +91,6 @@ module Data.Parameterized.Vector
 
 import qualified Data.Vector as Vector
 import Data.Functor.Compose
-import Data.Functor.Const (Const(..))
 import Data.Coerce
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
@@ -175,6 +182,18 @@ uncons v@(Vector xs) = (Vector.head xs, mbTail)
                   return (Vector (Vector.tail xs))
              Right Refl    -> Left Refl
 {-# Inline uncons #-}
+
+-- | Remove the last element of the vector, and return the rest, if any.
+unsnoc :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
+unsnoc v@(Vector xs) = (Vector.last xs, mbTail)
+  where
+  mbTail :: Either (n :~: 1) (Vector (n - 1) a)
+  mbTail = case testStrictLeq (knownNat @1) (length v) of
+             Left n2_leq_n ->
+               do LeqProof <- return (leqSub2 n2_leq_n (leqRefl (knownNat @1)))
+                  return (Vector (Vector.slice 0 (Vector.length xs - 1) xs))
+             Right Refl    -> Left Refl
+{-# Inline unsnoc #-}
 
 
 --------------------------------------------------------------------------------
@@ -404,30 +423,12 @@ newtype Vector' a n = MkVector' (Vector (n+1) a)
 unVector' :: Vector' a n -> Vector (n+1) a
 unVector' (MkVector' v) = v
 
-snoc' :: forall a m. Vector' a m -> a -> Vector' a (m+1)
-snoc' v = MkVector' . snoc (unVector' v)
-
 generate' :: forall h a
            . NatRepr h
           -> (forall n. (n <= h) => NatRepr n -> a)
           -> Vector' a h
 generate' h gen =
-  case isZeroOrGT1 h of
-    Left Refl -> base
-    Right LeqProof ->
-      case (minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h) of { Refl ->
-      natRecBounded (decNat h) (decNat h) base step
-      }
-  where base :: Vector' a 0
-        base = MkVector' $ singleton (gen (knownNat @0))
-        step :: forall m. (1 <= h, m <= h - 1)
-             => NatRepr m -> Vector' a m -> Vector' a (m + 1)
-        step m v =
-          case minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h of { Refl ->
-          case (leqAdd2 (LeqProof :: LeqProof m (h-1))
-                        (LeqProof :: LeqProof 1 1) :: LeqProof (m+1) h) of { LeqProof ->
-            snoc' v (gen (incNat m))
-          }}
+  runIdentity $ unfoldrWithIndexM' h (\n _last -> Identity (gen n, ())) ()
 
 -- | Apply a function to each element in a range starting at zero;
 -- return the a vector of values obtained.
@@ -445,6 +446,79 @@ generateM :: forall m h a. (Monad m)
           -> (forall n. (n <= h) => NatRepr n -> m a)
           -> m (Vector (h + 1) a)
 generateM h gen = sequence $ generate h gen
+
+newtype Compose3 m f g a = Compose3 { getCompose3 :: m (f (g a)) }
+
+unfoldrWithIndexM' :: forall m h a b. (Monad m)
+                  => NatRepr h
+                  -> (forall n. (n <= h) => NatRepr n -> b -> m (a, b))
+                  -> b
+                  -> m (Vector' a h)
+unfoldrWithIndexM' h gen start =
+  case isZeroOrGT1 h of
+    Left Refl -> snd <$> getCompose3 base
+    Right LeqProof ->
+      case (minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h) of { Refl ->
+        snd <$> getCompose3 (natRecBounded (decNat h) (decNat h) base step)
+      }
+  where base :: Compose3 m ((,) b) (Vector' a) 0
+        base = Compose3 $ (\(hd, b) -> (b, MkVector' (singleton hd))) <$> gen (knownNat @0) start
+        step :: forall p. (1 <= h, p <= h - 1)
+             => NatRepr p
+             -> Compose3 m ((,) b) (Vector' a) p
+             -> Compose3 m ((,) b) (Vector' a) (p + 1)
+        step p (Compose3 mv) =
+          case minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h of { Refl ->
+          case (leqAdd2 (LeqProof :: LeqProof p (h-1))
+                        (LeqProof :: LeqProof 1 1) :: LeqProof (p+1) h) of { LeqProof ->
+            Compose3 $
+              do (seed, MkVector' v) <- mv
+                 (next, nextSeed) <- gen (incNat p) seed
+                 pure $ (nextSeed, MkVector' $ snoc v next)
+          }}
+
+-- | Monadically unfold a vector, with access to the current index.
+--
+-- c.f. @Data.Vector.unfoldrExactNM@
+unfoldrWithIndexM :: forall m h a b. (Monad m)
+                 => NatRepr h
+                 -> (forall n. (n <= h) => NatRepr n -> b -> m (a, b))
+                 -> b
+                 -> m (Vector (h + 1) a)
+unfoldrWithIndexM h gen start = unVector' <$> unfoldrWithIndexM' h gen start
+
+-- | Unfold a vector, with access to the current index.
+--
+-- c.f. @Data.Vector.unfoldrExactN@
+unfoldrWithIndex :: forall h a b
+                . NatRepr h
+                -> (forall n. (n <= h) => NatRepr n -> b -> (a, b))
+                -> b
+                -> Vector (h + 1) a
+unfoldrWithIndex h gen start =
+  unVector' $ runIdentity $ unfoldrWithIndexM' h (\n v -> Identity (gen n v)) start
+
+-- | Monadically construct a vector with exactly @h + 1@ elements by repeatedly
+-- applying a generator function to a seed value.
+--
+-- c.f. @Data.Vector.unfoldrExactNM@
+unfoldrM :: forall m h a b. (Monad m)
+        => NatRepr h
+        -> (b -> m (a, b))
+        -> b
+        -> m (Vector (h + 1) a)
+unfoldrM h gen start = unfoldrWithIndexM h (\_ v -> gen v) start
+
+-- | Construct a vector with exactly @h + 1@ elements by repeatedly applying a
+-- generator function to a seed value.
+--
+-- c.f. @Data.Vector.unfoldrExactN@
+unfoldr :: forall h a b
+        . NatRepr h
+       -> (b -> (a, b))
+       -> b
+       -> Vector (h + 1) a
+unfoldr h gen start = unfoldrWithIndex h (\_ v -> gen v) start
 
 --------------------------------------------------------------------------------
 
