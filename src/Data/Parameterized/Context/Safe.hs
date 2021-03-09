@@ -518,7 +518,7 @@ type instance IndexF   (Assignment (f :: k -> Type) ctx) = Index ctx
 type instance IxValueF (Assignment (f :: k -> Type) ctx) = f
 
 instance forall k (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
-  ixF :: Index ctx x -> Lens.Lens' (Assignment f ctx) (f x)
+  ixF :: Index ctx x -> Lens.Traversal' (Assignment f ctx) (f x)
   ixF idx f = adjustM f idx
 
 instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment f ctx) where
@@ -556,7 +556,7 @@ testEq _ AssignmentEmpty AssignmentExtend{} = Nothing
 testEq _ AssignmentExtend{} AssignmentEmpty = Nothing
 
 instance TestEqualityFC Assignment where
-   testEqualityFC = testEq
+   testEqualityFC f = testEq f
 instance TestEquality f => TestEquality (Assignment f) where
    testEquality x y = testEq testEquality x y
 instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
@@ -577,7 +577,7 @@ compareAsgn test (AssignmentExtend ctx1 x) (AssignmentExtend ctx2 y) =
               EQF -> EQF
 
 instance OrdFC Assignment where
-  compareFC = compareAsgn
+  compareFC f = compareAsgn f
 
 instance OrdF f => OrdF (Assignment f) where
   compareF = compareAsgn compareF
@@ -610,11 +610,11 @@ instance FoldableFC Assignment where
   foldMapFC = foldMapFCDefault
 
 instance TraversableFC Assignment where
-  traverseFC = traverseF
+  traverseFC f = traverseF f
 
 -- | Map assignment
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
-map = fmapFC
+map f = fmapFC f
 
 traverseF :: forall k (f:: k -> Type) (g::k -> Type) (m:: Type -> Type) (c::Ctx k)
            . Applicative m
@@ -628,7 +628,7 @@ traverseF f (AssignmentExtend asgn x) = pure AssignmentExtend <*> traverseF f as
 toList :: (forall tp . f tp -> a)
        -> Assignment f c
        -> [a]
-toList = toListFC
+toList f = toListFC f
 
 zipWithM :: Applicative m
          => (forall tp . f tp -> g tp -> m (h tp))

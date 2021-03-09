@@ -877,7 +877,7 @@ instance forall k (f :: k -> Type) ctx. IxedF' k (Assignment (f :: k -> Type) ct
   ixF' idx f = adjustM f idx
 
 instance forall k (f :: k -> Type) ctx. IxedF k (Assignment f ctx) where
-  ixF = ixF'
+  ixF idx = ixF' idx
 
 -- This is an unsafe version of update that changes the type of the expression.
 unsafeUpdate :: Int -> Assignment f ctx -> f u -> Assignment f ctx'

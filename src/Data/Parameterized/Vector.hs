@@ -271,7 +271,7 @@ mapAt :: (i + w <= n, 1 <= w) =>
             NatRepr i {- ^ Start index -} ->
             NatRepr w {- ^ Section width -} ->
             (Vector w a -> Vector w a) {-^ map for the sub-vector -} ->
-            Vector n a -> Vector n a 
+            Vector n a -> Vector n a
 mapAt i w f vn = runIdentity $ mapAtM i w (pure . f) vn
 
 -- | Replace a sub-section of a vector with the given sub-vector.

@@ -26,17 +26,18 @@ module Data.Parameterized.ClassesC
   ) where
 
 import Data.Type.Equality ((:~:)(..))
+import Data.Kind
 import Data.Maybe (isJust)
 import Data.Parameterized.Classes (OrderingF, toOrdering)
 import Data.Parameterized.Some (Some(..))
 
-class TestEqualityC (t :: (k -> *) -> *) where
+class TestEqualityC (t :: (k -> Type) -> Type) where
   testEqualityC :: (forall x y. f x -> f y -> Maybe (x :~: y))
                 -> t f
                 -> t f
                 -> Bool
 
-class TestEqualityC t => OrdC (t :: (k -> *) -> *) where
+class TestEqualityC t => OrdC (t :: (k -> Type) -> Type) where
   compareC :: (forall x y. f x -> g y -> OrderingF x y)
            -> t f
            -> t g

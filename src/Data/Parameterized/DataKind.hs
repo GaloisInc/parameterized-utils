@@ -13,9 +13,10 @@ module Data.Parameterized.DataKind
 import           Data.Parameterized.Classes
 import qualified Data.Parameterized.TH.GADT as TH
 
+import           Data.Kind
 import           Prelude hiding ( fst, snd )
 
-data PairRepr (f :: k1 -> *) (g :: k2 -> *) (p :: (k1, k2)) where
+data PairRepr (f :: k1 -> Type) (g :: k2 -> Type) (p :: (k1, k2)) where
   PairRepr :: f a -> g b -> PairRepr f g '(a, b)
 
 type family Fst (pair :: (k1, k2)) where

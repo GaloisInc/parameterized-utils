@@ -38,6 +38,7 @@ module Data.Parameterized.TraversableFC
 import Control.Applicative (Const(..) )
 import Control.Monad.Identity ( Identity (..) )
 import Data.Coerce
+import Data.Kind
 import Data.Monoid
 import GHC.Exts (build)
 import Data.Type.Equality
@@ -45,13 +46,13 @@ import Data.Type.Equality
 import Data.Parameterized.Classes
 
 -- | A parameterized type that is a function on all instances.
-class FunctorFC (t :: (k -> *) -> l -> *) where
+class FunctorFC (t :: (k -> Type) -> l -> Type) where
   fmapFC :: forall f g. (forall x. f x -> g x) ->
                         (forall x. t f x -> t g x)
 
 -- | A parameterized class for types which can be shown, when given
 --   functions to show parameterized subterms.
-class ShowFC (t :: (k -> *) -> l -> *) where
+class ShowFC (t :: (k -> Type) -> l -> Type) where
   {-# MINIMAL showFC | showsPrecFC #-}
 
   showFC :: forall f. (forall x. f x -> String)
@@ -65,19 +66,19 @@ class ShowFC (t :: (k -> *) -> l -> *) where
 
 -- | A parameterized class for types which can be hashed, when given
 --   functions to hash parameterized subterms.
-class HashableFC (t :: (k -> *) -> l -> *) where
+class HashableFC (t :: (k -> Type) -> l -> Type) where
   hashWithSaltFC :: forall f. (forall x. Int -> f x -> Int) ->
                               (forall x. Int -> t f x -> Int)
 
 -- | A parameterized class for types which can be tested for parameterized equality,
 --   when given an equality test for subterms.
-class TestEqualityFC (t :: (k -> *) -> l -> *) where
+class TestEqualityFC (t :: (k -> Type) -> l -> Type) where
   testEqualityFC :: forall f. (forall x y. f x -> f y -> (Maybe (x :~: y))) ->
                               (forall x y. t f x -> t f y -> (Maybe (x :~: y)))
 
 -- | A parameterized class for types which can be tested for parameterized ordering,
 --   when given an comparison test for subterms.
-class TestEqualityFC t => OrdFC (t :: (k -> *) -> l -> *) where
+class TestEqualityFC t => OrdFC (t :: (k -> Type) -> l -> Type) where
   compareFC :: forall f. (forall x y. f x -> f y -> OrderingF x y) ->
                          (forall x y. t f x -> t f y -> OrderingF x y)
 
@@ -91,7 +92,7 @@ class TestEqualityFC t => OrdFC (t :: (k -> *) -> l -> *) where
 
 -- | This is a generalization of the 'Foldable' class to
 -- structures over parameterized terms.
-class FoldableFC (t :: (k -> *) -> l -> *) where
+class FoldableFC (t :: (k -> Type) -> l -> Type) where
   {-# MINIMAL foldMapFC | foldrFC #-}
 
   -- | Map each element of the structure to a monoid,
@@ -158,7 +159,7 @@ lengthFC = foldrFC (const (+1)) 0
 ------------------------------------------------------------------------
 -- TraversableF
 
-class (FunctorFC t, FoldableFC t) => TraversableFC (t :: (k -> *) -> l -> *) where
+class (FunctorFC t, FoldableFC t) => TraversableFC (t :: (k -> Type) -> l -> Type) where
   traverseFC :: forall f g m. Applicative m
              => (forall x. f x -> m (g x))
              -> (forall x. t f x -> m (t g x))

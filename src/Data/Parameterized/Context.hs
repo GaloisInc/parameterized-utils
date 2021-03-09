@@ -106,13 +106,13 @@ import           Control.Applicative (liftA2)
 import           Control.Lens hiding (Index, (:>), Empty)
 import           Data.Functor (void)
 import           Data.Functor.Product (Product(Pair))
+import           Data.Kind
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
-import           Data.Parameterized.NatRepr (NatRepr, knownNat, plusComm)
 import           Data.Parameterized.TraversableFC
 
 #ifdef UNSAFE_OPS
@@ -308,16 +308,16 @@ ctxeAssignment :: Lens (CtxEmbedding ctx1 ctx') (CtxEmbedding ctx2 ctx')
                        (Assignment (Index ctx') ctx1) (Assignment (Index ctx') ctx2)
 ctxeAssignment = lens _ctxeAssignment (\s v -> s { _ctxeAssignment = v })
 
-class ApplyEmbedding (f :: Ctx k -> *) where
+class ApplyEmbedding (f :: Ctx k -> Type) where
   applyEmbedding :: CtxEmbedding ctx ctx' -> f ctx -> f ctx'
 
-class ApplyEmbedding' (f :: Ctx k -> k' -> *) where
+class ApplyEmbedding' (f :: Ctx k -> k' -> Type) where
   applyEmbedding' :: CtxEmbedding ctx ctx' -> f ctx v -> f ctx' v
 
-class ExtendContext (f :: Ctx k -> *) where
+class ExtendContext (f :: Ctx k -> Type) where
   extendContext :: Diff ctx ctx' -> f ctx -> f ctx'
 
-class ExtendContext' (f :: Ctx k -> k' -> *) where
+class ExtendContext' (f :: Ctx k -> k' -> Type) where
   extendContext' :: Diff ctx ctx' -> f ctx v -> f ctx' v
 
 instance ApplyEmbedding' Index where
@@ -420,7 +420,7 @@ instance {-# Overlaps #-} (KnownContext xs, Idx' (n-1) xs r) =>
 -- > CurryAssignment (EmptyCtx ::> a) f x = f a -> x
 -- > CurryAssignment (EmptyCtx ::> a ::> b) f x = f a -> f b -> x
 -- > CurryAssignment (EmptyCtx ::> a ::> b ::> c) f x = f a -> f b -> f c -> x
-type family CurryAssignment (ctx :: Ctx k) (f :: k -> *) (x :: *) :: * where
+type family CurryAssignment (ctx :: Ctx k) (f :: k -> Type) (x :: Type) :: Type where
    CurryAssignment EmptyCtx    f x = x
    CurryAssignment (ctx ::> a) f x = CurryAssignment ctx f (f a -> x)
 

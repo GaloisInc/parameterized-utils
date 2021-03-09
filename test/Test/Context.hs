@@ -17,6 +17,7 @@ where
 
 import           Control.Lens
 import           Data.Functor.Product (Product(Pair))
+import           Data.Kind
 import           Data.Parameterized.Classes
 import qualified Data.Parameterized.Context as C
 import qualified Data.Parameterized.Context.Safe as S
@@ -36,7 +37,7 @@ import           Test.Tasty.Hedgehog
 -- Create a Payload GADT which is the parameterized type used for many
 -- of the Context/Assignment tests in this module.
 
-data Payload (ty :: *) where
+data Payload (ty :: Type) where
   IntPayload    :: Int -> Payload Int
   StringPayload :: String -> Payload String
   BoolPayload   :: Bool -> Payload Bool
