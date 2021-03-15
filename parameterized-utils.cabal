@@ -37,6 +37,7 @@ source-repository head
 
 common bldflags
   ghc-options: -Wall
+               -Wcompat
   default-language: Haskell2010
 
 
