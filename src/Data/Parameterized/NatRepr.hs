@@ -540,7 +540,7 @@ natFromZero :: forall h a
             . NatRepr h
            -> (forall n. (n <= h) => NatRepr n -> a)
            -> [a]
-natFromZero = natForEach (knownNat @0)
+natFromZero h f = natForEach (knownNat @0) h f
 
 -- | Recursor for natural numbeers.
 natRec :: forall p f

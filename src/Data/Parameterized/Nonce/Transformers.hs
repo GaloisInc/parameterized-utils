@@ -25,6 +25,7 @@ module Data.Parameterized.Nonce.Transformers
 import Control.Monad.Reader
 import Control.Monad.ST
 import Control.Monad.State
+import Data.Kind
 
 import Data.Parameterized.Nonce
 
@@ -33,7 +34,7 @@ import Data.Parameterized.Nonce
 -- (where we view the phantom type parameter of 'Nonce' as a designator of the
 -- set that the 'Nonce' came from).
 class Monad m => MonadNonce m where
-  type NonceSet m :: *
+  type NonceSet m :: Type
   freshNonceM :: forall k (tp :: k) . m (Nonce (NonceSet m) tp)
 
 -- | This transformer adds a nonce generator to a given monad.

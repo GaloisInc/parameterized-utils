@@ -80,7 +80,7 @@ type Traversal' s a = forall f. Applicative f => (a -> f a) -> s -> f s
 --   all the types of a family.  We generally use this to witness
 --   the fact that the type parameter to @rtp@ is a phantom type
 --   by giving an implementation in terms of Data.Coerce.coerce.
-class CoercibleF (rtp :: k -> *) where
+class CoercibleF (rtp :: k -> Type) where
   coerceF :: rtp a -> rtp b
 
 instance CoercibleF (Const x) where
@@ -97,7 +97,7 @@ instance CoercibleF (Const x) where
 -- type when they are equal. Thus this can be implemented over
 -- parameterized types that are unable to provide evidence that their
 -- type arguments are equal.
-class EqF (f :: k -> *) where
+class EqF (f :: k -> Type) where
   eqF :: f a -> f a -> Bool
 
 instance Eq a => EqF (Const a) where
@@ -179,7 +179,7 @@ joinOrderingF GTF _ = GTF
 --
 -- Minimal complete definition: either 'compareF' or 'leqF'.
 -- Using 'compareF' can be more efficient for complex types.
-class TestEquality ktp => OrdF (ktp :: k -> *) where
+class TestEquality ktp => OrdF (ktp :: k -> Type) where
   {-# MINIMAL compareF | leqF #-}
 
   compareF :: ktp x -> ktp y -> OrderingF x y
@@ -219,7 +219,7 @@ class TestEquality ktp => OrdF (ktp :: k -> *) where
 
 -- | Compare two values, and if they are equal compare the next values,
 -- otherwise return LTF or GTF
-lexCompareF :: forall j k (f :: j -> *) (a :: j) (b :: j) (c :: k) (d :: k)
+lexCompareF :: forall j k (f :: j -> Type) (a :: j) (b :: j) (c :: k) (d :: k)
              .  OrdF f
             => f a
             -> f b
@@ -230,7 +230,7 @@ lexCompareF x y = joinOrderingF (compareF x y)
 -- | If the \"outer\" functor has an 'OrdF' instance, then one can be generated
 -- for the \"inner\" functor. The type-level evidence of equality is deduced
 -- via generativity of @g@, e.g. the inference @g x ~ g y@ implies @x ~ y@.
-ordFCompose :: forall k l (f :: k -> *) (g :: l -> k) x y.
+ordFCompose :: forall k l (f :: k -> Type) (g :: l -> k) x y.
                 (forall w z. f w -> f z -> OrderingF w z)
             -> Compose f g x
             -> Compose f g y
@@ -252,7 +252,7 @@ instance OrdF f => OrdF (Compose f g) where
 -- To implement @'ShowF' g@, one should implement an instance @'Show'
 -- (g tp)@ for all argument types @tp@, then write an empty instance
 -- @instance 'ShowF' g@.
-class ShowF (f :: k -> *) where
+class ShowF (f :: k -> Type) where
   -- | Provides a show instance for each type.
   withShow :: p f -> q tp -> (Show (f tp) => a) -> a
 
@@ -275,8 +275,8 @@ instance Show x => ShowF (Const x)
 ------------------------------------------------------------------------
 -- IxedF
 
-type family IndexF       (m :: *) :: k -> *
-type family IxValueF     (m :: *) :: k -> *
+type family IndexF       (m :: Type) :: k -> Type
+type family IxValueF     (m :: Type) :: k -> Type
 
 -- | Parameterized generalization of the lens @Ixed@ class.
 class IxedF k m where
@@ -315,7 +315,7 @@ defaultSalt = 0x087fc72c
 {-# INLINE defaultSalt #-}
 
 -- | A parameterized type that is hashable on all instances.
-class HashableF (f :: k -> *) where
+class HashableF (f :: k -> Type) where
   hashWithSaltF :: Int -> f tp -> Int
 
   -- | Hash with default salt.
@@ -355,5 +355,5 @@ instance HashableF f => Hashable (TypeAp f tp) where
 -- kind), a type constructor @f@ of kind @k -> *@ (typically a GADT of
 -- singleton types indexed by @k@), and an index parameter @ctx@ of
 -- kind @k@.
-class KnownRepr (f :: k -> *) (ctx :: k) where
+class KnownRepr (f :: k -> Type) (ctx :: k) where
   knownRepr :: f ctx

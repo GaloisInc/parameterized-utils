@@ -31,6 +31,7 @@ module Data.Parameterized.HashTable
 import Control.Applicative
 import Control.Monad.ST
 import qualified Data.HashTable.ST.Basic as H
+import Data.Kind
 import GHC.Exts (Any)
 import Unsafe.Coerce
 
@@ -40,7 +41,7 @@ import Data.Parameterized.Classes
 import Data.Parameterized.Some
 
 -- | A hash table mapping nonces to values.
-newtype HashTable s (key :: k -> *) (val :: k -> *)
+newtype HashTable s (key :: k -> Type) (val :: k -> Type)
       = HashTable (H.HashTable s (Some key) Any)
 
 -- | Create a new empty table.
@@ -73,7 +74,7 @@ lookup (HashTable h) k = fmap unsafeCoerce <$> H.lookup h (Some k)
 
 -- | Insert new key and value mapping into table.
 insert :: (HashableF key, TestEquality key)
-       => HashTable s (key :: k -> *) (val :: k -> *)
+       => HashTable s (key :: k -> Type) (val :: k -> Type)
        -> key tp
        -> val tp
        -> ST s ()
@@ -81,18 +82,18 @@ insert (HashTable h) k v = H.insert h (Some k) (unsafeCoerce v)
 
 -- | Return true if the key is in the hash table.
 member :: (HashableF key, TestEquality key)
-       => HashTable s (key :: k -> *) (val :: k -> *)
+       => HashTable s (key :: k -> Type) (val :: k -> Type)
        -> key (tp :: k)
        -> ST s Bool
 member (HashTable h) k = isJust <$> H.lookup h (Some k)
 
 -- | Delete an element from the hash table.
 delete :: (HashableF key, TestEquality key)
-       => HashTable s (key :: k -> *) (val :: k -> *)
+       => HashTable s (key :: k -> Type) (val :: k -> Type)
        -> key (tp :: k)
        -> ST s ()
 delete (HashTable h) k = H.delete h (Some k)
 
 clear :: (HashableF key, TestEquality key)
-      => HashTable s (key :: k -> *) (val :: k -> *) -> ST s ()
+      => HashTable s (key :: k -> Type) (val :: k -> Type) -> ST s ()
 clear (HashTable h) = H.mapM_ (\(k,_) -> H.delete h k) h

@@ -38,13 +38,13 @@ library
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.9
                , th-abstraction >=0.3  && <0.5
-               , constraints    >=0.10 && <0.13
+               , constraints    >=0.10 && <0.14
                , containers
                , deepseq
                , ghc-prim
                , hashable       >=1.2  && <1.4
                , hashtables     ==1.2.*
-               , lens           >=4.16 && <4.20
+               , lens           >=4.16 && <5.1
                , mtl
                , template-haskell
                , text
@@ -117,7 +117,7 @@ test-suite parameterizedTests
                , lens
                , mtl
                , parameterized-utils
-               , tasty >= 1.2 && < 1.4
+               , tasty >= 1.2 && < 1.5
                , tasty-ant-xml == 1.1.*
                , tasty-hunit >= 0.9 && < 0.11
                , tasty-hedgehog

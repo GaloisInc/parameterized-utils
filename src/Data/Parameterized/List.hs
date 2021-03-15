@@ -149,13 +149,14 @@ module Data.Parameterized.List
   ) where
 
 import qualified Control.Lens as Lens
+import           Data.Kind
 import           Prelude hiding ((!!))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.TraversableFC
 
 -- | Parameterized list of elements.
-data List :: (k -> *) -> [k] -> * where
+data List :: (k -> Type) -> [k] -> Type where
   Nil  :: List f '[]
   (:<) :: f tp -> List f tps -> List f (tp : tps)
 
@@ -215,7 +216,7 @@ instance (KnownRepr f s, KnownRepr (List f) sh) => KnownRepr (List f) (s ': sh) 
 -- | Represents an index into a type-level list. Used in place of integers to
 --   1. ensure that the given index *does* exist in the list
 --   2. guarantee that it has the given kind
-data Index :: [k] -> k -> *  where
+data Index :: [k] -> k -> Type  where
   IndexHere :: Index (x:r) x
   IndexThere :: !(Index r y) -> Index (x:r) y
 

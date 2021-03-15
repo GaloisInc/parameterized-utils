@@ -58,6 +58,7 @@ method will not be available.
 -}
 module Data.Parameterized.WithRepr(IsRepr(..)) where
 
+import Data.Kind
 import Data.Parameterized.Classes
 
 #ifdef UNSAFE_OPS
@@ -75,7 +76,7 @@ import Data.Parameterized.Peano (PeanoRepr,PeanoView(..))
 import Data.Parameterized.BoolRepr
 
 -- | Turn an explicit Repr value into an implict KnownRepr constraint
-class IsRepr (f :: k -> *) where
+class IsRepr (f :: k -> Type) where
 
   withRepr :: f a -> (KnownRepr f a => r) -> r
 

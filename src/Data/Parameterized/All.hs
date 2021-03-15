@@ -46,11 +46,12 @@ module Data.Parameterized.All
   ) where
 
 import Data.Functor.Const (Const(..))
+import Data.Kind
 
 import Data.Parameterized.Classes
 import Data.Parameterized.TraversableF
 
-newtype All (f :: k -> *) = All { getAll :: forall x. f x }
+newtype All (f :: k -> Type) = All { getAll :: forall x. f x }
 
 instance FunctorF All where
   fmapF f (All a) = All (f a)

@@ -35,6 +35,7 @@ import Control.Applicative
 import Control.Monad.Identity
 import Data.Coerce
 import Data.Functor.Compose (Compose(..))
+import Data.Kind
 import Data.Monoid
 import GHC.Exts (build)
 
@@ -57,7 +58,7 @@ instance FunctorF (Const x) where
 
 -- | This is a generalization of the 'Foldable' class to
 -- structures over parameterized terms.
-class FoldableF (t :: (k -> *) -> *) where
+class FoldableF (t :: (k -> Type) -> Type) where
   {-# MINIMAL foldMapF | foldrF #-}
 
   -- | Map each element of the structure to a monoid,
@@ -167,24 +168,24 @@ forF_ v f = traverseF_ f v
 ------------------------------------------------------------------------
 -- TraversableF (Compose s t)
 
-instance ( FunctorF (s :: (k -> *) -> *)
-         , FunctorFC (t :: (l -> *) -> (k -> *))
+instance ( FunctorF (s :: (k -> Type) -> Type)
+         , FunctorFC (t :: (l -> Type) -> (k -> Type))
          ) =>
          FunctorF (Compose s t) where
   fmapF f (Compose v) = Compose $ fmapF (fmapFC f) v
 
-instance ( TraversableF (s :: (k -> *) -> *)
-         , TraversableFC (t :: (l -> *) -> (k -> *))
+instance ( TraversableF (s :: (k -> Type) -> Type)
+         , TraversableFC (t :: (l -> Type) -> (k -> Type))
          ) =>
          FoldableF (Compose s t) where
   foldMapF = foldMapFDefault
 
 -- | Traverse twice over: go under the @t@, under the @s@ and lift @m@ out.
-instance ( TraversableF (s :: (k -> *) -> *)
-         , TraversableFC (t :: (l -> *) -> (k -> *))
+instance ( TraversableF (s :: (k -> Type) -> Type)
+         , TraversableFC (t :: (l -> Type) -> (k -> Type))
          ) =>
          TraversableF (Compose s t) where
-  traverseF :: forall (f :: l -> *) (g :: l -> *) m. (Applicative m) =>
+  traverseF :: forall (f :: l -> Type) (g :: l -> Type) m. (Applicative m) =>
                (forall (u :: l). f u -> m (g u))
             -> Compose s t f -> m (Compose s t g)
   traverseF f (Compose v) = Compose <$> traverseF (traverseFC f) v

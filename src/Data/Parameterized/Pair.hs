@@ -17,13 +17,14 @@ module Data.Parameterized.Pair
   , viewPair
   ) where
 
+import Data.Kind
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
 import Data.Parameterized.TraversableF
 
 -- | Like a 2-tuple, but with an existentially quantified parameter that both of
 -- the elements share.
-data Pair (a :: k -> *) (b :: k -> *) where
+data Pair (a :: k -> Type) (b :: k -> Type) where
   Pair :: !(a tp) -> !(b tp) -> Pair a b
 
 instance (TestEquality a, EqF b) => Eq (Pair a b) where
