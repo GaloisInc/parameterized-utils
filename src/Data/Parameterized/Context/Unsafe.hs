@@ -298,7 +298,7 @@ extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
 extendIndexAppendLeft (Size l) _ (Index idx) = Index (idx + l)
 
 -- | Given a size @n@, a function @f@, and an initial value @v0@, the
--- expression @forIndex n r v0@ is equivalent to @v0@ when @n@ is
+-- expression @forIndex n f v0@ is equivalent to @v0@ when @n@ is
 -- zero, and @f (forIndex (n-1) f v0) n@ otherwise.  Unlike the safe
 -- version, which starts from 'Index' @0@ and increments 'Index'
 -- values, this version starts at 'Index' @(n-1)@ and decrements
