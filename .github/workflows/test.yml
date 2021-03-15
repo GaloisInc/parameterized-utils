@@ -21,6 +21,11 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
           enable-stack: false
       - uses: cachix/install-nix-action@v12
+        if: ${{ matrix.ghc == '8.4.4' }}
+        with:
+          nix_path: nixpkgs=channel:nixos-20.03
+      - uses: cachix/install-nix-action@v12
+        if: ${{ matrix.ghc != '8.4.4' }}
         with:
           nix_path: nixpkgs=channel:nixos-unstable
       - uses: actions/cache@v2
