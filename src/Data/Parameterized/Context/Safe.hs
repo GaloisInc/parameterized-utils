@@ -344,8 +344,8 @@ extendIndexAppendLeft sz sz' idx = case viewIndex sz' idx of
   IndexViewLast _ -> lastIndex (addSize sz sz')
   IndexViewInit idx' -> skipIndex (extendIndexAppendLeft sz (decSize sz') idx')
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, the
--- expression @forIndex n v0 f@ calls @f@ on each index less than @n@
+-- | Given a size @n@, a function @f@, and an initial value @v0@, the
+-- expression @forIndex n f v0@ calls @f@ on each index less than @n@
 -- starting from @0@ and @v0@, with the value @v@ obtained from the
 -- last call.
 forIndex :: forall ctx r
