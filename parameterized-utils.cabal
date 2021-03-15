@@ -38,6 +38,12 @@ source-repository head
 common bldflags
   ghc-options: -Wall
                -Wcompat
+               -Wpartial-fields
+               -Wincomplete-uni-patterns
+               -Werror=incomplete-patterns
+               -Werror=missing-methods
+               -Werror=overlapping-patterns
+               -fhide-source-paths
   default-language: Haskell2010
 
 
