@@ -42,7 +42,7 @@ common bldflags
 
 
 library
-  include: bldflags
+  import: bldflags
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.9
                , th-abstraction >=0.3  && <0.5
@@ -101,7 +101,7 @@ library
 
 
 test-suite parameterizedTests
-  include: bldflags
+  import: bldflags
   type: exitcode-stdio-1.0
   hs-source-dirs: test
 
