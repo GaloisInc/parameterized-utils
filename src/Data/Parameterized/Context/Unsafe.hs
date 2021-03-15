@@ -297,9 +297,9 @@ extendIndex' _ = unsafeCoerce
 extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
 extendIndexAppendLeft (Size l) _ (Index idx) = Index (idx + l)
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, the
--- expression @forIndex n v0 f@ is equivalent to @v0@ when @n@ is
--- zero, and @f (forIndex (n-1) v0) n@ otherwise.  Unlike the safe
+-- | Given a size @n@, a function @f@, and an initial value @v0@, the
+-- expression @forIndex n r v0@ is equivalent to @v0@ when @n@ is
+-- zero, and @f (forIndex (n-1) f v0) n@ otherwise.  Unlike the safe
 -- version, which starts from 'Index' @0@ and increments 'Index'
 -- values, this version starts at 'Index' @(n-1)@ and decrements
 -- 'Index' values to 'Index' @0@.
