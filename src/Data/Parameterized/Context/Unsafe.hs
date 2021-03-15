@@ -801,6 +801,9 @@ generateM n f = Assignment <$> unsafe_bin_generateM (sizeInt n) 0 f
 empty :: Assignment f EmptyCtx
 empty = Assignment Empty
 
+-- n.b. see 'singleton' in Data/Parameterized/Context.hs
+
+-- | Extend an indexed vector with a new entry.
 extend :: Assignment f ctx -> f x -> Assignment f (ctx ::> x)
 extend (Assignment x) y = Assignment $ append x (BalLeaf y)
 

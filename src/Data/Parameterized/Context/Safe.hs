@@ -496,6 +496,9 @@ replicate n c = generate n (\_ -> c)
 empty :: Assignment f 'EmptyCtx
 empty = AssignmentEmpty
 
+-- n.b. see 'singleton' in Data/Parameterized/Context.hs
+
+-- | Extend an indexed vector with a new entry.
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
 extend asgn e = AssignmentExtend asgn e
 
