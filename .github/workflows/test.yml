@@ -15,11 +15,6 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-      - uses: haskell/actions/setup@v1
-        id: setup-haskell
-        with:
-          ghc-version: ${{ matrix.ghc }}
-          enable-stack: false
       - uses: cachix/install-nix-action@v12
         if: ${{ matrix.ghc == '8.4.4' }}
         with:
@@ -40,13 +35,12 @@ jobs:
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
           restore-keys: |
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-
-      - name: Cabal update
-        shell: bash
-        run: cabal update
       - name: Setup Environment Vars
         run: |
           GHC=haskell.compiler.ghc$(echo ${{ matrix.ghc }} | sed -e s,\\.,,g)
           echo GHC=$GHC >> $GITHUB_ENV
+          echo GHCPKGS=haskell.packages.ghc$(echo ${{ matrix.ghc }} | sed -e s,\\.,,g) >> $GITHUB_ENV
+          echo NS="nix-shell -p cabal-install $GHC gmp zlib --run" >> $GITHUB_ENV
       - name: Package's Cabal/GHC compatibility
         shell: bash
         # Using setup will use the cabal library installed with GHC
@@ -61,15 +55,18 @@ jobs:
           setup_bin() { echo setup.${{ matrix.ghc }}; }
           with_ghc()  { nix-shell -p $GHC --run "$(echo ${@})"; }
           with_ghc ghc -o $(setup_bin) $(setup_src) && ./$(setup_bin) clean
+      - name: Cabal update
+        shell: bash
+        run: $NS 'cabal update'
       - name: Cabal check
         shell: bash
-        run: cabal check
+        run: $NS 'cabal check'
       - name: Build
         shell: bash
-        run: cabal build
+        run: $NS 'cabal build'
       - name: Test
         shell: bash
-        run: cabal test
+        run: $NS 'cabal test'
       - name: Documentation
         shell: bash
-        run: cabal haddock
+        run: $NS 'cabal haddock'
