@@ -315,7 +315,7 @@ forIndex n f r =
 
 -- | Given an index @i@, size @n@, a function @f@, value @v@, and a
 -- function @f@, the expression @forIndex i n f v@ is equivalent to
--- @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n v)@
+-- @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n f v)@
 -- otherwise.
 forIndexRange :: forall ctx r
                . Int
