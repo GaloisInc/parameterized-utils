@@ -313,8 +313,8 @@ forIndex n f r =
     ZeroSize -> r
     IncSize p -> f (forIndex p (coerce f) r) (nextIndex p)
 
--- | Given an index @i@, size @n@, a function @f@, value @v@, and a
--- function @f@, the expression @forIndex i n f v@ is equivalent to
+-- | Given an index @i@, size @n@, a function @f@, and a value @v@,
+-- the expression @forIndex i n f v@ is equivalent to
 -- @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n f v)@
 -- otherwise.
 forIndexRange :: forall ctx r
