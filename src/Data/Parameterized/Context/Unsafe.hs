@@ -297,9 +297,9 @@ extendIndex' _ = unsafeCoerce
 extendIndexAppendLeft :: Size l -> Size r -> Index r tp -> Index (l <+> r) tp
 extendIndexAppendLeft (Size l) _ (Index idx) = Index (idx + l)
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, the
--- expression @forIndex n v0 f@ is equivalent to @v0@ when @n@ is
--- zero, and @f (forIndex (n-1) v0) n@ otherwise.  Unlike the safe
+-- | Given a size @n@, a function @f@, and an initial value @v0@, the
+-- expression @forIndex n f v0@ is equivalent to @v0@ when @n@ is
+-- zero, and @f (forIndex (n-1) f v0) n@ otherwise.  Unlike the safe
 -- version, which starts from 'Index' @0@ and increments 'Index'
 -- values, this version starts at 'Index' @(n-1)@ and decrements
 -- 'Index' values to 'Index' @0@.
@@ -313,9 +313,9 @@ forIndex n f r =
     ZeroSize -> r
     IncSize p -> f (forIndex p (coerce f) r) (nextIndex p)
 
--- | Given an index @i@, size @n@, a function @f@, value @v@, and a
--- function @f@, the expression @forIndex i n f v@ is equivalent to
--- @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n v)@
+-- | Given an index @i@, size @n@, a function @f@, and a value @v@,
+-- the expression @forIndex i n f v@ is equivalent to
+-- @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n f v)@
 -- otherwise.
 forIndexRange :: forall ctx r
                . Int
@@ -801,6 +801,9 @@ generateM n f = Assignment <$> unsafe_bin_generateM (sizeInt n) 0 f
 empty :: Assignment f EmptyCtx
 empty = Assignment Empty
 
+-- n.b. see 'singleton' in Data/Parameterized/Context.hs
+
+-- | Extend an indexed vector with a new entry.
 extend :: Assignment f ctx -> f x -> Assignment f (ctx ::> x)
 extend (Assignment x) y = Assignment $ append x (BalLeaf y)
 

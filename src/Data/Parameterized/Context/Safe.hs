@@ -344,8 +344,8 @@ extendIndexAppendLeft sz sz' idx = case viewIndex sz' idx of
   IndexViewLast _ -> lastIndex (addSize sz sz')
   IndexViewInit idx' -> skipIndex (extendIndexAppendLeft sz (decSize sz') idx')
 
--- | Given a size @n@, an initial value @v0@, and a function @f@, the
--- expression @forIndex n v0 f@ calls @f@ on each index less than @n@
+-- | Given a size @n@, a function @f@, and an initial value @v0@, the
+-- expression @forIndex n f v0@ calls @f@ on each index less than @n@
 -- starting from @0@ and @v0@, with the value @v@ obtained from the
 -- last call.
 forIndex :: forall ctx r
@@ -386,9 +386,9 @@ forIndexRangeImpl _ SizeZero _ _ r = r
 forIndexRangeImpl i (SizeSucc sz) d f r =
   forIndexRangeImpl (i-1) sz (LDiffThere d) f r
 
--- | Given an index @i@, size @n@, a function @f@, value @v@, and a
--- function @f@, the expression @forIndexRange i n f v@ is equivalent
--- to @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n v)@
+-- | Given an index @i@, size @n@, a function @f@, and a value @v@,
+-- the expression @forIndexRange i n f v@ is equivalent
+-- to @v@ when @i >= sizeInt n@, and @f i (forIndexRange (i+1) n f v)@
 -- otherwise.
 forIndexRange :: Int
               -> Size ctx
@@ -496,6 +496,9 @@ replicate n c = generate n (\_ -> c)
 empty :: Assignment f 'EmptyCtx
 empty = AssignmentEmpty
 
+-- n.b. see 'singleton' in Data/Parameterized/Context.hs
+
+-- | Extend an indexed vector with a new entry.
 extend :: Assignment f ctx -> f tp -> Assignment f (ctx '::> tp)
 extend asgn e = AssignmentExtend asgn e
 
