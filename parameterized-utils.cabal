@@ -1,12 +1,12 @@
+Cabal-version: 2.2
 Name:          parameterized-utils
 Version:       2.1.2.0.99
 Author:        Galois Inc.
 Maintainer:    jhendrix@galois.com, kquick@galois.com
 stability:     stable
 Build-type:    Simple
-Cabal-version: >= 1.10
 Copyright:     ©2016-2021 Galois, Inc.
-License:       BSD3
+License:       BSD-3-Clause
 License-file:  LICENSE
 category:      Data Structures, Dependent Types
 Synopsis: Classes and data structures for working with data-kind indexed types
@@ -19,7 +19,7 @@ Description:
 extra-source-files: Changelog.md
 homepage:      https://github.com/GaloisInc/parameterized-utils
 bug-reports:   https://github.com/GaloisInc/parameterized-utils/issues
-tested-with:   GHC==8.6.5, GHC==8.8.3, GHC==8.10.1
+tested-with:   GHC==8.4.4, GHC==8.6.5, GHC==8.8.4, GHC==8.10.4, GHC==9.0.1
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set
@@ -34,7 +34,21 @@ source-repository head
   type: git
   location: https://github.com/GaloisInc/parameterized-utils
 
+
+common bldflags
+  ghc-options: -Wall
+               -Wcompat
+               -Wpartial-fields
+               -Wincomplete-uni-patterns
+               -Werror=incomplete-patterns
+               -Werror=missing-methods
+               -Werror=overlapping-patterns
+               -fhide-source-paths
+  default-language: Haskell2010
+
+
 library
+  import: bldflags
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.9
                , th-abstraction >=0.3  && <0.5
@@ -88,19 +102,14 @@ library
   other-modules:
     Data.Parameterized.NatRepr.Internal
 
-  ghc-options: -Wall
-  default-language: Haskell2010
-
   if flag(unsafe-operations)
     cpp-options: -DUNSAFE_OPS
 
 
 test-suite parameterizedTests
+  import: bldflags
   type: exitcode-stdio-1.0
   hs-source-dirs: test
-
-  ghc-options: -Wall
-  default-language: Haskell2010
 
   main-is: UnitTest.hs
   other-modules:
