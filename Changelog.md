@@ -1,5 +1,26 @@
 # Changelog for the `parameterized-utils` package
 
+## 2.1.3.0 -- *2021 Mar 23*
+
+  * Add support for GHC 9.
+  * In the `Context` module:
+    * Added `sizeToNatRepr` function for converting a `Context` `Size`.
+    * Added `unzip` to unzip an `Assignment` of `Product(Pair)` into a
+      separate `Assignment` for each element of the `Pair` (the
+      inverse of the `zipWith Pair` operation).
+    * Added `flattenAssignment` to convert an `Assignment` of
+      `Assignment` into an `Assignment` of `CtxFlatten`.  Also adds
+      `flattenSize` to combine the sizes of each context into the size
+      of the corresponding `CtxFlatten`.
+  * In the `Vector` module:
+    * Added `fromAssignment` and `toAssignment` to allow conversions
+      between `Assignment` and `Vector`.
+    * Added `unsnoc`, `unfoldr`, `unfoldrM`, `unfoldrWithIndex`, and
+      `unfoldrWithIndexM` functions.
+  * Various haddock documentation updates and corrections.
+  * Updated the Cabal specification to Cabal-version 2.2.
+
+
 ## 2.1.2 -- *2021 Jan 25*
 
   * Added `SomeSym` and `viewSomeSym` for existentially hidden Symbol
