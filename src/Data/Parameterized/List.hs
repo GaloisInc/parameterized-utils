@@ -132,12 +132,16 @@ use the 'Data.Parameterized.List.List' type for this purpose.
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.List
   ( List(..)
+  , fromSomeList
+  , fromListWith
+  , fromListWithM
   , Index(..)
   , indexValue
   , (!!)
   , update
   , indexed
   , imap
+  , ifoldlM
   , ifoldr
   , izipWith
   , itraverse
@@ -149,10 +153,13 @@ module Data.Parameterized.List
   ) where
 
 import qualified Control.Lens as Lens
+import           Data.Foldable
 import           Data.Kind
 import           Prelude hiding ((!!))
+import           Unsafe.Coerce (unsafeCoerce)
 
 import           Data.Parameterized.Classes
+import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
 
 -- | Parameterized list of elements.
@@ -202,16 +209,37 @@ instance OrdF f => OrdF (List f) where
     lexCompareF xl yl $
     EQF
 
-
 instance KnownRepr (List f) '[] where
   knownRepr = Nil
 
 instance (KnownRepr f s, KnownRepr (List f) sh) => KnownRepr (List f) (s ': sh) where
   knownRepr = knownRepr :< knownRepr
 
+-- | Apply function to list to yield a parameterized list.
+fromListWith :: forall a f . (a -> Some f) -> [a] -> Some (List f)
+fromListWith f = foldr g (Some Nil)
+  where g :: a -> Some (List f) -> Some (List f)
+        g x (Some r) = viewSome (\h -> Some (h :< r)) (f x)
+
+-- | Apply monadic action to list to yield a parameterized list.
+fromListWithM :: forall a f m
+                  .  Monad m
+                  => (a -> m (Some f))
+                  -> [a]
+                  -> m (Some (List f))
+fromListWithM f = foldrM g (Some Nil)
+  where g :: a -> Some (List f) -> m (Some (List f))
+        g x (Some r) = viewSome (\h -> Some (h :< r)) <$> f x
+
+-- | Map from list of Some to Some list
+fromSomeList :: [Some f] -> Some (List f)
+fromSomeList = fromListWith id
+
+{-# INLINABLE fromListWith #-}
+{-# INLINABLE fromListWithM #-}
+
 --------------------------------------------------------------------------------
 -- * Indexed operations
-
 
 -- | Represents an index into a type-level list. Used in place of integers to
 --   1. ensure that the given index *does* exist in the list
@@ -308,6 +336,26 @@ imap f = go id
       case l of
         Nil -> Nil
         e :< rest -> f (g IndexHere) e :< go (g . IndexThere) rest
+
+-- | Left fold with an additional index.
+ifoldlM :: forall sh a b m
+        . Monad m
+        => (forall tp . b -> Index sh tp -> a tp -> m b)
+        -> b
+        -> List a sh
+        -> m b
+ifoldlM _ b Nil = pure b
+ifoldlM f b0 (a0 :< r0) = f b0 IndexHere a0 >>= go IndexHere r0
+  where
+    go :: forall tps tp
+        . Index sh tp
+       -> List a tps
+       -> b
+       -> m b
+    go _ Nil b = pure b
+    go idx (a :< rest) b =
+      let idx' = unsafeCoerce (IndexThere idx)
+       in f b idx' a >>= go idx' rest
 
 -- | Right-fold with an additional index.
 ifoldr :: forall sh a b . (forall tp . Index sh tp -> a tp -> b -> b) -> b -> List a sh -> b
