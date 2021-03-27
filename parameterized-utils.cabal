@@ -83,6 +83,7 @@ library
     Data.Parameterized.HashTable
     Data.Parameterized.List
     Data.Parameterized.Map
+    Data.Parameterized.MonoidSolver
     Data.Parameterized.NatRepr
     Data.Parameterized.Nonce
     Data.Parameterized.Nonce.Transformers
