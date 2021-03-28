@@ -30,9 +30,10 @@ module Data.Parameterized.MonoidSolver
 import Data.Kind (Type)
 import Data.Proxy (Proxy(..))
 import Data.Type.Equality (type (:~:)(Refl))
-import GHC.TypeLits (Nat)
+import GHC.TypeLits (Nat, Symbol, AppendSymbol)
 
 import Data.Parameterized.Classes (KnownRepr(..))
+import Data.Parameterized.Ctx (Ctx, type (<+>), EmptyCtx)
 import Data.Parameterized.NatRepr (type (+), plusAssoc)
 
 ----------------------------------------------------------------------
@@ -201,6 +202,36 @@ instance TypeLevelMonoid Nat where
   assoc proxy1 proxy2 proxy3 =
     case plusAssoc proxy1 proxy2 proxy3 of
       Refl -> Refl
+
+type instance Op (Ctx k) c1 c2 = c1 <+> c2
+type instance Unit (Ctx k) = EmptyCtx
+
+instance TypeLevelMonoid (Ctx k) where
+  idl = undefined -- TODO
+  idr = const Refl
+  assoc _ _ _ = undefined -- TODO
+
+type family Append (l1 :: [a]) (l2 :: [a]) :: [a] where
+  Append '[] ys = ys
+  Append xs '[] = xs
+  Append (x ': xs) ys  = x ': Append xs ys
+
+type instance Op [a] n1 n2 = Append n1 n2
+type instance Unit [a] = '[]
+
+instance TypeLevelMonoid [a] where
+  idl = const Refl
+  idr = const Refl
+  assoc _ _ _ = undefined -- TODO
+
+type instance Op Symbol n1 n2 = AppendSymbol n1 n2
+type instance Unit Symbol = ""
+
+instance TypeLevelMonoid Symbol where
+  idl = const Refl
+  idr = const Refl
+  -- This probably just has to be (unsafeCoerce Refl)...
+  assoc _ _ _ = undefined -- TODO
 
 ----------------------------------------------------------------------
 -- Examples
