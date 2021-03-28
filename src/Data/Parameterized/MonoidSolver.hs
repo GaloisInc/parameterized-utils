@@ -19,7 +19,8 @@ application to the function \'vector reverse\'\" by Wouter Swierstra.
 
 module Data.Parameterized.MonoidSolver
   ( solve
-  , solveNat
+  , MonoidExpr
+  , MERepr(..)
   ) where
 
 import Data.Kind (Type)
@@ -29,10 +30,28 @@ import GHC.TypeLits (Nat)
 
 import Data.Parameterized.NatRepr (type (+), plusAssoc)
 
+----------------------------------------------------------------------
+-- Class
+--
+
 -- | 'Op' corresponds to @Add@ from the paper.
 type family Op k (m1 :: k) (m2 :: k) :: k
 -- | 'Unit' corresponds to @Zero@ from the paper.
 type family Unit k :: k
+
+class TypeLevelMonoid (k :: Type) where
+  idl :: forall proxy n. proxy n -> Op k (Unit k) n :~: n
+  idr :: forall proxy n. proxy n -> Op k n (Unit k) :~: n
+  assoc ::
+    forall proxy n m l.
+    proxy n ->
+    proxy m ->
+    proxy l ->
+    Op k n (Op k m l) :~: Op k (Op k n m) l
+
+----------------------------------------------------------------------
+-- Normalization
+--
 
 -- | Type level only
 data MonoidExpr k
@@ -95,14 +114,12 @@ type family Normalize (me :: MonoidExpr m) :: MonoidExpr m where
 -- subexpressions of its argument.
 normalizeLemma ::
   forall k me1 me2.
-  (forall proxy n. proxy n -> Op k (Unit k) n :~: n) ->
-  (forall proxy n. proxy n -> Op k n (Unit k) :~: n) ->
-  (forall proxy n m l. proxy n -> proxy m -> proxy l -> Op k n (Op k m l) :~: Op k (Op k n m) l) ->
+  TypeLevelMonoid k =>
   MERepr k me1 ->
   MERepr k me2 ->
   Eval k (Apply (Diff me1) (Apply (Diff me2) 'EUnit)) :~:
     Op k (Eval k me1) (Eval k me2)
-normalizeLemma idl idr assoc mer1 mer2 =
+normalizeLemma mer1 mer2 =
   case mer1 of
     EUnitRepr ->
       case idl (Proxy :: Proxy (Eval k me2)) of
@@ -113,50 +130,33 @@ normalizeLemma idl idr assoc mer1 mer2 =
       case norm mer2 of
         Refl -> Refl
     EOpRepr (mer1' :: MERepr k me1') (mer2' :: MERepr k me2') ->
-      case normalizeLemma idl idr assoc mer1' (EOpRepr mer2' mer2) of
+      case normalizeLemma mer1' (EOpRepr mer2' mer2) of
         Refl ->
               assoc (Proxy :: Proxy (Eval k me1')) (Proxy :: Proxy (Eval k me2')) (Proxy :: Proxy (Eval k me2))
   where
     norm :: MERepr k me -> Eval k (Normalize me) :~: Eval k me
-    norm = normalizeSound idl idr assoc
+    norm = normalizeSound
 
 normalizeSound ::
-  (forall proxy n. proxy n -> Op k (Unit k) n :~: n) ->
-  (forall proxy n. proxy n -> Op k n (Unit k) :~: n) ->
-  (forall proxy n m l. proxy n -> proxy m -> proxy l -> Op k n (Op k m l) :~: Op k (Op k n m) l) ->
+  TypeLevelMonoid k =>
   MERepr k me ->
   Eval k (Normalize me) :~: Eval k me
-normalizeSound idl idr assoc =
+normalizeSound =
   \case
     EUnitRepr -> Refl
     EVarRepr (sing :: Proxy n) -> idr sing
     EOpRepr (mer1 :: MERepr k me1) (mer2 :: MERepr k me2) ->
-      normalizeLemma idl idr assoc mer1 mer2
+      normalizeLemma mer1 mer2
 
 solve ::
-  (forall proxy n. proxy n -> Op k (Unit k) n :~: n) ->
-  (forall proxy n. proxy n -> Op k n (Unit k) :~: n) ->
-  (forall proxy n m l. proxy n -> proxy m -> proxy l -> Op k n (Op k m l) :~: Op k (Op k n m) l) ->
+  TypeLevelMonoid k =>
   MERepr k me1 ->
   MERepr k me2 ->
   Eval k (Normalize me1) :~: Eval k (Normalize me2) ->
   Eval k me1 :~: Eval k me2
-solve idl idr assoc repr1 repr2 Refl =
-  case (normalizeSound idl idr assoc repr1, normalizeSound idl idr assoc repr2) of
+solve repr1 repr2 Refl =
+  case (normalizeSound repr1, normalizeSound repr2) of
     (Refl, Refl) -> Refl
-
-solveNat ::
-  MERepr Nat me1 ->
-  MERepr Nat me2 ->
-  Eval Nat (Normalize me1) :~: Eval Nat (Normalize me2) ->
-  Eval Nat me1 :~: Eval Nat me2
-solveNat =
-  solve
-    (const Refl)
-    (const Refl)
-    (\proxy1 proxy2 proxy3 ->
-       case plusAssoc proxy1 proxy2 proxy3 of
-         Refl -> Refl)
 
 ----------------------------------------------------------------------
 -- Instances
@@ -164,6 +164,13 @@ solveNat =
 
 type instance Op Nat n1 n2 = n1 + n2
 type instance Unit Nat = 0
+
+instance TypeLevelMonoid Nat where
+  idl = const Refl
+  idr = const Refl
+  assoc proxy1 proxy2 proxy3 =
+    case plusAssoc proxy1 proxy2 proxy3 of
+      Refl -> Refl
 
 ----------------------------------------------------------------------
 -- Examples
@@ -178,7 +185,7 @@ _ex ::
 _ex n m l =
   let e1 = EOpRepr (EVarRepr n) (EOpRepr (EVarRepr m) (EVarRepr l))
       e2 = EOpRepr (EOpRepr (EVarRepr n) (EVarRepr m)) (EVarRepr l)
-  in solveNat e1 e2 Refl
+  in solve e1 e2 Refl
 
 assoc5 ::
   Proxy a ->
@@ -190,7 +197,7 @@ assoc5 ::
 assoc5 a b c d e =
   let e1 = EOpRepr (EVarRepr a) (EOpRepr (EVarRepr b) (EOpRepr (EVarRepr c) (EOpRepr (EVarRepr d) (EVarRepr e))))
       e2 = EOpRepr (EOpRepr (EOpRepr (EOpRepr (EVarRepr a) (EVarRepr b)) (EVarRepr c)) (EVarRepr d)) (EVarRepr e)
-  in solveNat e1 e2 Refl
+  in solve e1 e2 Refl
 
 _assoc5Nat ::
   Proxy a ->
