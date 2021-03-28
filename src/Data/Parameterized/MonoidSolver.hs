@@ -148,13 +148,17 @@ normalizeSound =
     EOpRepr (mer1 :: MERepr k me1) (mer2 :: MERepr k me2) ->
       normalizeLemma mer1 mer2
 
+-- | Because of the construction of 'Normalize', the equality constraint always
+-- holds between 'MERepr' terms that are convertible with the monoid laws.
 solve ::
-  TypeLevelMonoid k =>
+  ( TypeLevelMonoid k
+  , Eval k (Normalize me1) ~ Eval k (Normalize me2)
+  )
+  =>
   MERepr k me1 ->
   MERepr k me2 ->
-  Eval k (Normalize me1) :~: Eval k (Normalize me2) ->
   Eval k me1 :~: Eval k me2
-solve repr1 repr2 Refl =
+solve repr1 repr2 =
   case (normalizeSound repr1, normalizeSound repr2) of
     (Refl, Refl) -> Refl
 
@@ -185,7 +189,7 @@ _ex ::
 _ex n m l =
   let e1 = EOpRepr (EVarRepr n) (EOpRepr (EVarRepr m) (EVarRepr l))
       e2 = EOpRepr (EOpRepr (EVarRepr n) (EVarRepr m)) (EVarRepr l)
-  in solve e1 e2 Refl
+  in solve e1 e2
 
 assoc5 ::
   Proxy a ->
@@ -197,7 +201,7 @@ assoc5 ::
 assoc5 a b c d e =
   let e1 = EOpRepr (EVarRepr a) (EOpRepr (EVarRepr b) (EOpRepr (EVarRepr c) (EOpRepr (EVarRepr d) (EVarRepr e))))
       e2 = EOpRepr (EOpRepr (EOpRepr (EOpRepr (EVarRepr a) (EVarRepr b)) (EVarRepr c)) (EVarRepr d)) (EVarRepr e)
-  in solve e1 e2 Refl
+  in solve e1 e2
 
 _assoc5Nat ::
   Proxy a ->
