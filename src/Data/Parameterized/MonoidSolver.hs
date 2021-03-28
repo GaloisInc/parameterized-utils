@@ -10,6 +10,7 @@ application to the function \'vector reverse\'\" by Wouter Swierstra.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -20,6 +21,9 @@ application to the function \'vector reverse\'\" by Wouter Swierstra.
 module Data.Parameterized.MonoidSolver
   ( solve
   , MonoidExpr
+  , type EUnit
+  , type EVar
+  , type (:<>:)
   , MERepr(..)
   ) where
 
@@ -28,6 +32,7 @@ import Data.Proxy (Proxy(..))
 import Data.Type.Equality (type (:~:)(Refl))
 import GHC.TypeLits (Nat)
 
+import Data.Parameterized.Classes (KnownRepr(..))
 import Data.Parameterized.NatRepr (type (+), plusAssoc)
 
 ----------------------------------------------------------------------
@@ -57,7 +62,12 @@ class TypeLevelMonoid (k :: Type) where
 data MonoidExpr k
   = EUnit
   | EVar k
-  | EOp (MonoidExpr k) (MonoidExpr k)
+  | (MonoidExpr k) :<>: (MonoidExpr k)
+
+-- Since MonoidExpr is type-level only, ticks aren't necessary for disambiguation
+type EUnit = 'EUnit
+type EVar m = 'EVar m
+type me1 :<>: me2 = me1 ':<>: me2
 
 data MERepr (k :: Type) (me :: MonoidExpr k) where
   EUnitRepr :: MERepr k 'EUnit
@@ -65,12 +75,12 @@ data MERepr (k :: Type) (me :: MonoidExpr k) where
   EOpRepr ::
     MERepr k me1 ->
     MERepr k me2 ->
-    MERepr k ('EOp me1 me2)
+    MERepr k (me1 :<>: me2)
 
 type family Eval (k :: Type) (me :: MonoidExpr k) :: k where
   Eval k 'EUnit = Unit k
   Eval k ('EVar m) = m
-  Eval k ('EOp me1 me2) = Op k (Eval k me1) (Eval k me2)
+  Eval k (me1 :<>: me2) = Op k (Eval k me1) (Eval k me2)
 
 -- | Defunctionalization - inspired by \"singletons\", and with a similar naming
 -- scheme
@@ -87,7 +97,7 @@ data ComposeDiffSym2 (me1 :: MonoidExpr m) (me2 :: MonoidExpr m) :: MonoidExpr m
 
 type instance Apply IdSym1 me = me
 type instance Apply EOpSym0 me = EOpSym1 me
-type instance Apply (EOpSym1 me1) (me2 :: MonoidExpr m) = 'EOp me1 me2
+type instance Apply (EOpSym1 me1) (me2 :: MonoidExpr m) = me1 :<>: me2
 -- TODO: generalize to (higher-order) compose?
 type instance Apply ComposeDiffSym0 me = ComposeDiffSym1 me
 type instance Apply (ComposeDiffSym1 me1) me2 = ComposeDiffSym2 me1 me2
@@ -96,7 +106,7 @@ type instance Apply (ComposeDiffSym2 me1 me2) me3 = Apply (Diff me1) (Apply (Dif
 -- | The \"difference list\"/Caley embedding representation of monoid
 -- expressions, corresponds to the bracket operator in the paper.
 type family Diff (me :: MonoidExpr m) :: MonoidExpr m ~> MonoidExpr m where
-  Diff ('EOp me1 me2) = ComposeDiffSym2 me1 me2
+  Diff (me1 :<>: me2) = ComposeDiffSym2 me1 me2
   Diff 'EUnit = IdSym1
   Diff ('EVar m) = EOpSym1 ('EVar m)
 
@@ -163,6 +173,22 @@ solve repr1 repr2 =
     (Refl, Refl) -> Refl
 
 ----------------------------------------------------------------------
+-- KnownRepr
+--
+
+instance KnownRepr (MERepr k) 'EUnit where
+  knownRepr = EUnitRepr
+
+instance KnownRepr (MERepr k) ('EVar n) where
+  knownRepr = EVarRepr (Proxy :: Proxy n)
+
+instance
+  ( KnownRepr (MERepr k) me1
+  , KnownRepr (MERepr k) me2
+  ) => KnownRepr (MERepr k) (me1 ':<>: me2) where
+  knownRepr = EOpRepr knownRepr knownRepr
+
+----------------------------------------------------------------------
 -- Instances
 --
 
@@ -186,9 +212,9 @@ _ex ::
   Proxy m ->
   Proxy l ->
   n + (m + l) :~: (n + m) + l
-_ex n m l =
-  let e1 = EOpRepr (EVarRepr n) (EOpRepr (EVarRepr m) (EVarRepr l))
-      e2 = EOpRepr (EOpRepr (EVarRepr n) (EVarRepr m)) (EVarRepr l)
+_ex _ _ _ =
+  let e1 = knownRepr :: MERepr Nat ('EVar n :<>: ('EVar m :<>: 'EVar l))
+      e2 = knownRepr :: MERepr Nat (('EVar n :<>: 'EVar m) :<>: 'EVar l)
   in solve e1 e2
 
 assoc5 ::
