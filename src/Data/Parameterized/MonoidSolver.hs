@@ -27,7 +27,7 @@ import Data.Proxy (Proxy(..))
 import Data.Type.Equality (type (:~:)(Refl))
 import GHC.TypeLits (Nat)
 
-import Data.Parameterized.NatRepr (NatRepr, type (+), plusAssoc)
+import Data.Parameterized.NatRepr (type (+), plusAssoc)
 
 -- | 'Op' corresponds to @Add@ from the paper.
 type family Op k (m1 :: k) (m2 :: k) :: k
@@ -43,13 +43,13 @@ data MonoidExpr k
   | EVar k
   | EOp (MonoidExpr k) (MonoidExpr k)
 
-data MERepr (k :: Type) (f :: k -> Type) (me :: MonoidExpr k) where
-  EUnitRepr :: MERepr k f 'EUnit
-  EVarRepr :: f n -> MERepr k f ('EVar n)
+data MERepr (k :: Type) (me :: MonoidExpr k) where
+  EUnitRepr :: MERepr k 'EUnit
+  EVarRepr :: Proxy n -> MERepr k ('EVar n)
   EOpRepr ::
-    MERepr k f me1 ->
-    MERepr k f me2 ->
-    MERepr k f ('EOp me1 me2)
+    MERepr k me1 ->
+    MERepr k me2 ->
+    MERepr k ('EOp me1 me2)
 
 type family Eval (k :: Type) (me :: MonoidExpr k) :: k where
   Eval k 'EUnit = Unit k
@@ -97,14 +97,14 @@ type family Normalize (me :: MonoidExpr m) :: MonoidExpr m where
 -- argument, but calls to this function *from* 'normalizeSound' are on strict
 -- subexpressions of its argument.
 normalizeLemma ::
-  forall k f me1 me2.
-  (forall proxy n. proxy n -> f (Op k (Unit k) n) :~: f n) ->
-  (forall proxy n. proxy n -> f (Op k n (Unit k)) :~: f n) ->
-  (forall proxy n m l. proxy n -> proxy m -> proxy l -> f (Op k n (Op k m l)) :~: f (Op k (Op k n m) l)) ->
-  MERepr k f me1 ->
-  MERepr k f me2 ->
-  f (Eval k (Apply (Diff me1) (Apply (Diff me2) 'EUnit))) :~:
-    f (Op k (Eval k me1) (Eval k me2))
+  forall k me1 me2.
+  (forall proxy n. proxy n -> Proxy (Op k (Unit k) n) :~: Proxy n) ->
+  (forall proxy n. proxy n -> Proxy (Op k n (Unit k)) :~: Proxy n) ->
+  (forall proxy n m l. proxy n -> proxy m -> proxy l -> Proxy (Op k n (Op k m l)) :~: Proxy (Op k (Op k n m) l)) ->
+  MERepr k me1 ->
+  MERepr k me2 ->
+  Proxy (Eval k (Apply (Diff me1) (Apply (Diff me2) 'EUnit))) :~:
+    Proxy (Op k (Eval k me1) (Eval k me2))
 normalizeLemma idl idr assoc mer1 mer2 =
   case mer1 of
     EUnitRepr ->
@@ -115,44 +115,44 @@ normalizeLemma idl idr assoc mer1 mer2 =
     EVarRepr {} ->
       case norm mer2 of
         Refl -> Refl
-    EOpRepr (mer1' :: MERepr k f me1') (mer2' :: MERepr k f me2') ->
+    EOpRepr (mer1' :: MERepr k me1') (mer2' :: MERepr k me2') ->
       case normalizeLemma idl idr assoc mer1' (EOpRepr mer2' mer2) of
         Refl ->
               assoc (Proxy :: Proxy (Eval k me1')) (Proxy :: Proxy (Eval k me2')) (Proxy :: Proxy (Eval k me2))
   where
-    norm :: MERepr k f me -> f (Eval k (Normalize me)) :~: f (Eval k me)
+    norm :: MERepr k me -> Proxy (Eval k (Normalize me)) :~: Proxy (Eval k me)
     norm = normalizeSound idl idr assoc
 
 normalizeSound ::
-  (forall proxy n. proxy n -> f (Op k (Unit k) n) :~: f n) ->
-  (forall proxy n. proxy n -> f (Op k n (Unit k)) :~: f n) ->
-  (forall proxy n m l. proxy n -> proxy m -> proxy l -> f (Op k n (Op k m l)) :~: f (Op k (Op k n m) l)) ->
-  MERepr k f me ->
-  f (Eval k (Normalize me)) :~: f (Eval k me)
+  (forall proxy n. proxy n -> Proxy (Op k (Unit k) n) :~: Proxy n) ->
+  (forall proxy n. proxy n -> Proxy (Op k n (Unit k)) :~: Proxy n) ->
+  (forall proxy n m l. proxy n -> proxy m -> proxy l -> Proxy (Op k n (Op k m l)) :~: Proxy (Op k (Op k n m) l)) ->
+  MERepr k me ->
+  Proxy (Eval k (Normalize me)) :~: Proxy (Eval k me)
 normalizeSound idl idr assoc =
   \case
     EUnitRepr -> Refl
-    EVarRepr (sing :: f n) -> idr sing
-    EOpRepr (mer1 :: MERepr k f me1) (mer2 :: MERepr k f me2) ->
+    EVarRepr (sing :: Proxy n) -> idr sing
+    EOpRepr (mer1 :: MERepr k me1) (mer2 :: MERepr k me2) ->
       normalizeLemma idl idr assoc mer1 mer2
 
 solve ::
-  (forall proxy n. proxy n -> f (Op k (Unit k) n) :~: f n) ->
-  (forall proxy n. proxy n -> f (Op k n (Unit k)) :~: f n) ->
-  (forall proxy n m l. proxy n -> proxy m -> proxy l -> f (Op k n (Op k m l)) :~: f (Op k (Op k n m) l)) ->
-  MERepr k f me1 ->
-  MERepr k f me2 ->
-  f (Eval k (Normalize me1)) :~: f (Eval k (Normalize me2)) ->
-  f (Eval k me1) :~: f (Eval k me2)
+  (forall proxy n. proxy n -> Proxy (Op k (Unit k) n) :~: Proxy n) ->
+  (forall proxy n. proxy n -> Proxy (Op k n (Unit k)) :~: Proxy n) ->
+  (forall proxy n m l. proxy n -> proxy m -> proxy l -> Proxy (Op k n (Op k m l)) :~: Proxy (Op k (Op k n m) l)) ->
+  MERepr k me1 ->
+  MERepr k me2 ->
+  Proxy (Eval k (Normalize me1)) :~: Proxy (Eval k (Normalize me2)) ->
+  Proxy (Eval k me1) :~: Proxy (Eval k me2)
 solve idl idr assoc repr1 repr2 Refl =
   case (normalizeSound idl idr assoc repr1, normalizeSound idl idr assoc repr2) of
     (Refl, Refl) -> Refl
 
 solveNat ::
-  MERepr Nat proxy me1 ->
-  MERepr Nat proxy me2 ->
-  proxy (Eval Nat (Normalize me1)) :~: proxy (Eval Nat (Normalize me2)) ->
-  proxy (Eval Nat me1) :~: proxy (Eval Nat me2)
+  MERepr Nat me1 ->
+  MERepr Nat me2 ->
+  Proxy (Eval Nat (Normalize me1)) :~: Proxy (Eval Nat (Normalize me2)) ->
+  Proxy (Eval Nat me1) :~: Proxy (Eval Nat me2)
 solveNat =
   solve
     (const Refl)
@@ -166,33 +166,34 @@ solveNat =
 --
 
 _ex ::
-  NatRepr n ->
-  NatRepr m ->
-  NatRepr l ->
-  NatRepr (n + (m + l)) :~: NatRepr ((n + m) + l)
+  forall n m l.
+  Proxy n ->
+  Proxy m ->
+  Proxy l ->
+  Proxy (n + (m + l)) :~: Proxy ((n + m) + l)
 _ex n m l =
   let e1 = EOpRepr (EVarRepr n) (EOpRepr (EVarRepr m) (EVarRepr l))
       e2 = EOpRepr (EOpRepr (EVarRepr n) (EVarRepr m)) (EVarRepr l)
   in solveNat e1 e2 Refl
 
 assoc5 ::
-  proxy a ->
-  proxy b ->
-  proxy c ->
-  proxy d ->
-  proxy e ->
-  proxy (a + (b + (c + (d + e)))) :~: proxy ((((a + b) + c) + d) + e)
+  Proxy a ->
+  Proxy b ->
+  Proxy c ->
+  Proxy d ->
+  Proxy e ->
+  Proxy (a + (b + (c + (d + e)))) :~: Proxy ((((a + b) + c) + d) + e)
 assoc5 a b c d e =
   let e1 = EOpRepr (EVarRepr a) (EOpRepr (EVarRepr b) (EOpRepr (EVarRepr c) (EOpRepr (EVarRepr d) (EVarRepr e))))
       e2 = EOpRepr (EOpRepr (EOpRepr (EOpRepr (EVarRepr a) (EVarRepr b)) (EVarRepr c)) (EVarRepr d)) (EVarRepr e)
   in solveNat e1 e2 Refl
 
 _assoc5Nat ::
-  proxy a ->
-  proxy b ->
-  proxy c ->
-  proxy d ->
-  proxy e ->
+  Proxy a ->
+  Proxy b ->
+  Proxy c ->
+  Proxy d ->
+  Proxy e ->
   (a + (b + (c + (d + e)))) :~: ((((a + b) + c) + d) + e)
 _assoc5Nat a b c d e =
   case assoc5 a b c d e of
