@@ -87,6 +87,7 @@ module Data.Parameterized.NatRepr
   , testStrictLeq
   , leqRefl
   , leqTrans
+  , withLeqTrans
   , leqAdd2
   , leqSub2
   , leqMulCongr
@@ -425,6 +426,21 @@ leqRefl _ = LeqProof
 leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
 leqTrans LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 0 0)
 {-# NOINLINE leqTrans #-}
+
+-- | Allows either automatically dispatching an inequality constraint when there
+-- is a transitive mid-point constraint in context, or to call code with a
+-- constraint containing a constant in a context with a stronger inequality with
+-- another constant.  This can also be achieved automatically using GHC plug-ins
+-- for solving arithmetic constraints, but those are still experimental and may
+-- not be maintained regularly.
+withLeqTrans ::
+  (small <= middle, middle <= large) =>
+  NatRepr small -> NatRepr middle -> NatRepr large ->
+  ((small <= large) => a) -> a
+withLeqTrans small _ large a =
+  case testLeq small large of
+    Just LeqProof -> a
+    Nothing -> error "This branch should not be reachable by transitivity. Please report."
 
 -- | Add both sides of two inequalities
 leqAdd2 :: LeqProof x_l x_h -> LeqProof y_l y_h -> LeqProof (x_l + y_l) (x_h + y_h)
