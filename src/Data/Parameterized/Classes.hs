@@ -174,7 +174,7 @@ joinOrderingF GTF _ = GTF
 --
 -- Furthermore, when @x@ and @y@ both have type @(k tp)@, we expect:
 --
--- * @compareF x y == EQF@ equals @compare x y@ when @Ord (k tp)@ has an instance.
+-- * @toOrdering (compareF x y)@ equals @compare x y@ when @Ord (k tp)@ has an instance.
 -- * @isJust (testEquality x y)@ equals @x == y@ when @Eq (k tp)@ has an instance.
 --
 -- Minimal complete definition: either 'compareF' or 'leqF'.
