@@ -12,6 +12,7 @@ not restricted to '*'.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -357,3 +358,6 @@ instance HashableF f => Hashable (TypeAp f tp) where
 -- kind @k@.
 class KnownRepr (f :: k -> Type) (ctx :: k) where
   knownRepr :: f ctx
+
+instance KnownRepr Proxy ctx where
+  knownRepr = Proxy
