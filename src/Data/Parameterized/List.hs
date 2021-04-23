@@ -126,6 +126,7 @@ use the 'Data.Parameterized.List.List' type for this purpose.
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -150,11 +151,19 @@ module Data.Parameterized.List
   , index1
   , index2
   , index3
+    -- * Choice
+  , Choice(..)
+  , choice
+  , choose
+  , isChoice
+  , fromChoice
+  , partitionChoices
   ) where
 
 import qualified Control.Lens as Lens
 import           Data.Foldable
 import           Data.Kind
+import           Data.Proxy
 import           Prelude hiding ((!!))
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -404,3 +413,66 @@ itraverse f = go id
       case l of
         Nil -> pure Nil
         e :< rest -> (:<) <$> f (g IndexHere) e <*> go (\ix -> g (IndexThere ix)) rest
+
+-- | Generalization of 'Either' for an arbitrary list of types.
+data Choice (f :: k -> Type) (tps :: [k]) where
+  Choice :: Index tps tp -> f tp -> Choice f tps
+
+instance FunctorFC Choice where
+  fmapFC f (Choice i a) = Choice i (f a)
+
+instance FoldableFC Choice where
+  foldrFC f b (Choice _ a) = f a b
+
+instance TraversableFC Choice where
+  traverseFC f (Choice i a) = Choice i <$> f a
+
+deriving instance (forall tp . Show (f tp)) => Show (Choice f tps)
+instance (forall tp . Show (f tp)) => ShowF (Choice f)
+
+-- | Case analysis for the 'Choice' type. Analogous to 'either'.
+choice :: (forall tp . f tp -> c) -> Choice f tps -> c
+choice f (Choice _ a) = f a
+
+-- | Extracts from a list of 'Choice' all the elements of a particular index.
+-- All such elements are extracted in order. Analogous to 'Data.Either.lefts'
+-- and 'Data.Either.rights'.
+choose :: Index tps tp -> [Choice f tps] -> [f tp]
+choose _ [] = []
+choose ix (Choice ix' a : cs)
+  | Just Refl <- ix `testEquality` ix' = a : choose ix cs
+  | otherwise = choose ix cs
+
+-- | Returns 'True' if the given value is an element of a particular choice
+-- index, 'False' otherwise. Analogous to 'Data.Either.isLeft' and
+-- 'Data.Either.isRight'.
+isChoice :: Index tps tp -> Choice f tps -> Bool
+isChoice ix (Choice ix' _)
+  | Just Refl <- ix `testEquality` ix' = True
+  | otherwise = False
+
+-- | Return the contents of a 'Choice' if its index matches, or a default value
+-- otherwise. Analogous to 'Data.Either.fromLeft' and 'Data.Either.fromRight'.
+fromChoice :: Index tps tp -> f tp -> Choice f tps -> f tp
+fromChoice ix a (Choice ix' b)
+  | Just Refl <- ix `testEquality` ix' = b
+  | otherwise = a
+
+-- | Type for the result of 'partitionChoices'.
+data ChoiceList f tp = ChoiceList [f tp]
+
+deriving instance Show (f tp) => Show (ChoiceList f tp)
+
+instance (forall tp . Show (f tp)) => ShowF (ChoiceList f)
+
+-- | Partition a list of 'Choice' into @n@ lists, where @n@ is the number of
+-- different types in @tps@.
+partitionChoices :: forall f tps . KnownRepr (List Proxy) tps
+                 => [Choice f tps]
+                 -> List (ChoiceList f) tps
+partitionChoices [] = imap (\_ _ -> ChoiceList []) proxies
+  where proxies :: List Proxy tps
+        proxies = knownRepr
+partitionChoices (Choice i a : cs) =
+  let pRest = partitionChoices cs
+  in update pRest i (\(ChoiceList as) -> ChoiceList (a:as))
