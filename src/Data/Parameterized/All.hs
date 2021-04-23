@@ -38,6 +38,7 @@
 ------------------------------------------------------------------------
 
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Data.Parameterized.All
@@ -58,9 +59,6 @@ instance FunctorF All where
 
 instance FoldableF All where
   foldMapF toMonoid (All x) = toMonoid x
-
-instance ShowF f => Show (All f) where
-  show (All fa) = showF fa
 
 instance EqF f => Eq (All f) where
   (All x) == (All y) = eqF x y

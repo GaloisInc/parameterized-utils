@@ -77,8 +77,6 @@ instance OrdF Nonce where
 instance HashableF Nonce where
   hashWithSaltF s (Nonce x) = hashWithSalt s x
 
-instance ShowF Nonce
-
 {-# INLINE freshNonce #-}
 -- | Get a fresh index and increment the counter.
 freshNonce :: NonceGenerator s -> ST s (Nonce tp)

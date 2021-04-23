@@ -9,6 +9,7 @@ This module declares classes for working with types with the kind
 not restricted to '*'.
 -}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -16,6 +17,7 @@ not restricted to '*'.
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE Safe #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -38,8 +40,7 @@ module Data.Parameterized.Classes
   , fromOrdering
   , ordFCompose
     -- * Typeclass generalizations
-  , ShowF(..)
-  , showsF
+  , ShowF
   , HashableF(..)
   , CoercibleF(..)
     -- * Type function application constructor
@@ -62,7 +63,6 @@ import Data.Functor.Compose (Compose(..))
 import Data.Kind
 import Data.Hashable
 import Data.Maybe (isJust)
-import Data.Proxy
 import Data.Type.Equality as Equality
 
 import Data.Parameterized.Compose ()
@@ -247,30 +247,8 @@ instance OrdF f => OrdF (Compose f g) where
 ------------------------------------------------------------------------
 -- ShowF
 
--- | A parameterized type that can be shown on all instances.
---
--- To implement @'ShowF' g@, one should implement an instance @'Show'
--- (g tp)@ for all argument types @tp@, then write an empty instance
--- @instance 'ShowF' g@.
-class ShowF (f :: k -> Type) where
-  -- | Provides a show instance for each type.
-  withShow :: p f -> q tp -> (Show (f tp) => a) -> a
-
-  default withShow :: Show (f tp) => p f -> q tp -> (Show (f tp) => a) -> a
-  withShow _ _ x = x
-
-  showF :: forall tp . f tp -> String
-  showF x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (show x)
-
-  -- | Like 'showsPrec', the precedence argument is /one more/ than the
-  -- precedence of the enclosing context.
-  showsPrecF :: forall tp. Int -> f tp -> String -> String
-  showsPrecF p x = withShow (Proxy :: Proxy f) (Proxy :: Proxy tp) (showsPrec p x)
-
-showsF :: ShowF f => f tp -> String -> String
-showsF x = showsPrecF 0 x
-
-instance Show x => ShowF (Const x)
+-- | A type synonym indicating that a type can be shown on all instances.
+type ShowF f = forall x . Show (f x)
 
 ------------------------------------------------------------------------
 -- IxedF
@@ -343,7 +321,7 @@ instance OrdF f => Ord (TypeAp f tp) where
   compare (TypeAp x) (TypeAp y) = toOrdering (compareF x y)
 
 instance ShowF f => Show (TypeAp f tp) where
-  showsPrec p (TypeAp x) = showsPrecF p x
+  showsPrec p (TypeAp x) = showsPrec p x
 
 instance HashableF f => Hashable (TypeAp f tp) where
   hashWithSalt s (TypeAp x) = hashWithSaltF s x

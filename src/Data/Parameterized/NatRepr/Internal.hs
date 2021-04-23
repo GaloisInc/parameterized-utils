@@ -86,8 +86,6 @@ instance PolyEq (NatRepr m) (NatRepr n) where
 instance Show (NatRepr n) where
   show (NatRepr n) = show n
 
-instance ShowF NatRepr
-
 instance HashableF NatRepr where
   hashWithSaltF = hashWithSalt
 

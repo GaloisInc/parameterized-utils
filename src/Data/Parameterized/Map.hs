@@ -14,6 +14,7 @@ Some code was adapted from containers.
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
@@ -309,7 +310,7 @@ instance TraversableF (MapF ktp) where
   traverseF = traverse
 
 instance (ShowF ktp, ShowF rtp) => Show (MapF ktp rtp) where
-  show m = showMap showF showF m
+  show m = showMap show show m
 
 -- | Return all keys of the map in ascending order.
 keys :: MapF k a -> [Some k]

@@ -37,9 +37,6 @@ instance HashableF f => Hashable (Some f) where
   hashWithSalt s (Some x) = hashWithSaltF s x
   hash (Some x) = hashF x
 
-instance ShowF f => Show (Some f) where
-  show (Some x) = showF x
-
 -- | Project out of Some.
 viewSome :: (forall tp . f tp -> r) -> Some f -> r
 viewSome f (Some x) = f x

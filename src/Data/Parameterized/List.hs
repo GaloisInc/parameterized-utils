@@ -126,6 +126,7 @@ use the 'Data.Parameterized.List.List' type for this purpose.
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -174,11 +175,9 @@ instance ShowF f => Show (List f sh) where
   showsPrec p (elt :< rest) = showParen (p > precCons) $
     -- Unlike a derived 'Show' instance, we don't print parens implied
     -- by right associativity.
-    showsPrecF (precCons+1) elt . showString " :< " . showsPrec 0 rest
+    showsPrec (precCons+1) elt . showString " :< " . showsPrec 0 rest
     where
       precCons = 5
-
-instance ShowF f => ShowF (List f)
 
 instance FunctorFC List where
   fmapFC _ Nil = Nil
@@ -250,8 +249,6 @@ data Index :: [k] -> k -> Type  where
 
 deriving instance Eq (Index l x)
 deriving instance Show  (Index l x)
-
-instance ShowF (Index l)
 
 instance TestEquality (Index l) where
   testEquality IndexHere IndexHere = Just Refl
