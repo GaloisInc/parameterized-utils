@@ -104,6 +104,9 @@ class EqF (f :: k -> Type) where
 instance Eq a => EqF (Const a) where
   eqF (Const x) (Const y) = x == y
 
+instance EqF Proxy where
+  eqF Proxy Proxy = True
+
 ------------------------------------------------------------------------
 -- PolyEq
 
@@ -272,6 +275,8 @@ showsF :: ShowF f => f tp -> String -> String
 showsF x = showsPrecF 0 x
 
 instance Show x => ShowF (Const x)
+
+instance ShowF Proxy
 
 ------------------------------------------------------------------------
 -- IxedF
