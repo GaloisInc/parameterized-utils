@@ -154,6 +154,7 @@ module Data.Parameterized.List
     -- * Choice
   , Choice(..)
   , choice
+  , ichoice
   , choose
   , isChoice
   , fromChoice
@@ -434,6 +435,10 @@ instance (forall tp . Show (f tp)) => ShowF (Choice f)
 -- | Case analysis for the 'Choice' type. Analogous to 'either'.
 choice :: (forall tp . f tp -> c) -> Choice f tps -> c
 choice f (Choice _ a) = f a
+
+-- | 'choice', but the function can use the 'Index'.
+ichoice :: (forall tp . Index tps tp -> f tp -> c) -> Choice f tps -> c
+ichoice f (Choice i a) = f i a
 
 -- | Extracts from a list of 'Choice' all the elements of a particular index.
 -- All such elements are extracted in order. Analogous to 'Data.Either.lefts'
