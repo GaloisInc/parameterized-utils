@@ -158,6 +158,7 @@ module Data.Parameterized.List
   , isChoice
   , fromChoice
   , partitionChoices
+  , ChoiceList(..)
   ) where
 
 import qualified Control.Lens as Lens
