@@ -459,7 +459,7 @@ fromChoice ix a (Choice ix' b)
   | Just Refl <- ix `testEquality` ix' = b
   | otherwise = a
 
--- | Type for the result of 'partitionChoices'.
+-- | Wrapper type for the result of 'partitionChoices'.
 data ChoiceList f tp = ChoiceList [f tp]
 
 deriving instance Show (f tp) => Show (ChoiceList f tp)
