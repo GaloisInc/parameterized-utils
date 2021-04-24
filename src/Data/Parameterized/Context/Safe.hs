@@ -597,6 +597,9 @@ instance HashableF f => Hashable (Assignment f ctx) where
   hashWithSalt s AssignmentEmpty = s
   hashWithSalt s (AssignmentExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
 
+instance ShowF f => Show (Assignment f ctx) where
+  show a = "[" ++ intercalate ", " (toList show a) ++ "]"
+
 instance FunctorFC Assignment where
   fmapFC = fmapFCDefault
 
