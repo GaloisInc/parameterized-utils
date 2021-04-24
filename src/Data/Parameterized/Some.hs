@@ -10,6 +10,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 module Data.Parameterized.Some
   ( Some(..)
@@ -36,6 +37,9 @@ instance OrdF f => Ord (Some f) where
 instance HashableF f => Hashable (Some f) where
   hashWithSalt s (Some x) = hashWithSaltF s x
   hash (Some x) = hashF x
+
+instance ShowF f => Show (Some f) where
+  show (Some x) = show x
 
 -- | Project out of Some.
 viewSome :: (forall tp . f tp -> r) -> Some f -> r
