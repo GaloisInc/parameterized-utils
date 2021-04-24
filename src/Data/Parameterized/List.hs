@@ -462,7 +462,6 @@ fromChoice ix a (Choice ix' b)
 data ChoiceList f tp = ChoiceList [f tp]
 
 deriving instance Show (f tp) => Show (ChoiceList f tp)
-
 instance (forall tp . Show (f tp)) => ShowF (ChoiceList f)
 
 -- | Partition a list of 'Choice' into @n@ lists, where @n@ is the number of
