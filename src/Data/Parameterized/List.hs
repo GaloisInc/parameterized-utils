@@ -416,6 +416,9 @@ itraverse f = go id
         Nil -> pure Nil
         e :< rest -> (:<) <$> f (g IndexHere) e <*> go (\ix -> g (IndexThere ix)) rest
 
+--------------------------------------------------------------------------------
+-- Choice and associated functions
+
 -- | Generalization of 'Either' for an arbitrary list of types.
 data Choice (f :: k -> Type) (tps :: [k]) where
   Choice :: Index tps tp -> f tp -> Choice f tps
