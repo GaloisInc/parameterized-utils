@@ -478,7 +478,7 @@ instance (forall tp . Show (f tp)) => ShowF (ChoiceList f)
 partitionChoices :: forall f tps . KnownRepr (List Proxy) tps
                  => [Choice f tps]
                  -> List (ChoiceList f) tps
-partitionChoices [] = imap (\_ _ -> ChoiceList []) proxies
+partitionChoices [] = fmapFC (const (ChoiceList [])) proxies
   where proxies :: List Proxy tps
         proxies = knownRepr
 partitionChoices (Choice i a : cs) =
