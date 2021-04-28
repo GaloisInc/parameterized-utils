@@ -105,7 +105,7 @@ instance Eq a => EqF (Const a) where
   eqF (Const x) (Const y) = x == y
 
 instance EqF Proxy where
-  eqF Proxy Proxy = True
+  eqF _ _ = True
 
 ------------------------------------------------------------------------
 -- PolyEq
