@@ -546,6 +546,17 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 --   where
 --     T4Repr :: NatRepr tp1 -> PeanoRepr tp2 -> T4Repr ('T4 tp1 tp2)
 -- @
+--
+-- Currently, only monomorphic data kinds are supported, so the following will not work:
+--
+-- @
+-- data T5 a = T5 a
+-- \$(mkRepr ''T5)
+-- ======>
+-- Foo.hs:1:1: error:
+--     Exception when trying to run compile-time code:
+--       mkRepr cannot be used on polymorphic data kinds.
+-- @
 mkRepr :: Name -> DecsQ
 mkRepr typeName = do
   let reprTypeName = mkReprName typeName
@@ -575,6 +586,10 @@ mkRepr typeName = do
              ctors
              []
            ]
+  where getCtorName :: Type -> Name
+        getCtorName c = case c of
+          ConT nm -> nm
+          _ -> error $ "mkRepr cannot be used on polymorphic data kinds."
 
 -- | Generate @KnownRepr@ instances for each constructor of a data kind. Given a
 -- data kind @T@, we assume a repr type @TRepr (t :: T)@ is in scope with
@@ -631,14 +646,13 @@ mkKnownReprs typeName = do
         krDec = FunD krFName [Clause [] (NormalB krExp) []]
 
     return $ InstanceD Nothing krReqs krConstraint [krDec]
+  where getCtorName :: Type -> Name
+        getCtorName c = case c of
+          ConT nm -> nm
+          _ -> error $ "mkKnownReprs cannot be used on polymorphic data kinds."
 
 mkReprName :: Name -> Name
 mkReprName nm = mkName (nameBase nm ++ "Repr")
-
-getCtorName :: Type -> Name
-getCtorName c = case c of
-  ConT nm -> nm
-  _ -> error $ "expected constructor, found " ++ show c
 
 -- $typePatterns
 --
