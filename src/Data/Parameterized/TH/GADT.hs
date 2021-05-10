@@ -581,7 +581,7 @@ mkRepr typeName = do
           ctorType
   ctors <- mapM gc (datatypeCons info)
   return $ [ DataD [] reprTypeName
-             [KindedTV varName () (ConT typeName)]
+             [kindedTV varName (ConT typeName)]
              Nothing
              ctors
              []
