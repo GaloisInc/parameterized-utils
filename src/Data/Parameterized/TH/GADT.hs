@@ -714,7 +714,7 @@ getCtorName c = case c of
 -- @
 --
 -- Assuming the user of @parameterized-utils@ follows this convention, we
--- provide the template haskell constructs 'mkRepr' to automate the creation of
+-- provide the Template Haskell construct 'mkRepr' to automate the creation of
 -- the @TRepr@ GADT type. We also provide 'mkKnownReprs', which generates
 -- 'KnownRepr' instances for that GADT type. See the documentation for those two
 -- functions for more detailed explanations.
