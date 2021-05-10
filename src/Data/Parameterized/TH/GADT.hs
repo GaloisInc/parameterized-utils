@@ -561,7 +561,7 @@ mkRepr typeName = do
         -- Generate a list of type variables to be supplied as type arguments
         -- for each repr argument.
         tvars <- replicateM (length (constructorFields ci)) (newName "tp")
-        let appliedType = 
+        let appliedType =
               foldl AppT (PromotedT (constructorName ci)) (VarT <$> tvars)
             ctorType = AppT (ConT reprTypeName) appliedType
             ctorArgTypes =
