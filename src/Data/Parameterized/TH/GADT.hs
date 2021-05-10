@@ -556,8 +556,6 @@ mkRepr typeName = do
             reprCtorName = mkReprName ctorName
             ctorFieldTypeNames = getCtorName <$> constructorFields ci
             ctorFieldReprNames = mkReprName <$> ctorFieldTypeNames
-        -- Attempt to reify the repr type to make sure it is in scope.
-        _ <- mapM_ lookupDataType' ctorFieldReprNames
         -- Generate a list of type variables to be supplied as type arguments
         -- for each repr argument.
         tvars <- replicateM (length (constructorFields ci)) (newName "tp")
