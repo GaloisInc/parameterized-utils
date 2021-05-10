@@ -718,3 +718,7 @@ getCtorName c = case c of
 -- the @TRepr@ GADT type. We also provide 'mkKnownReprs', which generates
 -- 'KnownRepr' instances for that GADT type. See the documentation for those two
 -- functions for more detailed explanations.
+--
+-- NB: These macros are inspired by the corresponding macros provided by
+-- `singletons-th`, and the "repr" programming idiom is very similar to the one
+-- used by `singletons.`
