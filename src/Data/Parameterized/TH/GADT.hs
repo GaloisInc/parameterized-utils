@@ -25,7 +25,7 @@ module Data.Parameterized.TH.GADT
   , structuralHash
   , structuralHashWithSalt
   , PolyEq(..)
-    -- * Repr generators ("singletons")
+    -- * Repr generators (\"singletons\")
     -- $reprs
   , mkRepr
   , mkKnownReprs
@@ -497,7 +497,7 @@ showCon p nm n = do
 matchShowCtor :: ExpQ -> ConstructorInfo -> MatchQ
 matchShowCtor p con = showCon p (constructorName con) (length (constructorFields con))
 
--- | Generate a "repr" or singleton type from a data kind. For nullary
+-- | Generate a \"repr\" or singleton type from a data kind. For nullary
 -- constructors, this works as follows:
 --
 -- @
@@ -535,7 +535,7 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 --     T3Repr :: T1Repr tp1 -> T2Repr tp2 -> T3Repr ('T3 tp1 tp2)
 -- @
 --
--- This is generally compatible with other "repr" types provided by
+-- This is generally compatible with other \"repr\" types provided by
 -- @parameterized-utils@, such as @NatRepr@ and @PeanoRepr@:
 --
 -- @
@@ -547,7 +547,9 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 --     T4Repr :: NatRepr tp1 -> PeanoRepr tp2 -> T4Repr ('T4 tp1 tp2)
 -- @
 --
--- Currently, only monomorphic data kinds are supported, so the following will not work:
+-- The data kind must be \"simple\", i.e. it must be monomorphic and only
+-- contain user-defined data constructors (no lists, tuples, etc.). For example,
+-- the following will not work:
 --
 -- @
 -- data T5 a = T5 a
@@ -556,6 +558,17 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 -- Foo.hs:1:1: error:
 --     Exception when trying to run compile-time code:
 --       mkRepr cannot be used on polymorphic data kinds.
+-- @
+--
+-- Similarly, this will not work:
+--
+-- @
+-- data T5 = T5 [Nat]
+-- \$(mkRepr ''T5)
+-- ======>
+-- Foo.hs:1:1: error:
+--     Exception when trying to run compile-time code:
+--       mkRepr cannot be used on this data kind.
 -- @
 mkRepr :: Name -> DecsQ
 mkRepr typeName = do
@@ -589,7 +602,8 @@ mkRepr typeName = do
   where getCtorName :: Type -> Name
         getCtorName c = case c of
           ConT nm -> nm
-          _ -> error $ "mkRepr cannot be used on polymorphic data kinds."
+          VarT _ -> error $ "mkRepr cannot be used on polymorphic data kinds."
+          _ -> error $ "mkRepr cannot be used on this data kind."
 
 -- | Generate @KnownRepr@ instances for each constructor of a data kind. Given a
 -- data kind @T@, we assume a repr type @TRepr (t :: T)@ is in scope with
@@ -626,6 +640,10 @@ mkRepr typeName = do
 --          KnownRepr T3Repr ('T3_1 tp1 tp2) where
 --   knownRepr = T3_1Repr knownRepr knownRepr
 -- @
+--
+-- The same restrictions that apply to 'mkRepr' also apply to 'mkKnownReprs'.
+-- The data kind must be \"simple\", i.e. it must be monomorphic and only
+-- contain user-defined data constructors (no lists, tuples, etc.).
 mkKnownReprs :: Name -> DecsQ
 mkKnownReprs typeName = do
   kr <- [t|KnownRepr|]
@@ -634,7 +652,7 @@ mkKnownReprs typeName = do
   typeInfo <- lookupDataType' typeName
   reprInfo <- lookupDataType' reprTypeName
   forM (zip (datatypeCons typeInfo) (datatypeCons reprInfo)) $ \(tci, rci) -> do
-    vars <- forM (constructorFields tci) $ const (newName "tp")
+    vars <- replicateM (length (constructorFields tci)) (newName "tp")
     krReqs <- forM (zip (constructorFields tci) vars) $ \(tfld, v) -> do
       let fldReprName = mkReprName (getCtorName tfld)
       return $ AppT (AppT kr (ConT fldReprName)) (VarT v)
@@ -649,7 +667,8 @@ mkKnownReprs typeName = do
   where getCtorName :: Type -> Name
         getCtorName c = case c of
           ConT nm -> nm
-          _ -> error $ "mkKnownReprs cannot be used on polymorphic data kinds."
+          VarT _ -> error $ "mkKnownReprs cannot be used on polymorphic data kinds."
+          _ -> error $ "mkKnownReprs cannot be used on this data kind."
 
 mkReprName :: Name -> Name
 mkReprName nm = mkName (nameBase nm ++ "Repr")
@@ -732,5 +751,5 @@ mkReprName nm = mkName (nameBase nm ++ "Repr")
 -- for more detailed explanations.
 --
 -- NB: These macros are inspired by the corresponding macros provided by
--- `singletons-th`, and the "repr" programming idiom is very similar to the one
--- used by `singletons.`
+-- @singletons-th@, and the \"repr\" programming idiom is very similar to the one
+-- used by @singletons@.
