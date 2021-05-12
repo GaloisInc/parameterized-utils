@@ -574,10 +574,10 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 -- Note that at a minimum, you will need the following extensions to use this macro:
 --
 -- @
--- {-# LANGUAGE DataKinds #-}
--- {-# LANGUAGE GADTs #-}
--- {-# LANGUAGE KindSignatures #-}
--- {-# LANGUAGE TemplateHaskell #-}
+-- {-\# LANGUAGE DataKinds \#-}
+-- {-\# LANGUAGE GADTs \#-}
+-- {-\# LANGUAGE KindSignatures \#-}
+-- {-\# LANGUAGE TemplateHaskell \#-}
 -- @
 mkRepr :: Name -> DecsQ
 mkRepr typeName = do
@@ -657,15 +657,15 @@ mkRepr typeName = do
 -- Note that at a minimum, you will need the following extensions to use this macro:
 --
 -- @
--- {-# LANGUAGE DataKinds #-}
--- {-# LANGUAGE GADTs #-}
--- {-# LANGUAGE KindSignatures #-}
--- {-# LANGUAGE MultiParamTypeClasses #-}
--- {-# LANGUAGE TemplateHaskell #-}
+-- {-\# LANGUAGE DataKinds \#-}
+-- {-\# LANGUAGE GADTs \#-}
+-- {-\# LANGUAGE KindSignatures \#-}
+-- {-\# LANGUAGE MultiParamTypeClasses \#-}
+-- {-\# LANGUAGE TemplateHaskell \#-}
 -- @
 --
 -- Also, 'mkKnownReprs' must be used in the same module as the definition of
--- both the repr type (not necessarily for the data kind).
+-- the repr type (not necessarily for the data kind).
 mkKnownReprs :: Name -> DecsQ
 mkKnownReprs typeName = do
   kr <- [t|KnownRepr|]
