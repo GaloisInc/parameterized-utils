@@ -132,13 +132,3 @@ test-suite parameterizedTests
                , tasty-ant-xml == 1.1.*
                , tasty-hunit >= 0.9 && < 0.11
                , tasty-hedgehog
-
-executable foo
-  hs-source-dirs: .
-  main-is: Foo.hs
-  build-depends: base
-               , parameterized-utils
-               , template-haskell
-               , th-abstraction
-               , pretty-show
-  ghc-options: -ddump-splices
