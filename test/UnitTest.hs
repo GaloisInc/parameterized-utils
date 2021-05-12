@@ -6,6 +6,7 @@ import qualified Test.Context
 import qualified Test.List
 import qualified Test.NatRepr
 import qualified Test.SymbolRepr
+import qualified Test.TH
 import qualified Test.Vector
 
 main :: IO ()
@@ -24,5 +25,6 @@ tests = testGroup "ParameterizedUtils" <$> sequence
   , pure Test.List.tests
   , Test.NatRepr.natTests
   , Test.SymbolRepr.symbolTests
+  , Test.TH.thTests
   , Test.Vector.vecTests
   ]
