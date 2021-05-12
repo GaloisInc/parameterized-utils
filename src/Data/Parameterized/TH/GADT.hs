@@ -570,6 +570,15 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 --     Exception when trying to run compile-time code:
 --       mkRepr cannot be used on this data kind.
 -- @
+--
+-- Note that at a minimum, you will need the following extensions to use this macro:
+--
+-- @
+-- {-# LANGUAGE DataKinds #-}
+-- {-# LANGUAGE GADTs #-}
+-- {-# LANGUAGE KindSignatures #-}
+-- {-# LANGUAGE TemplateHaskell #-}
+-- @
 mkRepr :: Name -> DecsQ
 mkRepr typeName = do
   let reprTypeName = mkReprName typeName
@@ -644,6 +653,19 @@ mkRepr typeName = do
 -- The same restrictions that apply to 'mkRepr' also apply to 'mkKnownReprs'.
 -- The data kind must be \"simple\", i.e. it must be monomorphic and only
 -- contain user-defined data constructors (no lists, tuples, etc.).
+--
+-- Note that at a minimum, you will need the following extensions to use this macro:
+--
+-- @
+-- {-# LANGUAGE DataKinds #-}
+-- {-# LANGUAGE GADTs #-}
+-- {-# LANGUAGE KindSignatures #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# LANGUAGE TemplateHaskell #-}
+-- @
+--
+-- Also, 'mkKnownReprs' must be used in the same module as the definition of
+-- both the repr type (not necessarily for the data kind).
 mkKnownReprs :: Name -> DecsQ
 mkKnownReprs typeName = do
   kr <- [t|KnownRepr|]
