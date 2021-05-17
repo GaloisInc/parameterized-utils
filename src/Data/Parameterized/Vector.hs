@@ -43,6 +43,7 @@ module Data.Parameterized.Vector
     -- * Sub sequences
   , uncons
   , unsnoc
+  , elim
   , slice
   , Data.Parameterized.Vector.take
   , replace
@@ -194,6 +195,24 @@ unsnoc v@(Vector xs) = (Vector.last xs, mbTail)
                   return (Vector (Vector.slice 0 (Vector.length xs - 1) xs))
              Right Refl    -> Left Refl
 {-# Inline unsnoc #-}
+
+
+-- | General eliminator for vectors, yielding run-time information about its length.
+elim :: forall n a r.
+  Vector n a ->
+  (n :~: 1 -> a -> r) ->
+  (forall p. n :~: p + 1 -> a -> Vector p a -> r) ->
+  r
+elim v@(Vector xs) k1 kn =
+  case minusPlusCancel n (knownNat @1) of
+    Refl ->
+      case testStrictLeq (knownNat @0) p of
+        Left LeqProof -> kn Refl (Vector.head xs) (Vector (Vector.tail xs))
+        Right Refl -> k1 Refl (Vector.head xs)
+  where
+    n = length v
+    p = decNat n
+{-# INLINE elim #-}
 
 
 --------------------------------------------------------------------------------
