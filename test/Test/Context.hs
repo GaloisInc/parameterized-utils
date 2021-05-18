@@ -56,8 +56,6 @@ instance Show (Payload tp) where
   show (StringPayload x) = show x <> " :: String"
   show (BoolPayload x) = show x <> " :: Bool"
 
-instance ShowF Payload
-
 
 twiddle :: Payload a -> Payload a
 twiddle (IntPayload n) = IntPayload (n+1)
@@ -76,7 +74,6 @@ twiddle (BoolPayload b) = BoolPayload (not b)
 -- constraint.
 
 data MyMaybe t = (Show t) => MyJust t | MyNothing
-instance ShowF MyMaybe
 instance Show (MyMaybe t) where
   show (MyJust x) = "MyJust " <> show x
   show MyNothing = "MyNothing"

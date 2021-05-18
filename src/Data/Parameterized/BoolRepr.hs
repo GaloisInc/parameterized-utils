@@ -98,8 +98,6 @@ instance Show (BoolRepr m) where
   show FalseRepr = "FalseRepr"
   show TrueRepr  = "TrueRepr"
 
-instance ShowF BoolRepr
-
 instance HashableF BoolRepr where
   hashWithSaltF = hashWithSalt
 

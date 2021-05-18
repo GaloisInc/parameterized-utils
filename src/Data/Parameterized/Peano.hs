@@ -274,8 +274,6 @@ instance PolyEq (PeanoRepr m) (PeanoRepr n) where
 instance Show (PeanoRepr p) where
   show p = show (peanoValue p)
 
-instance ShowF PeanoRepr
-
 instance HashableF PeanoRepr where
   hashWithSaltF = hashWithSalt
 

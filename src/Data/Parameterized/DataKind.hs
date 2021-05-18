@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -33,8 +34,7 @@ snd (PairRepr _ b) = b
 $(return [])
 
 instance ( ShowF f, ShowF g ) => Show (PairRepr f g p) where
-  show (PairRepr a b) = showChar '(' . showsF a . showChar ',' . showsF b $ ")"
-instance ( ShowF f, ShowF g ) => ShowF (PairRepr f g)
+  show (PairRepr a b) = showChar '(' . shows a . showChar ',' . shows b $ ")"
 
 deriving instance ( Eq (f a), Eq (g b) ) => Eq (PairRepr f g '(a, b))
 instance ( TestEquality f, TestEquality g ) => TestEquality (PairRepr f g) where

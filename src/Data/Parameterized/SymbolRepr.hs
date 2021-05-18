@@ -105,8 +105,6 @@ instance Hashable (SymbolRepr nm) where
 instance Show (SymbolRepr nm) where
   show (SymbolRepr nm) = Text.unpack nm
 
-instance ShowF SymbolRepr
-
 
 -- | The SomeSym hides a Symbol parameter but preserves a
 -- KnownSymbol constraint on the hidden parameter.

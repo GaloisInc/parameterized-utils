@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -145,8 +146,6 @@ sizeToNatRepr (Size n) = NatRepr (fromIntegral n)
 
 instance Show (Size ctx) where
   show (Size i) = show i
-
-instance ShowF Size
 
 -- | A context that can be determined statically at compiler time.
 class KnownContext (ctx :: Ctx k) where
@@ -335,8 +334,6 @@ intIndex i n | 0 <= i && i < sizeInt n = Just (Some (Index i))
 instance Show (Index ctx tp) where
    show = show . indexVal
 
-instance ShowF (Index ctx)
-
 -- | View of indexes as pointing to the last element in the
 -- index range or pointing to an earlier element in a smaller
 -- range.
@@ -345,7 +342,6 @@ data IndexView ctx tp where
   IndexViewInit :: !(Index ctx t) -> IndexView (ctx '::> u) t
 
 deriving instance Show (IndexView ctx tp)
-instance ShowF (IndexView ctx)
 
 -- | Project an index
 viewIndex :: Size ctx -> Index ctx tp -> IndexView ctx tp
@@ -454,10 +450,8 @@ traverse_bal = go
 {-# INLINABLE traverse_bal #-}
 
 instance ShowF f => Show (BalancedTree h f tp) where
-  show (BalLeaf x) = showF x
+  show (BalLeaf x) = show x
   show (BalPair x y) = "BalPair " Prelude.++ show x Prelude.++ " " Prelude.++ show y
-
-instance ShowF f => ShowF (BalancedTree h f)
 
 unsafe_bal_generate :: forall ctx h f t
                      . Int -- ^ Height of tree to generate
@@ -855,9 +849,7 @@ instance HashableF f => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
 
 instance ShowF f => Show (Assignment f ctx) where
-  show a = "[" Prelude.++ intercalate ", " (toListFC showF a) Prelude.++ "]"
-
-instance ShowF f => ShowF (Assignment f)
+  show a = "[" Prelude.++ intercalate ", " (toListFC show a) Prelude.++ "]"
 
 {-# DEPRECATED adjust "Replace 'adjust f i asgn' with 'Lens.over (ixF i) f asgn' instead." #-}
 adjust :: (f tp -> f tp) -> Index ctx tp -> Assignment f ctx -> Assignment f ctx

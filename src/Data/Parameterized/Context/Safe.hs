@@ -37,6 +37,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -136,8 +137,6 @@ data Size (ctx :: Ctx k) where
 -- | Renders as integer literal
 instance Show (Size ctx) where
   show = show . sizeInt
-
-instance ShowF Size
 
 -- | Convert a context size to an 'Int'.
 sizeInt :: Size ctx -> Int
@@ -414,8 +413,6 @@ intIndex n sz = listToMaybe $ drop n $ indexList sz
 instance Show (Index ctx tp) where
    show = show . indexVal
 
-instance ShowF (Index ctx)
-
 -- | View of indexes as pointing to the last element in the
 -- index range or pointing to an earlier element in a smaller
 -- range.
@@ -423,7 +420,6 @@ data IndexView ctx tp where
   IndexViewLast :: Size  ctx   -> IndexView (ctx '::> t) t
   IndexViewInit :: Index ctx t -> IndexView (ctx '::> u) t
 
-instance ShowF (IndexView ctx)
 deriving instance Show (IndexView ctx tp)
 
 -- | Project an index
@@ -602,9 +598,7 @@ instance HashableF f => Hashable (Assignment f ctx) where
   hashWithSalt s (AssignmentExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
 
 instance ShowF f => Show (Assignment f ctx) where
-  show a = "[" ++ intercalate ", " (toList showF a) ++ "]"
-
-instance ShowF f => ShowF (Assignment f)
+  show a = "[" ++ intercalate ", " (toList show a) ++ "]"
 
 instance FunctorFC Assignment where
   fmapFC = fmapFCDefault
