@@ -23,7 +23,7 @@ import qualified Data.List as List
 import qualified Data.Parameterized.Context as Ctx
 import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Some
-import           Data.Parameterized.Vector
+import           Data.Parameterized.Vector.NonEmpty
 import           Data.Semigroup
 import           GHC.TypeLits
 import           Hedgehog
