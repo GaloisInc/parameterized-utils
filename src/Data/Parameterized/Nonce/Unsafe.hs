@@ -43,6 +43,7 @@ import Data.STRef
 import Data.Word
 import Unsafe.Coerce
 
+import Data.Parameterized.Axiom
 import Data.Parameterized.Classes
 
 -- | A simple type that for getting fresh indices in the 'ST' monad.
@@ -64,7 +65,7 @@ newtype Nonce (tp :: k) = Nonce { indexValue :: Word64 }
 type role Nonce nominal
 
 instance TestEquality Nonce where
-  testEquality x y | indexValue x == indexValue y = unsafeCoerce (Just Refl)
+  testEquality x y | indexValue x == indexValue y = Just unsafeAxiom
                    | otherwise = Nothing
 
 instance OrdF Nonce where

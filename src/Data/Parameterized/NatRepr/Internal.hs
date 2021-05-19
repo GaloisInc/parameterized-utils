@@ -27,6 +27,7 @@ import GHC.TypeNats
 import Numeric.Natural
 import Unsafe.Coerce
 
+import Data.Parameterized.Axiom
 import Data.Parameterized.Classes
 import Data.Parameterized.DecidableEq
 
@@ -49,12 +50,12 @@ instance Eq (NatRepr m) where
 
 instance TestEquality NatRepr where
   testEquality (NatRepr m) (NatRepr n)
-    | m == n = Just (unsafeCoerce Refl)
+    | m == n = Just unsafeAxiom
     | otherwise = Nothing
 
 instance DecidableEq NatRepr where
   decEq (NatRepr m) (NatRepr n)
-    | m == n    = Left $ unsafeCoerce Refl
+    | m == n    = Left unsafeAxiom
     | otherwise = Right $
         \x -> seq x $ error "Impossible [DecidableEq on NatRepr]"
 
