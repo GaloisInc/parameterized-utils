@@ -88,6 +88,7 @@ import           Data.Parameterized.Context
 import           Data.Word
 
 #ifdef UNSAFE_OPS
+import           Data.Parameterized.Axiom
 import           Unsafe.Coerce(unsafeCoerce)
 #endif
 
@@ -221,7 +222,7 @@ instance Eq (PeanoRepr m) where
 instance TestEquality PeanoRepr where
 #ifdef UNSAFE_OPS
   testEquality (PeanoRepr m) (PeanoRepr n)
-    | m == n = Just (unsafeCoerce Refl)
+    | m == n = Just unsafeAxiom
     | otherwise = Nothing
 #else
   testEquality ZRepr ZRepr = Just Refl
@@ -235,7 +236,7 @@ instance TestEquality PeanoRepr where
 instance DecidableEq PeanoRepr where
 #ifdef UNSAFE_OPS
   decEq (PeanoRepr m) (PeanoRepr n)
-    | m == n    = Left $ unsafeCoerce Refl
+    | m == n    = Left unsafeAxiom
     | otherwise = Right $
         \x -> seq x $ error "Impossible [DecidableEq on PeanoRepr]"
 #else
@@ -452,7 +453,7 @@ plusCtxSizeAxiom :: forall t1 t2 f.
   Assignment f t1 -> Assignment f t2 ->
   CtxSizeP (t1 <+> t2) :~: Plus (CtxSizeP t2) (CtxSizeP t1)
 #ifdef UNSAFE_OPS
-plusCtxSizeAxiom _t1 _t2 = unsafeCoerce Refl
+plusCtxSizeAxiom _t1 _t2 = unsafeAxiom
 #else
 plusCtxSizeAxiom t1 t2 =
   case viewAssign t2 of
@@ -467,7 +468,7 @@ minusPlusAxiom :: forall n t t'.
   PeanoRepr n -> PeanoRepr t -> PeanoRepr t' ->
   Minus n (Plus t' t) :~: Minus (Minus n t') t
 #ifdef UNSAFE_OPS
-minusPlusAxiom _n _t _t' = unsafeCoerce Refl
+minusPlusAxiom _n _t _t' = unsafeAxiom
 #else
 minusPlusAxiom n t t' = case peanoView t' of
   ZRepr -> Refl
@@ -484,7 +485,7 @@ ltMinusPlusAxiom :: forall n t t'.
   PeanoRepr n -> PeanoRepr t -> PeanoRepr t' ->
   Lt (Plus t' t) n :~: 'True
 #ifdef UNSAFE_OPS
-ltMinusPlusAxiom _n _t _t' = unsafeCoerce Refl
+ltMinusPlusAxiom _n _t _t' = unsafeAxiom
 #else
 ltMinusPlusAxiom n t t' = case peanoView n of
   SRepr m -> case peanoView t' of
