@@ -473,7 +473,7 @@ unfoldrWithIndex :: forall h a b
 unfoldrWithIndex h gen start =
   unVector' $ runIdentity $ unfoldrWithIndexM' h (\n v -> Identity (gen n v)) start
 
--- | Monadically construct a vector with exactly @h + 1@ elements by repeatedly
+-- | Monadically construct a vector with exactly @h@ elements by repeatedly
 -- applying a generator function to a seed value.
 --
 -- c.f. @Data.Vector.unfoldrExactNM@
@@ -484,7 +484,7 @@ unfoldrM :: forall m h a b. (Monad m)
         -> m (Vector h a)
 unfoldrM h gen start = unfoldrWithIndexM h (\_ v -> gen v) start
 
--- | Construct a vector with exactly @h + 1@ elements by repeatedly applying a
+-- | Construct a vector with exactly @h@ elements by repeatedly applying a
 -- generator function to a seed value.
 --
 -- c.f. @Data.Vector.unfoldrExactN@
