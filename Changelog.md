@@ -1,5 +1,16 @@
 # Changelog for the `parameterized-utils` package
 
+## next -- *unreleased*
+
+  * Fix a bug in which `Data.Parameterized.Vector.{join,joinWith,joinWithM}`
+    and `Data.Parameterized.NatRepr.plusAssoc` could crash at runtime if
+    compiled without optimizations.
+  * Add a `Data.Parameterized.Axiom` module providing `unsafeAxiom` and
+    `unsafeHeteroAxiom`, which can construct proofs of equality between types
+    that GHC isn't able to prove on its own. These functions are unsafe if used
+    improperly, so the responsibility is on the programmer to ensure that these
+    functions are used appropriately.
+
 ## 2.1.3.0 -- *2021 Mar 23*
 
   * Add support for GHC 9.

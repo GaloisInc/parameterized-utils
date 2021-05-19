@@ -98,6 +98,7 @@ import           Data.Proxy
 import           Unsafe.Coerce
 import           Data.Kind(Type)
 
+import           Data.Parameterized.Axiom
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Ctx
 import           Data.Parameterized.Ctx.Proofs
@@ -245,7 +246,7 @@ instance Eq (Index ctx tp) where
 
 instance TestEquality (Index ctx) where
   testEquality (Index i) (Index j)
-    | i == j = Just (unsafeCoerce Refl)
+    | i == j = Just unsafeAxiom
     | otherwise = Nothing
 
 instance Ord (Index ctx tp) where

@@ -13,12 +13,12 @@ module Data.Parameterized.Ctx.Proofs
   ) where
 
 import Data.Type.Equality
-import Unsafe.Coerce
 
+import Data.Parameterized.Axiom
 import Data.Parameterized.Ctx
 
 leftId :: p x -> (EmptyCtx <+> x) :~: x
-leftId _ = unsafeCoerce Refl
+leftId _ = unsafeAxiom
 
 assoc :: p x -> q y -> r z -> x <+> (y <+> z) :~: (x <+> y) <+> z
-assoc _ _ _ = unsafeCoerce Refl
+assoc _ _ _ = unsafeAxiom

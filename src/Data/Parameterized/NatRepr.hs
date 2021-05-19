@@ -136,6 +136,7 @@ import Numeric.Natural
 import GHC.TypeNats as TypeNats
 import Unsafe.Coerce
 
+import Data.Parameterized.Axiom
 import Data.Parameterized.NatRepr.Internal
 import Data.Parameterized.Some
 
@@ -155,7 +156,7 @@ withKnownNat :: forall n r. NatRepr n -> (KnownNat n => r) -> r
 withKnownNat (NatRepr nVal) v =
   case someNatVal nVal of
     SomeNat (Proxy :: Proxy n') ->
-      case unsafeCoerce (Refl :: n :~: n) :: n :~: n' of
+      case unsafeAxiom :: n :~: n' of
         Refl -> v
 
 data IsZeroNat n where
@@ -223,7 +224,7 @@ withDivModNat :: forall n m a.
 withDivModNat n m f =
   case ( Some (NatRepr divPart), Some (NatRepr modPart)) of
      ( Some (divn :: NatRepr div), Some (modn :: NatRepr mod) )
-       -> case unsafeCoerce (Refl :: 0 :~: 0) of
+       -> case unsafeAxiom of
             (Refl :: (n :~: ((div * m) + mod))) -> f divn modn
   where
     (divPart, modPart) = divMod (natValue n) (natValue m)
@@ -302,15 +303,15 @@ maxNat x y
 
 -- | Produce evidence that @+@ is commutative.
 plusComm :: forall f m g n . f m -> g n -> m+n :~: n+m
-plusComm _ _ = unsafeCoerce (Refl :: m+n :~: m+n)
+plusComm _ _ = unsafeAxiom
 
 -- | Produce evidence that @+@ is associative.
 plusAssoc :: forall f m g n h o . f m -> g n -> h o -> m+(n+o) :~: (m+n)+o
-plusAssoc = unsafeCoerce (Refl :: m+(n+o) :~: m+(n+o))
+plusAssoc _ _ _ = unsafeAxiom
 
 -- | Produce evidence that @*@ is commutative.
 mulComm :: forall f m g n. f m -> g n -> (m * n) :~: (n * m)
-mulComm _ _ = unsafeCoerce Refl
+mulComm _ _ = unsafeAxiom
 
 mul2Plus :: forall f n. f n -> (n + n) :~: (2 * n)
 mul2Plus n = case addMulDistribRight (Proxy @1) (Proxy @1) n of
@@ -318,14 +319,14 @@ mul2Plus n = case addMulDistribRight (Proxy @1) (Proxy @1) n of
 
 -- | Cancel an add followed by a subtract
 plusMinusCancel :: forall f m g n . f m -> g n -> (m + n) - n :~: m
-plusMinusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
+plusMinusCancel _ _ = unsafeAxiom
 
 minusPlusCancel :: forall f m g n . (n <= m) => f m -> g n -> (m - n) + n :~: m
-minusPlusCancel _ _ = unsafeCoerce (Refl :: m :~: m)
+minusPlusCancel _ _ = unsafeAxiom
 
 addMulDistribRight :: forall n m p f g h. f n -> g m -> h p
                     -> ((n * p) + (m * p)) :~: ((n + m) * p)
-addMulDistribRight _n _m _p = unsafeCoerce Refl
+addMulDistribRight _n _m _p = unsafeAxiom
 
 
 
@@ -338,7 +339,7 @@ withAddMulDistribRight n m p f =
 withSubMulDistribRight :: forall n m p f g h a. (m <= n) => f n -> g m -> h p
                     -> ( (((n * p) - (m * p)) ~ ((n - m) * p)) => a) -> a
 withSubMulDistribRight _n _m _p f =
-  case unsafeCoerce (Refl :: 0 :~: 0) of
+  case unsafeAxiom of
     (Refl :: (((n * p) - (m * p)) :~: ((n - m) * p)) ) -> f
 
 ------------------------------------------------------------------------
@@ -363,7 +364,7 @@ testStrictLeq :: forall m n
               -> Either (LeqProof (m+1) n) (m :~: n)
 testStrictLeq (NatRepr m) (NatRepr n)
   | m < n = Left (unsafeCoerce (LeqProof :: LeqProof 0 0))
-  | otherwise = Right (unsafeCoerce (Refl :: m :~: m))
+  | otherwise = Right unsafeAxiom
 {-# NOINLINE testStrictLeq #-}
 
 -- As for NatComparison above, but works with LeqProof
@@ -610,8 +611,8 @@ natRecBounded m h base indH =
 
 mulCancelR ::
   (1 <= c, (n1 * c) ~ (n2 * c)) => f1 n1 -> f2 n2 -> f3 c -> (n1 :~: n2)
-mulCancelR _ _ _ = unsafeCoerce Refl
+mulCancelR _ _ _ = unsafeAxiom
 
 -- | Used in @Vector@
 lemmaMul :: (1 <= n) => p w -> q n -> (w + (n-1) * w) :~: (n * w)
-lemmaMul = unsafeCoerce Refl
+lemmaMul _ _ = unsafeAxiom

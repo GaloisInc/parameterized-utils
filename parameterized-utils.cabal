@@ -69,6 +69,7 @@ library
   exposed-modules:
     Data.Parameterized
     Data.Parameterized.All
+    Data.Parameterized.Axiom
     Data.Parameterized.BoolRepr
     Data.Parameterized.Classes
     Data.Parameterized.ClassesC

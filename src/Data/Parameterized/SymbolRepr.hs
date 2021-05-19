@@ -44,6 +44,7 @@ import           Data.Kind ( Type )
 import           Data.Proxy
 import qualified Data.Text as Text
 
+import           Data.Parameterized.Axiom
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
 
@@ -81,7 +82,7 @@ instance (GHC.KnownSymbol s) => KnownRepr SymbolRepr s where
 
 instance TestEquality SymbolRepr where
    testEquality (SymbolRepr x :: SymbolRepr x) (SymbolRepr y)
-      | x == y    = Just (unsafeCoerce (Refl :: x :~: x))
+      | x == y    = Just unsafeAxiom
       | otherwise = Nothing
 instance OrdF SymbolRepr where
    compareF (SymbolRepr x :: SymbolRepr x) (SymbolRepr y)

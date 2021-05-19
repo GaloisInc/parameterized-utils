@@ -48,11 +48,11 @@ import Data.Hashable
 import Data.Kind
 import Data.IORef
 import Data.STRef
-import Data.Typeable
 import Data.Word
 import Unsafe.Coerce
 import System.IO.Unsafe (unsafePerformIO)
 
+import Data.Parameterized.Axiom
 import Data.Parameterized.Classes
 import Data.Parameterized.Some
 
@@ -129,7 +129,7 @@ newtype Nonce (s :: Type) (tp :: k) = Nonce { indexValue :: Word64 }
 type role Nonce nominal nominal
 
 instance TestEquality (Nonce s) where
-  testEquality x y | indexValue x == indexValue y = unsafeCoerce (Just Refl)
+  testEquality x y | indexValue x == indexValue y = Just unsafeAxiom
                    | otherwise = Nothing
 
 instance OrdF (Nonce s) where
