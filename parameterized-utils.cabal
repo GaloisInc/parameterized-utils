@@ -120,6 +120,7 @@ test-suite parameterizedTests
     Test.SymbolRepr
     Test.TH
     Test.Vector
+    Test.Vector.NonEmpty
 
   build-depends: base
                , hashable
