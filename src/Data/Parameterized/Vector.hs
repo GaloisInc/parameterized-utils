@@ -388,8 +388,7 @@ snoc :: forall n a. Vector n a -> a -> Vector (n+1) a
 snoc (Vector x) a = Vector (Vector.snoc x a)
 
 -- | This newtype wraps Vector so that we can curry it in the call to
--- @natRecBounded@. It adds 1 to the length so that the base case is
--- a @Vector@ of non-zero length.
+-- @natRecBounded@.
 newtype Vector' a n = MkVector' (Vector n a)
 
 unVector' :: Vector' a n -> Vector n a
