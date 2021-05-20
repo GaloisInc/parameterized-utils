@@ -11,14 +11,13 @@
 {-|
 Copyright        : (c) Galois, Inc 2014-2019
 
-A fixed-size vector of typed elements.
+A fixed-size, nonempty vector of typed elements.
 
 NB: This module contains an orphan instance. It will be included in GHC 8.10,
 see https://gitlab.haskell.org/ghc/ghc/merge_requests/273.
 -}
-module Data.Parameterized.Vector
+module Data.Parameterized.Vector.NonEmpty
   ( Vector
-  , empty
     -- * Lists
   , fromList
   , toList
@@ -29,6 +28,7 @@ module Data.Parameterized.Vector
 
     -- * Length
   , length
+  , nonEmpty
   , lengthInt
 
     -- * Indexing
@@ -44,7 +44,7 @@ module Data.Parameterized.Vector
   , uncons
   , unsnoc
   , slice
-  , Data.Parameterized.Vector.take
+  , Data.Parameterized.Vector.NonEmpty.take
   , replace
   , mapAt
   , mapAtM
@@ -105,8 +105,9 @@ import Numeric.Natural
 import qualified Data.Parameterized.Context as Ctx
 import Data.Parameterized.Utils.Endian
 
--- | Fixed-size vectors.
-newtype Vector n a = Vector (Vector.Vector a)
+-- | Fixed-size non-empty vectors.
+data Vector n a where
+  Vector :: (1 <= n) => !(Vector.Vector a) -> Vector n a
 
 type role Vector nominal representational
 
@@ -133,13 +134,10 @@ lengthInt :: Vector n a -> Int
 lengthInt (Vector xs) = Vector.length xs
 {-# Inline lengthInt #-}
 
--- | Get the element at the given index.
--- @O(1)@
 elemAt :: ((i+1) <= n) => NatRepr i -> Vector n a -> a
 elemAt n (Vector xs) = xs Vector.! widthVal n
 
--- | Get the element at the given index, or return 'Nothing' if the index is
--- invalid.
+-- | Get the element at the given index.
 -- @O(1)@
 elemAtMaybe :: Int -> Vector n a -> Maybe a
 elemAtMaybe n (Vector xs) = xs Vector.!? n
@@ -166,29 +164,45 @@ insertAtMaybe n a (Vector xs)
   | 0 <= n && n < Vector.length xs = Just (Vector (Vector.unsafeUpd xs [(n,a)]))
   | otherwise = Nothing
 
+
+-- | Proof that the length of this vector is not 0.
+nonEmpty :: Vector n a -> LeqProof 1 n
+nonEmpty (Vector _) = LeqProof
+{-# Inline nonEmpty #-}
+
+
 -- | Remove the first element of the vector, and return the rest, if any.
-uncons :: forall n a . 1 <= n => Vector n a -> (a, Vector (n-1) a)
-uncons (Vector xs) = (Vector.head xs, Vector (Vector.tail xs))
+uncons :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
+uncons v@(Vector xs) = (Vector.head xs, mbTail)
+  where
+  mbTail :: Either (n :~: 1) (Vector (n - 1) a)
+  mbTail = case testStrictLeq (knownNat @1) (length v) of
+             Left n2_leq_n ->
+               do LeqProof <- return (leqSub2 n2_leq_n (leqRefl (knownNat @1)))
+                  return (Vector (Vector.tail xs))
+             Right Refl    -> Left Refl
 {-# Inline uncons #-}
 
 -- | Remove the last element of the vector, and return the rest, if any.
-unsnoc :: forall n a. 1 <= n => Vector n a -> (a, Vector (n-1) a)
-unsnoc (Vector xs) = ( Vector.last xs
-                   , Vector (Vector.slice 0 (Vector.length xs - 1) xs))
+unsnoc :: forall n a.  Vector n a -> (a, Either (n :~: 1) (Vector (n-1) a))
+unsnoc v@(Vector xs) = (Vector.last xs, mbTail)
+  where
+  mbTail :: Either (n :~: 1) (Vector (n - 1) a)
+  mbTail = case testStrictLeq (knownNat @1) (length v) of
+             Left n2_leq_n ->
+               do LeqProof <- return (leqSub2 n2_leq_n (leqRefl (knownNat @1)))
+                  return (Vector (Vector.slice 0 (Vector.length xs - 1) xs))
+             Right Refl    -> Left Refl
 {-# Inline unsnoc #-}
 
 
 --------------------------------------------------------------------------------
 
--- | Make an empty vector of any type.
-empty :: Vector 0 a
-empty = Vector Vector.empty
-
 -- | Make a vector of the given length and element type.
 -- Returns "Nothing" if the input list does not have the right number of
 -- elements.
 -- @O(n)@.
-fromList :: NatRepr n -> [a] -> Maybe (Vector n a)
+fromList :: (1 <= n) => NatRepr n -> [a] -> Maybe (Vector n a)
 fromList n xs
   | widthVal n == Vector.length v = Just (Vector v)
   | otherwise                     = Nothing
@@ -200,11 +214,15 @@ fromList n xs
 --
 -- This function uses the same ordering convention as 'Ctx.toVector'.
 fromAssignment ::
-  forall f ctx e.
+  forall f ctx tp e.
   (forall tp'. f tp' -> e) ->
-  Ctx.Assignment f (ctx) ->
-  Vector (Ctx.CtxSize ctx) e
-fromAssignment f assign = Vector (Ctx.toVector assign f)
+  Ctx.Assignment f (ctx Ctx.::> tp) ->
+  Vector (Ctx.CtxSize (ctx Ctx.::> tp)) e
+fromAssignment f assign =
+  case Ctx.viewAssign assign of
+    Ctx.AssignExtend assign' _ ->
+      case leqAdd (leqRefl (knownNat @1)) (Ctx.sizeToNatRepr (Ctx.size assign')) of
+        LeqProof -> Vector (Ctx.toVector assign f)
 
 -- | Convert a 'Vector' into a 'Ctx.Assignment'.
 --
@@ -221,7 +239,7 @@ toAssignment sz g vec =
   Ctx.generate sz (\idx -> g idx (elemAtUnsafe (Ctx.indexVal idx) vec))
 
 -- | Extract a subvector of the given vector.
-slice :: (i + w <= n) =>
+slice :: (i + w <= n, 1 <= w) =>
             NatRepr i {- ^ Start index -} ->
             NatRepr w {- ^ Width of sub-vector -} ->
             Vector n a -> Vector w a
@@ -229,13 +247,13 @@ slice i w (Vector xs) = Vector (Vector.slice (widthVal i) (widthVal w) xs)
 {-# INLINE slice #-}
 
 -- | Take the front (lower-indexes) part of the vector.
-take :: forall n x a. NatRepr n -> Vector (n + x) a -> Vector n a
+take :: forall n x a. (1 <= n) => NatRepr n -> Vector (n + x) a -> Vector n a
 take | LeqProof <- prf = slice (knownNat @0)
   where
   prf = leqAdd (leqRefl (Proxy @n)) (Proxy @x)
 
 -- | Scope a monadic function to a sub-section of the given vector.
-mapAtM :: Monad m => (i + w <= n) =>
+mapAtM :: Monad m => (i + w <= n, 1 <= w) =>
             NatRepr i {- ^ Start index -} ->
             NatRepr w {- ^ Section width -} ->
             (Vector w a -> m (Vector w a)) {-^ map for the sub-vector -} ->
@@ -249,7 +267,7 @@ mapAtM i w f (Vector vn) =
     return $ Vector $ vhead Vector.++ vsect' Vector.++ vend
 
 -- | Scope a function to a sub-section of the given vector.
-mapAt :: (i + w <= n) =>
+mapAt :: (i + w <= n, 1 <= w) =>
             NatRepr i {- ^ Start index -} ->
             NatRepr w {- ^ Section width -} ->
             (Vector w a -> Vector w a) {-^ map for the sub-vector -} ->
@@ -257,7 +275,7 @@ mapAt :: (i + w <= n) =>
 mapAt i w f vn = runIdentity $ mapAtM i w (pure . f) vn
 
 -- | Replace a sub-section of a vector with the given sub-vector.
-replace :: (i + w <= n) =>
+replace :: (i + w <= n, 1 <= w) =>
               NatRepr i {- ^ Start index -} ->
               Vector w a {- ^ sub-vector -} ->
               Vector n a -> Vector n a
@@ -294,8 +312,9 @@ zipWithM_ f (Vector xs) (Vector ys) = Vector.zipWithM_ f xs ys
 {- | Interleave two vectors.  The elements of the first vector are
 at even indexes in the result, the elements of the second are at odd indexes. -}
 interleave ::
-  forall n a. Vector n a -> Vector n a -> Vector (2 * n) a
-interleave (Vector xs) (Vector ys) = Vector zs
+  forall n a. (1 <= n) => Vector n a -> Vector n a -> Vector (2 * n) a
+interleave (Vector xs) (Vector ys)
+  | LeqProof <- leqMulPos (Proxy @2) (Proxy @n) = Vector zs
   where
   len = Vector.length xs + Vector.length ys
   zs  = Vector.generate len (\i -> let v = if even i then xs else ys
@@ -318,7 +337,7 @@ shuffle f (Vector xs) = Vector ys
 {-# Inline shuffle #-}
 
 -- | Reverse the vector.
-reverse :: forall a n. Vector n a -> Vector n a
+reverse :: forall a n. (1 <= n) => Vector n a -> Vector n a
 reverse x = shuffle (\i -> lengthInt x - i - 1) x
 
 -- | Rotate "left".  The first element of the vector is on the "left", so
@@ -369,7 +388,10 @@ shiftR !x a (Vector xs) = Vector ys
 
 -- | Append two vectors. The first one is at lower indexes in the result.
 append :: Vector m a -> Vector n a -> Vector (m + n) a
-append (Vector xs) (Vector ys) = Vector (xs Vector.++ ys)
+append v1@(Vector xs) v2@(Vector ys) =
+  case leqAddPos (length v1) (length v2) of { LeqProof ->
+    Vector (xs Vector.++ ys)
+  }
 {-# Inline append #-}
 
 --------------------------------------------------------------------------------
@@ -379,24 +401,31 @@ append (Vector xs) (Vector ys) = Vector (xs Vector.++ ys)
 singleton :: forall a. a -> Vector 1 a
 singleton a = Vector (Vector.singleton a)
 
+leqLen :: forall n a. Vector n a -> LeqProof 1 (n + 1)
+leqLen v =
+  let leqSucc :: forall f z. f z -> LeqProof z (z + 1)
+      leqSucc fz = leqAdd (leqRefl fz :: LeqProof z z) (knownNat @1)
+  in leqTrans (nonEmpty v :: LeqProof 1 n) (leqSucc (length v))
+
 -- | Add an element to the head of a vector
 cons :: forall n a. a -> Vector n a -> Vector (n+1) a
-cons a (Vector x) = Vector (Vector.cons a x)
+cons a v@(Vector x) = case leqLen v of LeqProof -> (Vector (Vector.cons a x))
 
 -- | Add an element to the tail of a vector
 snoc :: forall n a. Vector n a -> a -> Vector (n+1) a
-snoc (Vector x) a = Vector (Vector.snoc x a)
+snoc v@(Vector x) a = case leqLen v of LeqProof -> (Vector (Vector.snoc x a))
 
 -- | This newtype wraps Vector so that we can curry it in the call to
--- @natRecBounded@.
-newtype Vector' a n = MkVector' (Vector n a)
+-- @natRecBounded@. It adds 1 to the length so that the base case is
+-- a @Vector@ of non-zero length.
+newtype Vector' a n = MkVector' (Vector (n+1) a)
 
-unVector' :: Vector' a n -> Vector n a
+unVector' :: Vector' a n -> Vector (n+1) a
 unVector' (MkVector' v) = v
 
 generate' :: forall h a
            . NatRepr h
-          -> (forall n. (n+1 <= h) => NatRepr n -> a)
+          -> (forall n. (n <= h) => NatRepr n -> a)
           -> Vector' a h
 generate' h gen =
   runIdentity $ unfoldrWithIndexM' h (\n _last -> Identity (gen n, ())) ()
@@ -406,36 +435,34 @@ generate' h gen =
 -- cf. both @natFromZero@ and @Data.Vector.generate@
 generate :: forall h a
           . NatRepr h
-         -> (forall n. (n+1 <= h) => NatRepr n -> a)
-         -> Vector h a
+         -> (forall n. (n <= h) => NatRepr n -> a)
+         -> Vector (h + 1) a
 generate h gen = unVector' (generate' h gen)
 
 -- | Since @Vector@ is traversable, we can pretty trivially sequence
 -- @natFromZeroVec@ inside a monad.
 generateM :: forall m h a. (Monad m)
           => NatRepr h
-          -> (forall n. (n+1 <= h) => NatRepr n -> m a)
-          -> m (Vector h a)
+          -> (forall n. (n <= h) => NatRepr n -> m a)
+          -> m (Vector (h + 1) a)
 generateM h gen = sequence $ generate h gen
 
 newtype Compose3 m f g a = Compose3 { getCompose3 :: m (f (g a)) }
 
 unfoldrWithIndexM' :: forall m h a b. (Monad m)
                   => NatRepr h
-                  -> (forall n. (n+1 <= h) => NatRepr n -> b -> m (a, b))
+                  -> (forall n. (n <= h) => NatRepr n -> b -> m (a, b))
                   -> b
                   -> m (Vector' a h)
 unfoldrWithIndexM' h gen start =
   case isZeroOrGT1 h of
-    Left Refl -> return (MkVector' empty)
-    Right LeqProof
-      | Refl :: h - 1 + 1 :~: h <- minusPlusCancel h (knownNat @1)
-      , LeqProof <- leqRefl h `leqSub` leqProof (knownNat @1) h ->
+    Left Refl -> snd <$> getCompose3 base
+    Right LeqProof ->
+      case (minusPlusCancel h (knownNat @1) :: h - 1 + 1 :~: h) of { Refl ->
         snd <$> getCompose3 (natRecBounded (decNat h) (decNat h) base step)
-
+      }
   where base :: Compose3 m ((,) b) (Vector' a) 0
-        base = Compose3 $ return (start, MkVector' empty)
-
+        base = Compose3 $ (\(hd, b) -> (b, MkVector' (singleton hd))) <$> gen (knownNat @0) start
         step :: forall p. (1 <= h, p <= h - 1)
              => NatRepr p
              -> Compose3 m ((,) b) (Vector' a) p
@@ -446,7 +473,7 @@ unfoldrWithIndexM' h gen start =
                         (LeqProof :: LeqProof 1 1) :: LeqProof (p+1) h) of { LeqProof ->
             Compose3 $
               do (seed, MkVector' v) <- mv
-                 (next, nextSeed) <- gen p seed
+                 (next, nextSeed) <- gen (incNat p) seed
                  pure $ (nextSeed, MkVector' $ snoc v next)
           }}
 
@@ -455,9 +482,9 @@ unfoldrWithIndexM' h gen start =
 -- c.f. @Data.Vector.unfoldrExactNM@
 unfoldrWithIndexM :: forall m h a b. (Monad m)
                  => NatRepr h
-                 -> (forall n. (n+1 <= h) => NatRepr n -> b -> m (a, b))
+                 -> (forall n. (n <= h) => NatRepr n -> b -> m (a, b))
                  -> b
-                 -> m (Vector h a)
+                 -> m (Vector (h + 1) a)
 unfoldrWithIndexM h gen start = unVector' <$> unfoldrWithIndexM' h gen start
 
 -- | Unfold a vector, with access to the current index.
@@ -465,13 +492,13 @@ unfoldrWithIndexM h gen start = unVector' <$> unfoldrWithIndexM' h gen start
 -- c.f. @Data.Vector.unfoldrExactN@
 unfoldrWithIndex :: forall h a b
                 . NatRepr h
-                -> (forall n. (n+1 <= h) => NatRepr n -> b -> (a, b))
+                -> (forall n. (n <= h) => NatRepr n -> b -> (a, b))
                 -> b
-                -> Vector h a
+                -> Vector (h + 1) a
 unfoldrWithIndex h gen start =
   unVector' $ runIdentity $ unfoldrWithIndexM' h (\n v -> Identity (gen n v)) start
 
--- | Monadically construct a vector with exactly @h@ elements by repeatedly
+-- | Monadically construct a vector with exactly @h + 1@ elements by repeatedly
 -- applying a generator function to a seed value.
 --
 -- c.f. @Data.Vector.unfoldrExactNM@
@@ -479,10 +506,10 @@ unfoldrM :: forall m h a b. (Monad m)
         => NatRepr h
         -> (b -> m (a, b))
         -> b
-        -> m (Vector h a)
+        -> m (Vector (h + 1) a)
 unfoldrM h gen start = unfoldrWithIndexM h (\_ v -> gen v) start
 
--- | Construct a vector with exactly @h@ elements by repeatedly applying a
+-- | Construct a vector with exactly @h + 1@ elements by repeatedly applying a
 -- generator function to a seed value.
 --
 -- c.f. @Data.Vector.unfoldrExactN@
@@ -490,7 +517,7 @@ unfoldr :: forall h a b
         . NatRepr h
        -> (b -> (a, b))
        -> b
-       -> Vector h a
+       -> Vector (h + 1) a
 unfoldr h gen start = unfoldrWithIndex h (\_ v -> gen v) start
 
 --------------------------------------------------------------------------------
@@ -503,9 +530,9 @@ coerceVec = coerce
 -- wrapper and using @joinWith@, this implementation is provided for
 -- convenience.
 joinWithM ::
-  forall m f n w. Monad m =>
-  f 0
-  -> (forall l. NatRepr l -> f w -> f l -> m (f (w + l)))
+  forall m f n w.
+  (1 <= w, Monad m) =>
+  (forall l. (1 <= l) => NatRepr l -> f w -> f l -> m (f (w + l)))
   {- ^ A function for joining contained elements.  The first argument is
        the size of the accumulated third term, and the second argument
        is the element to join to the accumulated term.  The function
@@ -515,24 +542,29 @@ joinWithM ::
   -> Vector n (f w)
   -> m (f (n * w))
 
-joinWithM z jn w = fmap fst . go
+joinWithM jn w = fmap fst . go
   where
   go :: forall l. Vector l (f w) -> m (f (l * w), NatRepr (l * w))
-  go vs = case isZeroOrGT1 (length vs) of
-    Left Refl -> return (z, knownNat)
-    Right LeqProof
-      | (a, rest) <- uncons vs
-      , Refl <- lemmaMul w (length vs) -> do
-        (res, sz) <- go rest
-        joined <- jn sz a res
-        return (joined, addNat w sz)
+  go exprs =
+    case uncons exprs of
+      (a, Left Refl) -> return (a, w)
+      (a, Right rest) ->
+        case nonEmpty rest                of { LeqProof ->
+        case leqMulPos (length rest) w    of { LeqProof ->
+        case nonEmpty exprs               of { LeqProof ->
+        case lemmaMul w (length exprs)    of { Refl -> do
+          -- @siddharthist: This could probably be written applicatively?
+          (res, sz) <- go rest
+          joined <- jn sz a res
+          return (joined, addNat w sz)
+        }}}}
 
 -- | Join a vector of vectors, using the given function to combine the
 -- sub-vectors.
 joinWith ::
   forall f n w.
-  f 0
-  -> (forall l. NatRepr l -> f w -> f l -> f (w + l))
+  (1 <= w) =>
+  (forall l. (1 <= l) => NatRepr l -> f w -> f l -> f (w + l))
   {- ^ A function for joining contained elements.  The first argument is
        the size of the accumulated third term, and the second argument
        is the element to join to the accumulated term.  The function
@@ -541,7 +573,7 @@ joinWith ::
   -> NatRepr w
   -> Vector n (f w)
   -> f (n * w)
-joinWith z jn w v = runIdentity $ joinWithM z (\n x -> pure . (jn n x)) w v
+joinWith jn w v = runIdentity $ joinWithM (\n x -> pure . (jn n x)) w v
 {-# Inline joinWith #-}
 
 -- | Split a vector into a vector of vectors.
@@ -663,5 +695,5 @@ split n w xs = coerceVec (splitWith LittleEndian (vSlice w) n w (Vec xs))
 -- @
 join :: (1 <= w) => NatRepr w -> Vector n (Vector w a) -> Vector (n * w) a
 join w xs = ys
-  where Vec ys = joinWith (Vec empty) vAppend w (coerceVec xs)
+  where Vec ys = joinWith vAppend w (coerceVec xs)
 {-# Inline join #-}

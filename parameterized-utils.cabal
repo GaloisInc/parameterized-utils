@@ -97,6 +97,7 @@ library
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector
+    Data.Parameterized.Vector.NonEmpty
     Data.Parameterized.WithRepr
 
   other-modules:
@@ -119,6 +120,7 @@ test-suite parameterizedTests
     Test.SymbolRepr
     Test.TH
     Test.Vector
+    Test.Vector.NonEmpty
 
   build-depends: base
                , hashable

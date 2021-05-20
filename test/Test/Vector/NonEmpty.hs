@@ -12,7 +12,7 @@
 #if __GLASGOW_HASKELL__ >= 805
 {-# Language NoStarIsType #-}
 #endif
-module Test.Vector
+module Test.Vector.NonEmpty
   ( vecTests
   )
 where
@@ -23,7 +23,7 @@ import qualified Data.List as List
 import qualified Data.Parameterized.Context as Ctx
 import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Some
-import           Data.Parameterized.Vector
+import           Data.Parameterized.Vector.NonEmpty
 import           Data.Semigroup
 import           GHC.TypeLits
 import           Hedgehog
@@ -36,7 +36,7 @@ import           Test.Tasty.Hedgehog
 import           Test.Context (genSomePayloadList, mkUAsgn)
 
 
-genVector :: (KnownNat n, Monad m) => GenT m a -> GenT m (Vector n a)
+genVector :: (1 <= n, KnownNat n, Monad m) => GenT m a -> GenT m (Vector n a)
 genVector genElem =
   do let n = knownNat
          w = widthVal n
@@ -63,12 +63,6 @@ vecTests = testGroup "Vector" <$> return
     do l <- (:[]) <$> forAll genOrdering
        Just v <- return $ fromList (knownNat @1) l
        v === reverse v
-
-  , testProperty "empty" $ property $
-    do let mv  = fromList (knownNat @0) []
-       let v' = empty :: Vector 0 Int
-       assert (isJust mv)
-       mv === Just v'
 
   , testProperty "split-join" $ property $
     do let n = knownNat @5
@@ -109,7 +103,7 @@ vecTests = testGroup "Vector" <$> return
                    , \i -> if i == 0 then EQ else GT
                    ]
        f <- forAll $ HG.element funs
-       Just (generate n (f . widthVal)) === fromList n (map f [0..(w-1)])
+       Just (generate n (f . widthVal)) === fromList (incNat n) (map f [0..w])
 
   -- @unfold@ works like @unfold@ on lists
   , testProperty "unfold" $ property $
@@ -124,7 +118,7 @@ vecTests = testGroup "Vector" <$> return
                    ]
        f <- forAll $ HG.element funs
        o <- forAll $ HG.element [EQ, LT, GT]
-       Just (unfoldr n f o) === fromList n (P.take w (List.unfoldr (Just . f) o))
+       Just (unfoldr n f o) === fromList (incNat n) (P.take (w + 1) (List.unfoldr (Just . f) o))
 
   -- Converting to and from assignments preserves size and last element
   , testProperty "to-from-assignment" $ property $
