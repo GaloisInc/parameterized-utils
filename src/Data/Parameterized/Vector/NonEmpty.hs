@@ -11,7 +11,7 @@
 {-|
 Copyright        : (c) Galois, Inc 2014-2019
 
-A fixed-size vector of typed elements.
+A fixed-size, nonempty vector of typed elements.
 
 NB: This module contains an orphan instance. It will be included in GHC 8.10,
 see https://gitlab.haskell.org/ghc/ghc/merge_requests/273.
