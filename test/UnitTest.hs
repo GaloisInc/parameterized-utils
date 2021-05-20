@@ -4,6 +4,7 @@ import Test.Tasty.Runners.AntXML
 
 import qualified Test.Context
 import qualified Test.List
+import qualified Test.List.Choice
 import qualified Test.NatRepr
 import qualified Test.SymbolRepr
 import qualified Test.TH
@@ -23,6 +24,7 @@ tests :: IO TestTree
 tests = testGroup "ParameterizedUtils" <$> sequence
   [ Test.Context.contextTests
   , pure Test.List.tests
+  , pure Test.List.Choice.tests
   , Test.NatRepr.natTests
   , Test.SymbolRepr.symbolTests
   , Test.TH.thTests

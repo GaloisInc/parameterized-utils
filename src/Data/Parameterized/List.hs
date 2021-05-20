@@ -468,10 +468,11 @@ fromChoice ix a (Choice ix' b)
   | otherwise = a
 
 -- | Wrapper type for the result of 'partitionChoices'.
-data ChoiceList f tp = ChoiceList [f tp]
+newtype ChoiceList f tp = ChoiceList [f tp]
 
 deriving instance Show (f tp) => Show (ChoiceList f tp)
 instance (forall tp . Show (f tp)) => ShowF (ChoiceList f)
+deriving instance Eq (f tp) => Eq (ChoiceList f tp)
 
 -- | Partition a list of 'Choice' into @n@ lists, where @n@ is the number of
 -- different types in @tps@.
