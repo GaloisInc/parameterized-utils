@@ -25,6 +25,10 @@ module Data.Parameterized.TH.GADT
   , structuralHash
   , structuralHashWithSalt
   , PolyEq(..)
+    -- * Repr generators (\"singletons\")
+    -- $reprs
+  , mkRepr
+  , mkKnownReprs
     -- * Template haskell utilities that may be useful in other contexts.
   , DataD
   , lookupDataType'
@@ -493,6 +497,204 @@ showCon p nm n = do
 matchShowCtor :: ExpQ -> ConstructorInfo -> MatchQ
 matchShowCtor p con = showCon p (constructorName con) (length (constructorFields con))
 
+-- | Generate a \"repr\" or singleton type from a data kind. For nullary
+-- constructors, this works as follows:
+--
+-- @
+-- data T1 = A | B | C
+-- \$(mkRepr ''T1)
+-- ======>
+-- data T1Repr (tp :: T1)
+--   where
+--     ARepr :: T1Repr 'A
+--     BRepr :: T1Repr 'B
+--     CRepr :: T1Repr 'C
+-- @
+--
+-- For constructors with fields, we assume each field type @T@ already has a
+-- corresponding repr type @TRepr :: T -> *@.
+--
+-- @
+-- data T2 = T2_1 T1 | T2_2 T1
+-- \$(mkRepr ''T2)
+-- ======>
+-- data T2Repr (tp :: T2)
+--   where
+--     T2_1Repr :: T1Repr tp -> T2Repr ('T2_1 tp)
+--     T2_2Repr :: T1Repr tp -> T2Repr ('T2_2 tp)
+-- @
+--
+-- Constructors with multiple fields work fine as well:
+--
+-- @
+-- data T3 = T3 T1 T2
+-- \$(mkRepr ''T3)
+-- ======>
+-- data T3Repr (tp :: T3)
+--   where
+--     T3Repr :: T1Repr tp1 -> T2Repr tp2 -> T3Repr ('T3 tp1 tp2)
+-- @
+--
+-- This is generally compatible with other \"repr\" types provided by
+-- @parameterized-utils@, such as @NatRepr@ and @PeanoRepr@:
+--
+-- @
+-- data T4 = T4_1 Nat | T4_2 Peano
+-- \$(mkRepr ''T4)
+-- ======>
+-- data T4Repr (tp :: T4)
+--   where
+--     T4Repr :: NatRepr tp1 -> PeanoRepr tp2 -> T4Repr ('T4 tp1 tp2)
+-- @
+--
+-- The data kind must be \"simple\", i.e. it must be monomorphic and only
+-- contain user-defined data constructors (no lists, tuples, etc.). For example,
+-- the following will not work:
+--
+-- @
+-- data T5 a = T5 a
+-- \$(mkRepr ''T5)
+-- ======>
+-- Foo.hs:1:1: error:
+--     Exception when trying to run compile-time code:
+--       mkRepr cannot be used on polymorphic data kinds.
+-- @
+--
+-- Similarly, this will not work:
+--
+-- @
+-- data T5 = T5 [Nat]
+-- \$(mkRepr ''T5)
+-- ======>
+-- Foo.hs:1:1: error:
+--     Exception when trying to run compile-time code:
+--       mkRepr cannot be used on this data kind.
+-- @
+--
+-- Note that at a minimum, you will need the following extensions to use this macro:
+--
+-- @
+-- {-\# LANGUAGE DataKinds \#-}
+-- {-\# LANGUAGE GADTs \#-}
+-- {-\# LANGUAGE KindSignatures \#-}
+-- {-\# LANGUAGE TemplateHaskell \#-}
+-- @
+mkRepr :: Name -> DecsQ
+mkRepr typeName = do
+  let reprTypeName = mkReprName typeName
+      varName = mkName "tp"
+  info <- lookupDataType' typeName
+  let gc ci = do
+        let ctorName = constructorName ci
+            reprCtorName = mkReprName ctorName
+            ctorFieldTypeNames = getCtorName <$> constructorFields ci
+            ctorFieldReprNames = mkReprName <$> ctorFieldTypeNames
+        -- Generate a list of type variables to be supplied as type arguments
+        -- for each repr argument.
+        tvars <- replicateM (length (constructorFields ci)) (newName "tp")
+        let appliedType =
+              foldl AppT (PromotedT (constructorName ci)) (VarT <$> tvars)
+            ctorType = AppT (ConT reprTypeName) appliedType
+            ctorArgTypes =
+              zipWith (\n v -> (Bang NoSourceUnpackedness NoSourceStrictness, AppT (ConT n) (VarT v))) ctorFieldReprNames tvars
+        return $ GadtC
+          [reprCtorName]
+          ctorArgTypes
+          ctorType
+  ctors <- mapM gc (datatypeCons info)
+  return $ [ DataD [] reprTypeName
+             [kindedTV varName (ConT typeName)]
+             Nothing
+             ctors
+             []
+           ]
+  where getCtorName :: Type -> Name
+        getCtorName c = case c of
+          ConT nm -> nm
+          VarT _ -> error $ "mkRepr cannot be used on polymorphic data kinds."
+          _ -> error $ "mkRepr cannot be used on this data kind."
+
+-- | Generate @KnownRepr@ instances for each constructor of a data kind. Given a
+-- data kind @T@, we assume a repr type @TRepr (t :: T)@ is in scope with
+-- structure that perfectly matches @T@ (using 'mkRepr' to generate the repr
+-- type will guarantee this).
+--
+-- Given data kinds @T1@, @T2@, and @T3@ from the documentation of 'mkRepr', and
+-- the associated repr types @T1Repr@, @T2Repr@, and @T3Repr@, we can use
+-- 'mkKnownReprs' to generate these instances like so:
+--
+-- @
+-- \$(mkKnownReprs ''T1)
+-- ======>
+-- instance KnownRepr T1Repr 'A where
+--   knownRepr = ARepr
+-- instance KnownRepr T1Repr 'B where
+--   knownRepr = BRepr
+-- instance KnownRepr T1Repr 'C where
+--   knownRepr = CRepr
+-- @
+--
+-- @
+-- \$(mkKnownReprs ''T2)
+-- ======>
+-- instance KnownRepr T1Repr tp =>
+--          KnownRepr T2Repr ('T2_1 tp) where
+--   knownRepr = T2_1Repr knownRepr
+-- @
+--
+-- @
+-- \$(mkKnownReprs ''T3)
+-- ======>
+-- instance (KnownRepr T1Repr tp1, KnownRepr T2Repr tp2) =>
+--          KnownRepr T3Repr ('T3_1 tp1 tp2) where
+--   knownRepr = T3_1Repr knownRepr knownRepr
+-- @
+--
+-- The same restrictions that apply to 'mkRepr' also apply to 'mkKnownReprs'.
+-- The data kind must be \"simple\", i.e. it must be monomorphic and only
+-- contain user-defined data constructors (no lists, tuples, etc.).
+--
+-- Note that at a minimum, you will need the following extensions to use this macro:
+--
+-- @
+-- {-\# LANGUAGE DataKinds \#-}
+-- {-\# LANGUAGE GADTs \#-}
+-- {-\# LANGUAGE KindSignatures \#-}
+-- {-\# LANGUAGE MultiParamTypeClasses \#-}
+-- {-\# LANGUAGE TemplateHaskell \#-}
+-- @
+--
+-- Also, 'mkKnownReprs' must be used in the same module as the definition of
+-- the repr type (not necessarily for the data kind).
+mkKnownReprs :: Name -> DecsQ
+mkKnownReprs typeName = do
+  kr <- [t|KnownRepr|]
+  let krFName = mkName "knownRepr"
+      reprTypeName = mkReprName typeName
+  typeInfo <- lookupDataType' typeName
+  reprInfo <- lookupDataType' reprTypeName
+  forM (zip (datatypeCons typeInfo) (datatypeCons reprInfo)) $ \(tci, rci) -> do
+    vars <- replicateM (length (constructorFields tci)) (newName "tp")
+    krReqs <- forM (zip (constructorFields tci) vars) $ \(tfld, v) -> do
+      let fldReprName = mkReprName (getCtorName tfld)
+      return $ AppT (AppT kr (ConT fldReprName)) (VarT v)
+    let appliedType =
+          foldl AppT (PromotedT (constructorName tci)) (VarT <$> vars)
+        krConstraint = AppT (AppT kr (ConT reprTypeName)) appliedType
+        krExp = foldl AppE (ConE (constructorName rci)) $
+          map (const (VarE krFName)) vars
+        krDec = FunD krFName [Clause [] (NormalB krExp) []]
+
+    return $ InstanceD Nothing krReqs krConstraint [krDec]
+  where getCtorName :: Type -> Name
+        getCtorName c = case c of
+          ConT nm -> nm
+          VarT _ -> error $ "mkKnownReprs cannot be used on polymorphic data kinds."
+          _ -> error $ "mkKnownReprs cannot be used on this data kind."
+
+mkReprName :: Name -> Name
+mkReprName nm = mkName (nameBase nm ++ "Repr")
+
 -- $typePatterns
 --
 -- The Template Haskell instance generators 'structuralEquality',
@@ -532,3 +734,44 @@ matchShowCtor p con = showCon p (constructorName con) (length (constructorFields
 --
 -- The use of 'DataArg' says that the type parameter of the 'NatRepr' must
 -- be the same as the second type parameter of @T@.
+
+-- $reprs
+--
+-- When working with data kinds with run-time representatives, we encourage
+-- users of @parameterized-utils@ to use the following convention. Given a data
+-- kind defined by
+--
+-- @
+-- data T = ...
+-- @
+--
+-- users should also supply a GADT @TRepr@ parameterized by @T@, e.g.
+--
+-- @
+-- data TRepr (t :: T) where ...
+-- @
+--
+-- Each constructor of @TRepr@ should correspond to a constructor of @T@. If @T@
+-- is defined by
+--
+-- @
+-- data T = A | B Nat
+-- @
+--
+-- we have a corresponding
+--
+-- @
+-- data TRepr (t :: T) where
+--   ARepr :: TRepr 'A
+--   BRepr :: NatRepr w -> TRepr ('B w)
+-- @
+--
+-- Assuming the user of @parameterized-utils@ follows this convention, we
+-- provide the Template Haskell construct 'mkRepr' to automate the creation of
+-- the @TRepr@ GADT. We also provide 'mkKnownReprs', which generates 'KnownRepr'
+-- instances for that GADT type. See the documentation for those two functions
+-- for more detailed explanations.
+--
+-- NB: These macros are inspired by the corresponding macros provided by
+-- @singletons-th@, and the \"repr\" programming idiom is very similar to the one
+-- used by @singletons@.

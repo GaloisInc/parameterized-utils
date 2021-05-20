@@ -117,6 +117,7 @@ test-suite parameterizedTests
     Test.List
     Test.NatRepr
     Test.SymbolRepr
+    Test.TH
     Test.Vector
 
   build-depends: base
