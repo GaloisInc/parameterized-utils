@@ -115,6 +115,7 @@ test-suite parameterizedTests
   other-modules:
     Test.Context
     Test.List
+    Test.List.Choice
     Test.NatRepr
     Test.SymbolRepr
     Test.TH
