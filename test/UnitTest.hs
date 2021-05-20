@@ -8,6 +8,7 @@ import qualified Test.NatRepr
 import qualified Test.SymbolRepr
 import qualified Test.TH
 import qualified Test.Vector
+import qualified Test.Vector.NonEmpty
 
 main :: IO ()
 main = tests >>= defaultMainWithIngredients ingrs
@@ -27,4 +28,5 @@ tests = testGroup "ParameterizedUtils" <$> sequence
   , Test.SymbolRepr.symbolTests
   , Test.TH.thTests
   , Test.Vector.vecTests
+  , Test.Vector.NonEmpty.vecTests
   ]
