@@ -106,8 +106,7 @@ import qualified Data.Parameterized.Context as Ctx
 import Data.Parameterized.Utils.Endian
 
 -- | Fixed-size vectors.
-data Vector n a where
-  Vector :: !(Vector.Vector a) -> Vector n a
+newtype Vector n a = Vector (Vector.Vector a)
 
 type role Vector nominal representational
 
