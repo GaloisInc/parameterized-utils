@@ -476,26 +476,33 @@ matchHashCtor d pats s0 i c = do
 
 -- | @structuralShow tp@ generates a function with the type
 -- @tp -> ShowS@ that shows the constructor.
-structuralShowsPrec :: TypeQ -> ExpQ
-structuralShowsPrec tpq = do
+structuralShowsPrec :: TypeQ -> [(TypePat, ExpQ)] -> ExpQ
+structuralShowsPrec tpq pats = do
   d <- reifyDatatype =<< asTypeCon "structuralShowPrec" =<< tpq
   p <- newName "_p"
   a <- newName "a"
   lamE [varP p, varP a] $
-    caseE (varE a) (matchShowCtor (varE p) <$> datatypeCons d)
+    caseE (varE a) (matchShowCtor d pats (varE p) <$> datatypeCons d)
 
-showCon :: ExpQ -> Name -> Int -> MatchQ
-showCon p nm n = do
+showCon :: DatatypeInfo -> [(TypePat, ExpQ)] -> ExpQ -> Name -> [Type] -> MatchQ
+showCon d pats p nm fieldTps = do
+  let n = length fieldTps
   vars <- newNames "x" n
   let pat = ConP nm (VarP <$> vars)
-  let go s e = [| $(s) . showChar ' ' . showsPrec 11 $(varE e) |]
+  let go s (e, tp) = do
+        mr <- assocTypePats (datatypeInstTypes d) pats tp
+        case mr of
+          Just f ->
+            [| $(s) . showChar ' ' . $(f) 11 $(varE e) |]
+          Nothing ->
+            [| $(s) . showChar ' ' . showsPrec 11 $(varE e) |]
   let ctor = [| showString $(return (LitE (StringL (nameBase nm)))) |]
   let rhs | null vars = ctor
-          | otherwise = [| showParen ($(p) >= 11) $(foldl go ctor vars) |]
+          | otherwise = [| showParen ($(p) >= 11) $(foldl go ctor (zip vars fieldTps)) |]
   match (pure pat) (normalB rhs) []
 
-matchShowCtor :: ExpQ -> ConstructorInfo -> MatchQ
-matchShowCtor p con = showCon p (constructorName con) (length (constructorFields con))
+matchShowCtor :: DatatypeInfo -> [(TypePat, ExpQ)] -> ExpQ -> ConstructorInfo -> MatchQ
+matchShowCtor d pats p con = showCon d pats p (constructorName con) (constructorFields con)
 
 -- | Generate a \"repr\" or singleton type from a data kind. For nullary
 -- constructors, this works as follows:

@@ -28,7 +28,8 @@ $(mkKnownReprs ''T1)
 $(return [])
 instance TestEquality T1Repr where
   testEquality = $(structuralTypeEquality [t|T1Repr|] [])
-deriving instance Show (T1Repr t)
+instance Show (T1Repr t) where
+  showsPrec = $(structuralShowsPrec [t|T1Repr|] [])
 
 data T2 = T2_1 T1 | T2_2 Nat
 $(mkRepr ''T2)
@@ -37,7 +38,9 @@ $(return [])
 instance TestEquality T2Repr where
   testEquality = $(structuralTypeEquality [t|T2Repr|]
                     [ (AnyType, [|testEquality|]) ])
-deriving instance Show (T2Repr t)
+instance Show (T2Repr t) where
+  showsPrec = $(structuralShowsPrec [t|T2Repr|]
+                    [ (AnyType, [|showsPrec|]) ])
 
 eqTest :: (TestEquality f, Show (f a), Show (f b)) => f a -> f b -> IO ()
 eqTest a b =
