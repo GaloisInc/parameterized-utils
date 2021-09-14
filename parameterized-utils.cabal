@@ -60,6 +60,7 @@ library
                , hashtables     ==1.2.*
                , lens           >=4.16 && <5.1
                , mtl
+               , profunctors
                , template-haskell
                , text
                , vector         ==0.12.*
@@ -95,6 +96,7 @@ library
     Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
     Data.Parameterized.TraversableFC
+    Data.Parameterized.TraversableFC.WithIndex
     Data.Parameterized.Utils.BinTree
     Data.Parameterized.Utils.Endian
     Data.Parameterized.Vector

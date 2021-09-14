@@ -129,6 +129,7 @@ use the 'Data.Parameterized.List.List' type for this purpose.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.List
   ( List(..)
@@ -161,6 +162,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
+import           Data.Parameterized.TraversableFC.WithIndex
 
 -- | Parameterized list of elements.
 data List :: (k -> Type) -> [k] -> Type where
@@ -191,6 +193,18 @@ instance FoldableFC List where
 instance TraversableFC List where
   traverseFC _ Nil = pure Nil
   traverseFC f (h :< r) = (:<) <$> f h <*> traverseFC f r
+
+type instance IndexF   (List (f :: k -> Type) sh) = Index sh
+type instance IxValueF (List (f :: k -> Type) sh) = f
+
+instance FunctorFCWithIndex List where
+  imapFC = imap
+
+instance FoldableFCWithIndex List where
+  ifoldrFC = ifoldr
+
+instance TraversableFCWithIndex List where
+  itraverseFC = itraverse
 
 instance TestEquality f => TestEquality (List f) where
   testEquality Nil Nil = Just Refl
@@ -322,6 +336,8 @@ indexed (IndexThere i) f (x :< rest) = (x :<) <$> indexed i f rest
 
 -- | Map over the elements in the list, and provide the index into
 -- each element along with the element itself.
+--
+-- This is a specialization of 'imapFC'.
 imap :: forall f g l
      . (forall x . Index l x -> f x -> g x)
      -> List f l
@@ -358,6 +374,8 @@ ifoldlM f b0 (a0 :< r0) = f b0 IndexHere a0 >>= go IndexHere r0
        in f b idx' a >>= go idx' rest
 
 -- | Right-fold with an additional index.
+--
+-- This is a specialization of 'ifoldrFC'.
 ifoldr :: forall sh a b . (forall tp . Index sh tp -> a tp -> b -> b) -> b -> List a sh -> b
 ifoldr f seed0 l = go id l seed0
   where
@@ -390,6 +408,8 @@ izipWith f = go id
           f (g IndexHere) a b :< go (g . IndexThere) as' bs'
 
 -- | Traverse with an additional index.
+--
+-- This is a specialization of 'itraverseFC'.
 itraverse :: forall a b sh t
           . Applicative t
           => (forall tp . Index sh tp -> a tp -> t (b tp))

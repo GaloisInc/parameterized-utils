@@ -106,6 +106,7 @@ import           Data.Parameterized.NatRepr
 import           Data.Parameterized.NatRepr.Internal (NatRepr(NatRepr))
 import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
+import           Data.Parameterized.TraversableFC.WithIndex
 
 ------------------------------------------------------------------------
 -- Size
@@ -927,6 +928,16 @@ instance FoldableFC Assignment where
 instance TraversableFC Assignment where
   traverseFC = \f (Assignment x) -> Assignment <$> traverse_bin f x
   {-# INLINE traverseFC #-}
+
+instance FunctorFCWithIndex Assignment where
+  imapFC = imapFCDefault
+
+instance FoldableFCWithIndex Assignment where
+  ifoldMapFC = ifoldMapFCDefault
+
+instance TraversableFCWithIndex Assignment where
+  itraverseFC = traverseWithIndex
+
 
 traverseWithIndex :: Applicative m
                   => (forall tp . Index ctx tp -> f tp -> m (g tp))
