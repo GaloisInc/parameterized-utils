@@ -68,6 +68,9 @@ jobs:
       - name: Cabal check
         shell: bash
         run: cabal check
+      - name: Configure
+        shell: bash
+        run: cabal configure --enable-tests
       - name: Build
         shell: bash
         run: cabal build
