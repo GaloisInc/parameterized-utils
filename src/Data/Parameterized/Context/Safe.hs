@@ -124,6 +124,7 @@ import Data.Parameterized.Ctx
 import Data.Parameterized.NatRepr
 import Data.Parameterized.Some
 import Data.Parameterized.TraversableFC
+import Data.Parameterized.TraversableFC.WithIndex
 
 ------------------------------------------------------------------------
 -- Size
@@ -615,6 +616,15 @@ instance FoldableFC Assignment where
 instance TraversableFC Assignment where
   traverseFC f = traverseF f
 
+instance FunctorFCWithIndex Assignment where
+  imapFC = imapFCDefault
+
+instance FoldableFCWithIndex Assignment where
+  ifoldMapFC = ifoldMapFCDefault
+
+instance TraversableFCWithIndex Assignment where
+  itraverseFC = traverseWithIndex
+
 -- | Map assignment
 map :: (forall tp . f tp -> g tp) -> Assignment f c -> Assignment g c
 map f = fmapFC f
@@ -650,6 +660,7 @@ zipWith :: (forall x . f x -> g x -> h x)
 zipWith f = \x y -> runIdentity $ zipWithM (\u v -> pure (f u v)) x y
 {-# INLINE zipWith #-}
 
+-- | This is a specialization of 'itraverseFC'.
 traverseWithIndex :: Applicative m
                   => (forall tp . Index ctx tp -> f tp -> m (g tp))
                   -> Assignment f ctx

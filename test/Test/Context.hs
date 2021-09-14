@@ -27,6 +27,7 @@ import           Data.Parameterized.Ctx
 import qualified Data.Parameterized.Ctx.Proofs as P
 import           Data.Parameterized.Some
 import           Data.Parameterized.TraversableFC
+import           Data.Parameterized.TraversableFC.WithIndex
 import           Hedgehog
 import qualified Hedgehog.Gen as HG
 import           Hedgehog.Range
@@ -323,6 +324,29 @@ contextTests = testGroup "Context" <$> return
         let (x', x'') = C.unzip zipped
         assert $ isJust $ testEquality x x'
         assert $ isJust $ testEquality x x''
+
+   , testProperty "imapFC_index_noop" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        assert $
+          isJust $
+            testEquality x (imapFC (\idx _ -> x U.! idx) x)
+
+   , testProperty "imapFC/fmapFC" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        assert $ isJust $ testEquality
+                            (fmapFC twiddle x)
+                            (imapFC (const twiddle) x)
+
+   , testProperty "ifoldMapFC/foldMapFC" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        assert $ foldMapFC show x == ifoldMapFC (const show) x
+
+   , testProperty "itraverseFC/traverseFC" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        let f = Identity . twiddle
+        assert $ isJust $ testEquality
+                            (runIdentity (traverseFC f x))
+                            (runIdentity (itraverseFC (const f) x))
 
    , testCaseSteps "explicit indexing (unsafe)" $ \step -> do
        let mkUPayload :: U.Assignment Payload TestCtx
