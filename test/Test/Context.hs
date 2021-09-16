@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -59,12 +60,24 @@ instance Show (Payload tp) where
 
 instance ShowF Payload
 
-
 twiddle :: Payload a -> Payload a
 twiddle (IntPayload n) = IntPayload (n+1)
 twiddle (StringPayload str) = StringPayload (str++"asdf")
 twiddle (BoolPayload b) = BoolPayload (not b)
 
+twaddle :: Payload a -> Payload a
+twaddle (IntPayload n) = IntPayload (n-1)
+twaddle (StringPayload str) = StringPayload (reverse str)
+twaddle (BoolPayload b) = BoolPayload (not b)
+
+newtype Fun = Fun (forall a. Payload a -> Payload a)
+
+instance Show Fun where
+  show _ = "unshowable"
+
+-- | Functions for e.g. testing functor laws
+funs :: [Fun]
+funs = [Fun twiddle, Fun twaddle, Fun id]
 
 ----------------------------------------------------------------------
 -- Create another parameterized type for testing.  This one is not a
@@ -325,6 +338,18 @@ contextTests = testGroup "Context" <$> return
         assert $ isJust $ testEquality x x'
         assert $ isJust $ testEquality x x''
 
+   , testProperty "fmapFC_identity" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        assert $ isJust $ testEquality x (fmapFC id x)
+
+   , testProperty "fmapFC_assoc" $ property $
+     do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        Fun f <- forAll $ HG.element funs
+        Fun g <- forAll $ HG.element funs
+        assert $ isJust $ testEquality
+                            (fmapFC g (fmapFC f x))
+                            (fmapFC (g . f) x)
+
    , testProperty "imapFC_index_noop" $ property $
      do Some x <- mkUAsgn <$> forAll genSomePayloadList
         assert $
@@ -333,9 +358,10 @@ contextTests = testGroup "Context" <$> return
 
    , testProperty "imapFC/fmapFC" $ property $
      do Some x <- mkUAsgn <$> forAll genSomePayloadList
+        Fun f <- forAll $ HG.element funs
         assert $ isJust $ testEquality
-                            (fmapFC twiddle x)
-                            (imapFC (const twiddle) x)
+                            (fmapFC f x)
+                            (imapFC (const f) x)
 
    , testProperty "ifoldMapFC/foldMapFC" $ property $
      do Some x <- mkUAsgn <$> forAll genSomePayloadList
@@ -343,10 +369,12 @@ contextTests = testGroup "Context" <$> return
 
    , testProperty "itraverseFC/traverseFC" $ property $
      do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        let f = Identity . twiddle
+        Fun f <- forAll $ HG.element funs
+        let f' :: forall a. Payload a -> Identity (Payload a)
+            f' = Identity . f
         assert $ isJust $ testEquality
-                            (runIdentity (traverseFC f x))
-                            (runIdentity (itraverseFC (const f) x))
+                            (runIdentity (traverseFC f' x))
+                            (runIdentity (itraverseFC (const f') x))
 
    , testCaseSteps "explicit indexing (unsafe)" $ \step -> do
        let mkUPayload :: U.Assignment Payload TestCtx
