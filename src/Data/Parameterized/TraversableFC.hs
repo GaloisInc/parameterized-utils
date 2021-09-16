@@ -45,7 +45,12 @@ import Data.Type.Equality
 
 import Data.Parameterized.Classes
 
--- | A parameterized type that is a function on all instances.
+-- | A parameterized type that is a functor on all instances.
+--
+-- Laws:
+--
+-- [Identity]    @'fmapFC' 'id' == 'id'@
+-- [Composition] @'fmapFC' (f . g) == 'fmapFC' f . 'fmapFC' g@
 class FunctorFC (t :: (k -> Type) -> l -> Type) where
   fmapFC :: forall f g. (forall x. f x -> g x) ->
                         (forall x. t f x -> t g x)
