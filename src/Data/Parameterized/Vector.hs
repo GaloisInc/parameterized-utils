@@ -1,4 +1,5 @@
 {-# Language GADTs, DataKinds, TypeOperators, BangPatterns #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# Language PatternGuards #-}
 {-# Language PolyKinds #-}
 {-# Language TypeApplications, ScopedTypeVariables #-}
@@ -35,6 +36,12 @@ module Data.Parameterized.Vector
   , elemAt
   , elemAtMaybe
   , elemAtUnsafe
+
+    -- * VectorIndex
+  , VectorIndex(..)
+  , indexValue
+  , indicesUpTo
+  , indicesOf
 
     -- * Update
   , insertAt
@@ -74,6 +81,8 @@ module Data.Parameterized.Vector
   , unfoldrM
   , unfoldrWithIndex
   , unfoldrWithIndexM
+  , iterateN
+  , iterateNM
 
     -- * Splitting and joining
     -- ** General
@@ -90,15 +99,20 @@ module Data.Parameterized.Vector
   ) where
 
 import qualified Data.Vector as Vector
-import Data.Functor.Compose
 import Data.Coerce
+import Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
+import Data.Functor.Compose
+import Data.Functor.WithIndex (FunctorWithIndex(imap))
+import Data.Maybe (isJust)
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
 import Data.Functor.Identity
+import Data.Parameterized.Classes (compareF, toOrdering)
 import Data.Parameterized.NatRepr
 import Data.Parameterized.NatRepr.Internal
 import Data.Proxy
+import Data.Traversable.WithIndex (TraversableWithIndex(itraverse))
 import Prelude hiding (length,reverse,zipWith)
 import Numeric.Natural
 
@@ -150,6 +164,51 @@ elemAtUnsafe :: Int -> Vector n a -> a
 elemAtUnsafe n (Vector xs) = xs Vector.! n
 {-# INLINE elemAtUnsafe #-}
 
+--------------------------------------------------------------------------------
+
+data VectorIndex n =
+  -- GHC 8.6 and 8.4 require parentheses around 'i + 1 <= n'
+  forall i. (i + 1 <= n) => VectorIndex { getVectorIndex :: NatRepr i }
+
+indexValue :: VectorIndex n -> Natural
+indexValue (VectorIndex i) = natValue i
+
+instance Eq (VectorIndex n) where
+  (VectorIndex i) == (VectorIndex j) = isJust $ testEquality i j
+
+instance Ord (VectorIndex n) where
+  compare (VectorIndex i) (VectorIndex j) = toOrdering (compareF i j)
+
+-- | Non-lawful instance, intended only for testing.
+instance Show (VectorIndex n) where
+  show (VectorIndex i) = "VectorIndex " ++ show i
+
+indicesUpTo :: NatRepr n -> Vector (n + 1) (VectorIndex (n + 1))
+indicesUpTo n =
+  iterateN
+    n
+    (\(VectorIndex i) ->
+       case testStrictLeq (incNat i) (incNat n) of
+         Left LeqProof -> VectorIndex (incNat i)
+         Right Refl -> VectorIndex n)
+    (case addPrefixIsLeq n (knownNat @1) of
+       LeqProof -> VectorIndex (knownNat @0))
+
+indicesOf :: Vector n a -> Vector n (VectorIndex n)
+indicesOf v@(Vector _) = -- Pattern match to bring 1 <= n into scope
+  case minusPlusCancel (length v) (knownNat @1) of
+    Refl -> indicesUpTo (decNat (length v))
+
+instance FunctorWithIndex (VectorIndex n) (Vector n) where
+  imap f v = zipWith f (indicesOf v) v
+
+instance FoldableWithIndex (VectorIndex n) (Vector n) where
+  ifoldMap f v = foldMap (uncurry f) (imap (,) v)
+
+instance TraversableWithIndex (VectorIndex n) (Vector n) where
+  itraverse f v = traverse (uncurry f) (imap (,) v)
+
+--------------------------------------------------------------------------------
 
 -- | Insert an element at the given index.
 -- @O(n)@.
@@ -319,7 +378,6 @@ interleave (Vector xs) (Vector ys)
   len = Vector.length xs + Vector.length ys
   zs  = Vector.generate len (\i -> let v = if even i then xs else ys
                                    in v Vector.! (i `div` 2))
-
 
 --------------------------------------------------------------------------------
 
@@ -519,6 +577,18 @@ unfoldr :: forall h a b
        -> b
        -> Vector (h + 1) a
 unfoldr h gen start = unfoldrWithIndex h (\_ v -> gen v) start
+
+-- | Compare to 'Vector.iterateNM'
+iterateNM :: Monad m => NatRepr n -> (a -> m a) -> a -> m (Vector (n + 1) a)
+iterateNM h f start =
+  case isZeroNat h of
+    ZeroNat -> pure (singleton start)
+    NonZeroNat -> cons start <$> unfoldrM (predNat h) (fmap dup . f) start
+  where dup x = (x, x)
+
+-- | Compare to 'Vector.iterateN'
+iterateN :: NatRepr n -> (a -> a) -> a -> Vector (n + 1) a
+iterateN h f start = runIdentity (iterateNM h (Identity . f) start)
 
 --------------------------------------------------------------------------------
 
