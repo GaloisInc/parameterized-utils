@@ -58,6 +58,7 @@ library
                , ghc-prim
                , hashable       >=1.2  && <1.4
                , hashtables     ==1.2.*
+               , indexed-traversable
                , lens           >=4.16 && <5.1
                , mtl
                , profunctors
@@ -127,6 +128,7 @@ test-suite parameterizedTests
                , hashable
                , hashtables
                , hedgehog
+               , indexed-traversable
                , ghc-prim
                , lens
                , mtl
