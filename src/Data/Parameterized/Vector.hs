@@ -578,7 +578,9 @@ unfoldr :: forall h a b
        -> Vector (h + 1) a
 unfoldr h gen start = unfoldrWithIndex h (\_ v -> gen v) start
 
--- | Compare to 'Vector.iterateNM'
+-- | Build a vector by repeatedly applying a monadic function to a seed value.
+--
+-- Compare to 'Vector.iterateNM'.
 iterateNM :: Monad m => NatRepr n -> (a -> m a) -> a -> m (Vector (n + 1) a)
 iterateNM h f start =
   case isZeroNat h of
@@ -586,7 +588,9 @@ iterateNM h f start =
     NonZeroNat -> cons start <$> unfoldrM (predNat h) (fmap dup . f) start
   where dup x = (x, x)
 
--- | Compare to 'Vector.iterateN'
+-- | Build a vector by repeatedly applying a function to a seed value.
+--
+-- Compare to 'Vector.iterateN'
 iterateN :: NatRepr n -> (a -> a) -> a -> Vector (n + 1) a
 iterateN h f start = runIdentity (iterateNM h (Identity . f) start)
 

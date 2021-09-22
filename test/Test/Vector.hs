@@ -39,6 +39,10 @@ import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Context (genSomePayloadList, mkUAsgn)
 
+#if __GLASGOW_HASKELL__ >= 806
+import qualified Hedgehog.Classes as HC
+import           Test.Tasty.HUnit (assertBool, testCase)
+#endif
 
 data SomeVector a = forall n. SomeVector (Vector n a)
 
@@ -82,8 +86,10 @@ genVectorIndex n =
 instance Show (a -> b) where
   show _ = "unshowable"
 
-orderToOrder :: [Ordering -> Ordering]
-orderToOrder =
+-- Used to test e.g., 'fmap (g . f) = fmap g . fmap f' and 'imap (const f) =
+-- fmap f'.
+orderingEndomorphisms :: [Ordering -> Ordering]
+orderingEndomorphisms =
   [ const EQ
   , id
   , \case
@@ -191,14 +197,19 @@ vecTests = testGroup "Vector" <$> return
                             (a Ctx.! Ctx.lastIndex sz) lastElem)
                    (getConst (a' Ctx.! Ctx.lastIndex sz))
 
+  -- NOTE: We don't use hedgehog-classes here, because the way the types work
+  -- would require this to only tests vectors of some fixed size.
+  --
+  -- Also, for 'fmap-compose', hedgehog-classes only tests two fixed functions
+  -- over integers.
   , testProperty "fmap-id" $ property $
     do SomeVector v <- forAll $ genSomeVector genOrdering
        fmap id v === v
 
   , testProperty "fmap-compose" $ property $
     do SomeVector v <- forAll $ genSomeVector genOrdering
-       f <- forAll $ HG.element orderToOrder
-       g <- forAll $ HG.element orderToOrder
+       f <- forAll $ HG.element orderingEndomorphisms
+       g <- forAll $ HG.element orderingEndomorphisms
        fmap (g . f) v === fmap g (fmap f v)
 
   , testProperty "iterateN-range" $ property $
@@ -210,7 +221,7 @@ vecTests = testGroup "Vector" <$> return
        toList (fmap indexValue (indicesOf v)) === [0..(natValue (length v) - 1)]
 
   , testProperty "imap-const" $ property $
-    do f <- forAll $ HG.element orderToOrder
+    do f <- forAll $ HG.element orderingEndomorphisms
        SomeVector v <- forAll $ genSomeVector genOrdering
        imap (const f) v === fmap f v
 
@@ -229,23 +240,47 @@ vecTests = testGroup "Vector" <$> return
     do SomeVector v <- forAll $ genSomeVector genOrdering
        imap (\(VectorIndex i) _ -> elemAt i v) v === v
 
-  , testProperty "Eq-VectorIndex-reflexive" $ property $
-    do i <- forAll $ genVectorIndex (knownNat @10)
-       i === i
+#if __GLASGOW_HASKELL__ >= 806
+  , testCase "Eq-VectorIndex-laws" $
+      assertBool "Eq-VectorIndex-laws" =<<
+        HC.lawsCheck (HC.eqLaws (genVectorIndex (knownNat @10)))
 
-  , testProperty "Eq-VectorIndex-symmetric" $ property $
-    do i <- forAll $ genVectorIndex (knownNat @10)
-       j <- forAll $ genVectorIndex (knownNat @10)
-       (i == j) === (j == i)
-
-  , testProperty "Eq-VectorIndex-transitive" $ property $
-    do i <- forAll $ genVectorIndex (knownNat @10)
-       j <- forAll $ genVectorIndex (knownNat @10)
-       k <- forAll $ genVectorIndex (knownNat @10)
-       (((i == j) && (j == k)) <= (i == k)) === True
+  , testCase "Ord-VectorIndex-laws" $
+      assertBool "Ord-VectorIndex-laws" =<<
+        HC.lawsCheck (HC.ordLaws (genVectorIndex (knownNat @10)))
+#endif
 
   , testProperty "Ord-Eq-VectorIndex" $ property $
     do i <- forAll $ genVectorIndex (knownNat @10)
        j <- forAll $ genVectorIndex (knownNat @10)
        (i == j) === (compare i j == EQ)
+
+#if __GLASGOW_HASKELL__ >= 806
+  -- Test a few different sizes since the types force each test to use a
+  -- specific size vector.
+  , testCase "Eq-Vector-laws-1" $
+      assertBool "Eq-Vector-laws-1" =<<
+        HC.lawsCheck (HC.eqLaws (genVectorKnownLength @1 genOrdering))
+  , testCase "Eq-Vector-laws-10" $
+      assertBool "Eq-Vector-laws-10" =<<
+        HC.lawsCheck (HC.eqLaws (genVectorKnownLength @10 genOrdering))
+  , testCase "Show-Vector-laws-1" $
+      assertBool "Show-Vector-laws-1" =<<
+        HC.lawsCheck (HC.showLaws (genVectorKnownLength @1 genOrdering))
+  , testCase "Show-Vector-laws-10" $
+      assertBool "Show-Vector-laws-10" =<<
+        HC.lawsCheck (HC.showLaws (genVectorKnownLength @10 genOrdering))
+  , testCase "Foldable-Vector-laws-1" $
+      assertBool "Foldable-Vector-laws-1" =<<
+        HC.lawsCheck (HC.foldableLaws (genVectorKnownLength @1))
+  , testCase "Foldable-Vector-laws-10" $
+      assertBool "Foldable-Vector-laws-10" =<<
+        HC.lawsCheck (HC.foldableLaws (genVectorKnownLength @10))
+  , testCase "Traversable-Vector-laws-1" $
+      assertBool "Traversable-Vector-laws-1" =<<
+        HC.lawsCheck (HC.traversableLaws (genVectorKnownLength @1))
+  , testCase "Traversable-Vector-laws-10" $
+      assertBool "Traversable-Vector-laws-10" =<<
+        HC.lawsCheck (HC.traversableLaws (genVectorKnownLength @10))
+#endif
   ]
