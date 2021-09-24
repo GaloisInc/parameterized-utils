@@ -24,6 +24,7 @@ import           Data.Foldable.WithIndex (ifoldMap)
 import           Data.Maybe (isJust)
 import qualified Data.List as List
 import qualified Data.Parameterized.Context as Ctx
+import           Data.Parameterized.Fin
 import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Some
 import           Data.Parameterized.Vector
@@ -35,6 +36,7 @@ import           Hedgehog.Range
 import           Numeric.Natural (Natural)
 import           Prelude hiding (take, reverse, length)
 import qualified Prelude as P
+import           Test.Fin (genFin)
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Context (genSomePayloadList, mkUAsgn)
@@ -65,7 +67,6 @@ genSomeVector genElem =
   do Some len <- mkNatRepr <$> HG.integral (linear 0 (99 :: Natural))
      SomeVector <$> genVectorOfLength len genElem
 
-
 genVectorKnownLength :: (1 <= n, KnownNat n, Monad m) => GenT m a -> GenT m (Vector n a)
 genVectorKnownLength genElem =
   do let n = knownNat
@@ -77,11 +78,6 @@ genVectorKnownLength genElem =
 
 genOrdering :: Monad m => GenT m Ordering
 genOrdering = HG.element [ LT, EQ, GT ]
-
-genVectorIndex :: Monad m => NatRepr n -> GenT m (VectorIndex (n + 1))
-genVectorIndex n =
-  do i <- HG.int (linear 0 (fromIntegral (intValue n - 1)))
-     pure $ elemAtUnsafe i (indicesUpTo n)
 
 instance Show (a -> b) where
   show _ = "unshowable"
@@ -218,7 +214,7 @@ vecTests = testGroup "Vector" <$> return
 
   , testProperty "indicesOf-range" $ property $
     do SomeVector v <- forAll $ genSomeVector genOrdering
-       toList (fmap indexValue (indicesOf v)) === [0..(natValue (length v) - 1)]
+       toList (fmap (viewFin natValue) (indicesOf v)) === [0..(natValue (length v) - 1)]
 
   , testProperty "imap-const" $ property $
     do f <- forAll $ HG.element orderingEndomorphisms
@@ -238,21 +234,11 @@ vecTests = testGroup "Vector" <$> return
 
   , testProperty "imap-elemAt" $ property $
     do SomeVector v <- forAll $ genSomeVector genOrdering
-       imap (\(VectorIndex i) _ -> elemAt i v) v === v
-
-#if __GLASGOW_HASKELL__ >= 806
-  , testCase "Eq-VectorIndex-laws" $
-      assertBool "Eq-VectorIndex-laws" =<<
-        HC.lawsCheck (HC.eqLaws (genVectorIndex (knownNat @10)))
-
-  , testCase "Ord-VectorIndex-laws" $
-      assertBool "Ord-VectorIndex-laws" =<<
-        HC.lawsCheck (HC.ordLaws (genVectorIndex (knownNat @10)))
-#endif
+       imap (\i _ -> viewFin (\x -> elemAt x v) i) v === v
 
   , testProperty "Ord-Eq-VectorIndex" $ property $
-    do i <- forAll $ genVectorIndex (knownNat @10)
-       j <- forAll $ genVectorIndex (knownNat @10)
+    do i <- forAll $ genFin (knownNat @10)
+       j <- forAll $ genFin (knownNat @10)
        (i == j) === (compare i j == EQ)
 
 #if __GLASGOW_HASKELL__ >= 806

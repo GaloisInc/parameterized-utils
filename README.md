@@ -226,6 +226,11 @@ Additionally:
   run-time representative values for them.  It also provides some utilities for
   proving properties over Peano numbers.
 
+* Data.Parameterized.Fin
+
+  `Fin n` is a finite type with `n` (terminating/non-bottom) inhabitants. It can
+  be used to index into a `Vector n` or other size-indexed datatype.
+
 * Data.Parameterized.SymbolRepr
 
   This module provides run-time representative values for strings lifted to
