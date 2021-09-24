@@ -37,9 +37,7 @@ module Data.Parameterized.Vector
   , elemAtMaybe
   , elemAtUnsafe
 
-    -- * VectorIndex
-  , VectorIndex(..)
-  , indexValue
+    -- * Indexing with Fin
   , indicesUpTo
   , indicesOf
 
@@ -103,12 +101,11 @@ import Data.Coerce
 import Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import Data.Functor.Compose
 import Data.Functor.WithIndex (FunctorWithIndex(imap))
-import Data.Maybe (isJust)
 import Data.Vector.Mutable (MVector)
 import qualified Data.Vector.Mutable as MVector
 import Control.Monad.ST
 import Data.Functor.Identity
-import Data.Parameterized.Classes (compareF, toOrdering)
+import Data.Parameterized.Fin
 import Data.Parameterized.NatRepr
 import Data.Parameterized.NatRepr.Internal
 import Data.Proxy
@@ -166,46 +163,30 @@ elemAtUnsafe n (Vector xs) = xs Vector.! n
 
 --------------------------------------------------------------------------------
 
-data VectorIndex n =
-  -- GHC 8.6 and 8.4 require parentheses around 'i + 1 <= n'
-  forall i. (i + 1 <= n) => VectorIndex { getVectorIndex :: NatRepr i }
-
-indexValue :: VectorIndex n -> Natural
-indexValue (VectorIndex i) = natValue i
-
-instance Eq (VectorIndex n) where
-  (VectorIndex i) == (VectorIndex j) = isJust $ testEquality i j
-
-instance Ord (VectorIndex n) where
-  compare (VectorIndex i) (VectorIndex j) = toOrdering (compareF i j)
-
--- | Non-lawful instance, intended only for testing.
-instance Show (VectorIndex n) where
-  show (VectorIndex i) = "VectorIndex " ++ show i
-
-indicesUpTo :: NatRepr n -> Vector (n + 1) (VectorIndex (n + 1))
+indicesUpTo :: NatRepr n -> Vector (n + 1) (Fin (n + 1))
 indicesUpTo n =
   iterateN
     n
-    (\(VectorIndex i) ->
-       case testStrictLeq (incNat i) (incNat n) of
-         Left LeqProof -> VectorIndex (incNat i)
-         Right Refl -> VectorIndex n)
+    (viewFin
+      (\x ->
+        case testStrictLeq (incNat x) (incNat n) of
+          Left LeqProof -> mkFin (incNat x)
+          Right Refl -> mkFin n))
     (case addPrefixIsLeq n (knownNat @1) of
-       LeqProof -> VectorIndex (knownNat @0))
+       LeqProof -> mkFin (knownNat @0))
 
-indicesOf :: Vector n a -> Vector n (VectorIndex n)
+indicesOf :: Vector n a -> Vector n (Fin n)
 indicesOf v@(Vector _) = -- Pattern match to bring 1 <= n into scope
   case minusPlusCancel (length v) (knownNat @1) of
     Refl -> indicesUpTo (decNat (length v))
 
-instance FunctorWithIndex (VectorIndex n) (Vector n) where
+instance FunctorWithIndex (Fin n) (Vector n) where
   imap f v = zipWith f (indicesOf v) v
 
-instance FoldableWithIndex (VectorIndex n) (Vector n) where
+instance FoldableWithIndex (Fin n) (Vector n) where
   ifoldMap f v = foldMap (uncurry f) (imap (,) v)
 
-instance TraversableWithIndex (VectorIndex n) (Vector n) where
+instance TraversableWithIndex (Fin n) (Vector n) where
   itraverse f v = traverse (uncurry f) (imap (,) v)
 
 --------------------------------------------------------------------------------
