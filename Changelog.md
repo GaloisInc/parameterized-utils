@@ -1,7 +1,10 @@
 # Changelog for the `parameterized-utils` package
 
-## next -- *unreleased*
+## 2.1.4.0 -- *2021 Oct 1*
 
+  * Added the `ifoldLM` and `fromSomeList`, `fromListWith`, and
+    `fromListWithM` functions to the `List` module.
+  * Fix the description of the laws of the `OrdF` class.
   * Fix a bug in which `Data.Parameterized.Vector.{join,joinWith,joinWithM}`
     and `Data.Parameterized.NatRepr.plusAssoc` could crash at runtime if
     compiled without optimizations.
@@ -10,6 +13,17 @@
     that GHC isn't able to prove on its own. These functions are unsafe if used
     improperly, so the responsibility is on the programmer to ensure that these
     functions are used appropriately.
+  * Various `Proxy` enhancements: adds `KnownRepr`, `EqF`, and `ShowF` instances.
+  * Adds `mkRepr` and `mkKnownReprs` Template Haskell functions.
+  * Added `TraversableFC.WithIndex` module which provides the
+    `FunctorFCWithIndex`, `FoldableFCWithIndex`, and
+    `TraversableFCWithIndex` classes, with instances defined for
+    `Assignment` and `List`.
+  * Added `indicesUpTo`, and `indicesOf` as well as `iterateN` and `iterateNM`
+    for the `Vector` module.
+  * Added `Data.Parameterized.Fin` for finite types which can be used
+    to index into a `Vector n` or other size-indexed datatypes.
+
 
 ## 2.1.3.0 -- *2021 Mar 23*
 
