@@ -9,7 +9,7 @@ This module declares classes for working with types with the kind
 These classes generally require type-level evidence for operations
 on their subterms, but don't actually provide it themselves (because
 their types are not themselves parameterized, unlike those in
-"Data.Parameterized.TraverableFC").
+"Data.Parameterized.TraversableFC").
 
 Note that there is still some ambiguity around naming conventions, see
 <https://github.com/GaloisInc/parameterized-utils/issues/23 issue 23>.
