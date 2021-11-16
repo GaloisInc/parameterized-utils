@@ -501,7 +501,10 @@ unfoldrWithIndexM' h gen start =
         snd <$> getCompose3 (natRecBounded (decNat h) (decNat h) base step)
       }
   where base :: Compose3 m ((,) b) (Vector' a) 0
-        base = Compose3 $ (\(hd, b) -> (b, MkVector' (singleton hd))) <$> gen (knownNat @0) start
+        base =
+          case leqZero @h of { LeqProof ->
+          Compose3 $ (\(hd, b) -> (b, MkVector' (singleton hd))) <$> gen (knownNat @0) start
+          }
         step :: forall p. (1 <= h, p <= h - 1)
              => NatRepr p
              -> Compose3 m ((,) b) (Vector' a) p

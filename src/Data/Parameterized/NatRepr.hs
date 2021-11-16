@@ -87,6 +87,7 @@ module Data.Parameterized.NatRepr
   , testStrictLeq
   , leqRefl
   , leqTrans
+  , leqZero
   , leqAdd2
   , leqSub2
   , leqMulCongr
@@ -347,7 +348,7 @@ withSubMulDistribRight _n _m _p f =
 
 -- | @LeqProof m n@ is a type whose values are only inhabited when @m@
 -- is less than or equal to @n@.
-data LeqProof m n where
+data LeqProof (m :: Nat) (n :: Nat) where
   LeqProof :: (m <= n) => LeqProof m n
 
 -- | (<=) is a decidable relation on nats.
@@ -427,6 +428,10 @@ leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
 leqTrans LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 0 0)
 {-# NOINLINE leqTrans #-}
 
+-- | Zero is less than or equal to any 'Nat'.
+leqZero :: LeqProof 0 n
+leqZero = unsafeCoerce (LeqProof :: LeqProof 0 0)
+
 -- | Add both sides of two inequalities
 leqAdd2 :: LeqProof x_l x_h -> LeqProof y_l y_h -> LeqProof (x_l + y_l) (x_h + y_h)
 leqAdd2 x y = seq x $ seq y $ unsafeCoerce (LeqProof :: LeqProof 0 0)
@@ -476,14 +481,14 @@ leqMulMono x y = leqMulCongr (leqProof (Proxy :: Proxy 1) x) (leqRefl y)
 -- | Produce proof that adding a value to the larger element in an LeqProof
 -- is larger
 leqAdd :: forall f m n p . LeqProof m n -> f p -> LeqProof m (n+p)
-leqAdd x _ = leqAdd2 x (LeqProof :: LeqProof 0 p)
+leqAdd x _ = leqAdd2 x (leqZero @p)
 
 leqAddPos :: (1 <= m, 1 <= n) => p m -> q n -> LeqProof 1 (m + n)
 leqAddPos m n = leqAdd (leqProof (Proxy :: Proxy 1) m) n
 
 -- | Produce proof that subtracting a value from the smaller element is smaller.
 leqSub :: forall m n p . LeqProof m n -> LeqProof p m -> LeqProof (m-p) n
-leqSub x _ = leqSub2 x (LeqProof :: LeqProof 0 p)
+leqSub x _ = leqSub2 x (leqZero @p)
 
 addIsLeq :: f n -> g m -> LeqProof n (n + m)
 addIsLeq n m = leqAdd (leqRefl n) m

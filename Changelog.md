@@ -1,5 +1,14 @@
 # Changelog for the `parameterized-utils` package
 
+## next -- *TBA*
+
+  * Add support for GHC 9.2.
+  * Add a `Data.Parameterized.NatRepr.leqZero :: LeqProof 0 n` function.
+    Starting with GHC 9.2, GHC is no longer able to conclude that
+    `forall (n :: Nat). 0 <= n` due to changes in how the `(<=)` type family
+    works. As a result, this fact must be asserted as an axiom, which the
+    `leqZero` function accomplishes.
+
 ## 2.1.4.0 -- *2021 Oct 1*
 
   * Added the `ifoldLM` and `fromSomeList`, `fromListWith`, and
