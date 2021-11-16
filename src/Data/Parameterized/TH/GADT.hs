@@ -8,6 +8,7 @@
 -- This module declares template Haskell primitives so that it is easier
 -- to work with GADTs that have many constructors.
 ------------------------------------------------------------------------
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -66,7 +67,7 @@ conPat ::
   Q (Pat, [Name]) {- ^ pattern and bound names -}
 conPat con pre = do
   nms <- newNames pre (length (constructorFields con))
-  return (ConP (constructorName con) (VarP <$> nms), nms)
+  return (conPCompat (constructorName con) (VarP <$> nms), nms)
 
 
 -- | Return an expression corresponding to the constructor.
@@ -487,7 +488,7 @@ structuralShowsPrec tpq = do
 showCon :: ExpQ -> Name -> Int -> MatchQ
 showCon p nm n = do
   vars <- newNames "x" n
-  let pat = ConP nm (VarP <$> vars)
+  let pat = conPCompat nm (VarP <$> vars)
   let go s e = [| $(s) . showChar ' ' . showsPrec 11 $(varE e) |]
   let ctor = [| showString $(return (LitE (StringL (nameBase nm)))) |]
   let rhs | null vars = ctor
@@ -694,6 +695,13 @@ mkKnownReprs typeName = do
 
 mkReprName :: Name -> Name
 mkReprName nm = mkName (nameBase nm ++ "Repr")
+
+conPCompat :: Name -> [Pat] -> Pat
+conPCompat n pats = ConP n
+#if MIN_VERSION_template_haskell(2,18,0)
+                           []
+#endif
+                           pats
 
 -- $typePatterns
 --
