@@ -595,10 +595,10 @@ instance Hashable (Index ctx tp) where
 instance HashableF (Index ctx) where
   hashWithSaltF s i = hashWithSalt s (indexVal i)
 
-instance HashableF f => HashableF (Assignment f) where
+instance (HashableF f, TestEquality f) => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
 
-instance HashableF f => Hashable (Assignment f ctx) where
+instance (HashableF f, TestEquality f) => Hashable (Assignment f ctx) where
   hashWithSalt s AssignmentEmpty = s
   hashWithSalt s (AssignmentExtend asgn x) = (s `hashWithSalt` asgn) `hashWithSaltF` x
 

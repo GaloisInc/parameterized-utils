@@ -1,5 +1,13 @@
 # Changelog for the `parameterized-utils` package
 
+## next -- *TBA*
+
+  * Allow building with `hashable-1.4.*`. Because `hashable-1.4.0.0` adds an
+    `Eq` superclass to `Hashable`, some instances of `Hashable` in
+    `parameterized-utils` now require additional `TestEquality` constraints, as
+    the corresponding `Eq` instances for these data types also require
+    `TestEquality` constraints.
+
 ## 2.1.5.0 -- *2022 Mar 08*
 
   * Add support for GHC 9.2.  Drop support for GHC 8.4 (or earlier).

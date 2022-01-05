@@ -851,10 +851,10 @@ instance HashableF (Index ctx) where
 instance Hashable (Index ctx tp) where
   hashWithSalt = hashWithSaltF
 
-instance HashableF f => Hashable (Assignment f ctx) where
+instance (HashableF f, TestEquality f) => Hashable (Assignment f ctx) where
   hashWithSalt s (Assignment a) = hashWithSaltF s a
 
-instance HashableF f => HashableF (Assignment f) where
+instance (HashableF f, TestEquality f) => HashableF (Assignment f) where
   hashWithSaltF = hashWithSalt
 
 instance ShowF f => Show (Assignment f ctx) where

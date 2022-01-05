@@ -351,7 +351,7 @@ instance OrdF f => Ord (TypeAp f tp) where
 instance ShowF f => Show (TypeAp f tp) where
   showsPrec p (TypeAp x) = showsPrecF p x
 
-instance HashableF f => Hashable (TypeAp f tp) where
+instance (HashableF f, TestEquality f) => Hashable (TypeAp f tp) where
   hashWithSalt s (TypeAp x) = hashWithSaltF s x
 
 ------------------------------------------------------------------------
