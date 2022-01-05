@@ -33,7 +33,7 @@ instance TestEquality f => Eq (Some f) where
 instance OrdF f => Ord (Some f) where
   compare (Some x) (Some y) = toOrdering (compareF x y)
 
-instance HashableF f => Hashable (Some f) where
+instance (HashableF f, TestEquality f) => Hashable (Some f) where
   hashWithSalt s (Some x) = hashWithSaltF s x
   hash (Some x) = hashF x
 
