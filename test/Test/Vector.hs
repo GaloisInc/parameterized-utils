@@ -29,7 +29,7 @@ import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Some
 import           Data.Parameterized.Vector
 import           Data.Semigroup
-import           GHC.TypeLits
+import           GHC.TypeLits (KnownNat)
 import           Hedgehog
 import qualified Hedgehog.Gen as HG
 import           Hedgehog.Range
