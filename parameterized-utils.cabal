@@ -19,7 +19,7 @@ Description:
 extra-source-files: Changelog.md
 homepage:      https://github.com/GaloisInc/parameterized-utils
 bug-reports:   https://github.com/GaloisInc/parameterized-utils/issues
-tested-with:   GHC==8.4.4, GHC==8.6.5, GHC==8.8.4, GHC==8.10.7, GHC==9.0.2, GHC==9.2.1
+tested-with:   GHC==8.6.5, GHC==8.8.4, GHC==8.10.7, GHC==9.0.2, GHC==9.2.1
 
 -- Many (but not all, sadly) uses of unsafe operations are
 -- controlled by this compile flag.  When this flag is set

@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        ghc: [9.2.1, 9.0.2, 8.10.7, 8.8.4, 8.6.5, 8.4.4]
+        ghc: [9.2.1, 9.0.2, 8.10.7, 8.8.4, 8.6.5]
         allow-failure: [false]
       fail-fast: false
     steps:
@@ -47,7 +47,6 @@ jobs:
           GHC=haskell.compiler.ghc$(echo ${{ matrix.ghc }} | sed -e s,\\.,,g)
           echo GHC=$GHC >> $GITHUB_ENV
           case ${{ matrix.ghc }} in
-            8.4.4) GHC_NIXPKGS=github:nixos/nixpkgs/20.03 ;;
             8.6.5) GHC_NIXPKGS=github:nixos/nixpkgs/20.09 ;;
             9.0.2) GHC_NIXPKGS=github:nixos/nixpkgs/nixos-unstable ;;
             9.2.1) GHC_NIXPKGS=github:nixos/nixpkgs/nixos-unstable ;;
