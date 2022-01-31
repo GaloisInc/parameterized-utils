@@ -24,7 +24,7 @@ module Data.Parameterized.NatRepr.Internal where
 import Data.Data
 import Data.Hashable
 import GHC.TypeNats
-import Numeric.Natural
+import qualified Numeric.Natural as Natural
 import Unsafe.Coerce
 
 import Data.Parameterized.Axiom
@@ -38,7 +38,7 @@ import Data.Parameterized.DecidableEq
 --
 -- This can be used for performing dynamic checks on a type-level natural
 -- numbers.
-newtype NatRepr (n::Nat) = NatRepr { natValue :: Natural
+newtype NatRepr (n::Nat) = NatRepr { natValue :: Natural.Natural
                                      -- ^ The underlying natural value of the number.
                                    }
   deriving (Hashable, Data)
