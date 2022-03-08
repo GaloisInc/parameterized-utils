@@ -1,8 +1,8 @@
 # Changelog for the `parameterized-utils` package
 
-## next -- *TBA*
+## 2.1.5.0 -- *2022 Mar 08*
 
-  * Add support for GHC 9.2.
+  * Add support for GHC 9.2.  Drop support for GHC 8.4 (or earlier).
   * Add a `Data.Parameterized.NatRepr.leqZero :: LeqProof 0 n` function.
     Starting with GHC 9.2, GHC is no longer able to conclude that
     `forall (n :: Nat). 0 <= n` due to changes in how the `(<=)` type family
