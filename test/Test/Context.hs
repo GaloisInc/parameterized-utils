@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -408,50 +409,50 @@ prop_itraverseFCTraverseFC = property $
 
 contextTests :: IO TestTree
 contextTests = testGroup "Context" <$> return
-   [ testProperty "size (unsafe)" prop_sizeUnsafe
-   , testProperty "size (safe)" prop_sizeSafe
+   [ testPropertyNamed "size (unsafe)" "prop_sizeUnsafe" prop_sizeUnsafe
+   , testPropertyNamed "size (safe)" "prop_sizeSafe" prop_sizeSafe
 
-   , testProperty "safe_index_eq" prop_safeIndexEq
+   , testPropertyNamed "safe_index_eq" "prop_safeIndexEq" prop_safeIndexEq
 
-   , testProperty "unsafe_index_eq" prop_unsafeIndexEq
+   , testPropertyNamed "unsafe_index_eq" "prop_unsafeIndexEq" prop_unsafeIndexEq
 
-   , testProperty "safe_tolist" prop_safeToList
-   , testProperty "unsafe_tolist" prop_unsafeToList
+   , testPropertyNamed "safe_tolist" "prop_safeToList" prop_safeToList
+   , testPropertyNamed "unsafe_tolist" "prop_unsafeToList" prop_unsafeToList
 
-   , testProperty "adjust test monadic" prop_adjustTestMonadic
+   , testPropertyNamed "adjust test monadic" "prop_adjustTestMonadic" prop_adjustTestMonadic
 
-   , testProperty "adjust test" prop_adjustTest
+   , testPropertyNamed "adjust test" "prop_adjustTest" prop_adjustTest
 
-   , testProperty "update test" prop_updateTest
+   , testPropertyNamed "update test" "prop_updateTest" prop_updateTest
 
-   , testProperty "safe_eq" prop_safeEq
-   , testProperty "unsafe_eq" prop_unsafeEq
+   , testPropertyNamed "safe_eq" "prop_safeEq" prop_safeEq
+   , testPropertyNamed "unsafe_eq" "prop_unsafeEq" prop_unsafeEq
 
-   , testProperty "take none" prop_takeNone
-   , testProperty "drop none" prop_dropNone
+   , testPropertyNamed "take none" "prop_takeNone" prop_takeNone
+   , testPropertyNamed "drop none" "prop_dropNone" prop_dropNone
 
-   , testProperty "take all" prop_takeAll
-   , testProperty "drop all" prop_dropAll
+   , testPropertyNamed "take all" "prop_takeAll" prop_takeAll
+   , testPropertyNamed "drop all" "prop_dropAll" prop_dropAll
 
-   , testProperty "append_take" prop_appendTake
+   , testPropertyNamed "append_take" "prop_appendTake" prop_appendTake
 
-   , testProperty "append_take_drop" prop_appendTakeDrop
+   , testPropertyNamed "append_take_drop" "prop_appendTakeDrop" prop_appendTakeDrop
 
-   , testProperty "append_take_drop_multiple" prop_appendTakeDropMultiple
+   , testPropertyNamed "append_take_drop_multiple" "prop_appendTakeDropMultiple" prop_appendTakeDropMultiple
 
-   , testProperty "zip/unzip" prop_zipUnzip
+   , testPropertyNamed "zip/unzip" "prop_zipUnzip" prop_zipUnzip
 
-   , testProperty "fmapFC_identity" prop_fmapFCIdentity
+   , testPropertyNamed "fmapFC_identity" "prop_fmapFCIdentity" prop_fmapFCIdentity
 
-   , testProperty "fmapFC_assoc" prop_fmapFCAssoc
+   , testPropertyNamed "fmapFC_assoc" "prop_fmapFCAssoc" prop_fmapFCAssoc
 
-   , testProperty "imapFC_index_noop" prop_imapFCIndexNoop
+   , testPropertyNamed "imapFC_index_noop" "prop_imapFCIndexNoop" prop_imapFCIndexNoop
 
-   , testProperty "imapFC/fmapFC" prop_imapFCFmapFC
+   , testPropertyNamed "imapFC/fmapFC" "prop_imapFCFmapFC" prop_imapFCFmapFC
 
-   , testProperty "ifoldMapFC/foldMapFC" prop_ifoldMapFCFoldMapFC
+   , testPropertyNamed "ifoldMapFC/foldMapFC" "prop_ifoldMapFCFoldMapFC" prop_ifoldMapFCFoldMapFC
 
-   , testProperty "itraverseFC/traverseFC" prop_itraverseFCTraverseFC
+   , testPropertyNamed "itraverseFC/traverseFC" "prop_itraverseFCTraverseFC" prop_itraverseFCTraverseFC
 
    , testCaseSteps "explicit indexing (unsafe)" $ \step -> do
        let mkUPayload :: U.Assignment Payload TestCtx

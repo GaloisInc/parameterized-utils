@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Test.NatRepr
   ( natTests
   )
@@ -22,5 +23,5 @@ prop_withKnownNat = property $
 
 natTests :: IO TestTree
 natTests = testGroup "Nat" <$> return
-  [ testProperty "withKnownNat" prop_withKnownNat
+  [ testPropertyNamed "withKnownNat" "prop_withKnownNat" prop_withKnownNat
   ]
