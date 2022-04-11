@@ -131,250 +131,327 @@ mkSAsgn = go S.empty
 
 type TestCtx = U.EmptyCtx '::> Int '::> String '::> Int '::> Bool
 
-
 ----------------------------------------------------------------------
+-- Hedgehog properties
 
-contextTests :: IO TestTree
-contextTests = testGroup "Context" <$> return
-   [ testProperty "size (unsafe)" $ property $
-     do vals <- forAll genSomePayloadList
-        Some a <- return $ mkUAsgn vals
-        length vals === U.sizeInt (U.size a)
-   , testProperty "size (safe)" $ property $
-     do vals <- forAll genSomePayloadList
-        Some a <- return $ mkSAsgn vals
-        length vals === S.sizeInt (S.size a)
+prop_sizeUnsafe :: Property
+prop_sizeUnsafe = property $
+  do vals <- forAll genSomePayloadList
+     Some a <- return $ mkUAsgn vals
+     length vals === U.sizeInt (U.size a)
 
-   , testProperty "safe_index_eq" $ property $
+prop_sizeSafe :: Property
+prop_sizeSafe = property $
+  do vals <- forAll genSomePayloadList
+     Some a <- return $ mkSAsgn vals
+     length vals === S.sizeInt (S.size a)
+
+prop_safeIndexEq :: Property
+prop_safeIndexEq = property $
      do vals <- forAll genSomePayloadList
         i' <- forAll $ HG.int (linear 0 $ length vals - 1)
         Some a <- return $ mkSAsgn vals
         Just (Some idx) <- return $ S.intIndex i' (S.size a)
         Some (a S.! idx) === vals !! i'
 
-   , testProperty "unsafe_index_eq" $ property $
-     do vals <- forAll genSomePayloadList
-        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
-        Some a <- return $ mkUAsgn vals
-        Just (Some idx) <- return $ U.intIndex i' (U.size a)
-        Some (a U.! idx) === vals !! i'
+prop_unsafeIndexEq :: Property
+prop_unsafeIndexEq = property $
+  do vals <- forAll genSomePayloadList
+     i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+     Some a <- return $ mkUAsgn vals
+     Just (Some idx) <- return $ U.intIndex i' (U.size a)
+     Some (a U.! idx) === vals !! i'
 
-   , testProperty "safe_tolist" $ property $
-     do vals <- forAll genSomePayloadList
-        Some a <- return $ mkSAsgn vals
-        let vals' = toListFC Some a
-        vals === vals'
-   , testProperty "unsafe_tolist" $ property $
-     do vals <- forAll genSomePayloadList
-        Some a <- return $ mkUAsgn vals
-        let vals' = toListFC Some a
-        vals === vals'
+prop_safeToList :: Property
+prop_safeToList = property $
+  do vals <- forAll genSomePayloadList
+     Some a <- return $ mkSAsgn vals
+     let vals' = toListFC Some a
+     vals === vals'
 
-   , testProperty "adjust test monadic" $ property $
-     do vals <- forAll genSomePayloadList
-        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+prop_unsafeToList :: Property
+prop_unsafeToList = property $
+  do vals <- forAll genSomePayloadList
+     Some a <- return $ mkUAsgn vals
+     let vals' = toListFC Some a
+     vals === vals'
 
-        Some x <- return $ mkUAsgn vals
-        Some y <- return $ mkSAsgn vals
+prop_adjustTestMonadic :: Property
+prop_adjustTestMonadic = property $
+  do vals <- forAll genSomePayloadList
+     i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+     Some x <- return $ mkUAsgn vals
+     Some y <- return $ mkSAsgn vals
 
-        x' <- U.adjustM (return . twiddle) idx_x x
-        y' <- S.adjustM (return . twiddle) idx_y y
+     Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+     Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-        toListFC Some x' === toListFC Some y'
+     x' <- U.adjustM (return . twiddle) idx_x x
+     y' <- S.adjustM (return . twiddle) idx_y y
 
-   , testProperty "adjust test" $ property $
-     do vals <- forAll genSomePayloadList
-        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+     toListFC Some x' === toListFC Some y'
 
-        Some x <- return $ mkUAsgn vals
-        Some y <- return $ mkSAsgn vals
+prop_adjustTest :: Property
+prop_adjustTest = property $
+  do vals <- forAll genSomePayloadList
+     i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+     Some x <- return $ mkUAsgn vals
+     Some y <- return $ mkSAsgn vals
 
-        let x' = x & ixF idx_x %~ twiddle
-            y' = y & ixF idx_y %~ twiddle
+     Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+     Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-        toListFC Some x' === toListFC Some y'
-        -- adjust actually modified the entry
-        toListFC Some x /== toListFC Some x'
-        toListFC Some y /== toListFC Some y'
+     let x' = x & ixF idx_x %~ twiddle
+         y' = y & ixF idx_y %~ twiddle
 
-   , testProperty "update test" $ property $
-     do vals <- forAll genSomePayloadList
-        i' <- forAll $ HG.int (linear 0 $ length vals - 1)
+     toListFC Some x' === toListFC Some y'
+     -- adjust actually modified the entry
+     toListFC Some x /== toListFC Some x'
+     toListFC Some y /== toListFC Some y'
 
-        Some x <- return $ mkUAsgn vals
-        Some y <- return $ mkSAsgn vals
+prop_updateTest :: Property
+prop_updateTest = property $
+  do vals <- forAll genSomePayloadList
+     i' <- forAll $ HG.int (linear 0 $ length vals - 1)
 
-        Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
-        Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
+     Some x <- return $ mkUAsgn vals
+     Some y <- return $ mkSAsgn vals
 
-        let x' = over (ixF idx_x) twiddle x
-            y' = (ixF idx_y) %~ twiddle $ y
-            updX = x & ixF idx_x .~ x' U.! idx_x
-            updY = y & ixF idx_y .~ y' S.! idx_y
+     Just (Some idx_x) <- return $ U.intIndex i' (U.size x)
+     Just (Some idx_y) <- return $ S.intIndex i' (S.size y)
 
-        toListFC Some updX === toListFC Some updY
-        -- update actually modified the entry
-        toListFC Some x /== toListFC Some updX
-        toListFC Some y /== toListFC Some updY
-        -- update modified the expected entry
-        toListFC Some x' === toListFC Some updX
-        toListFC Some y' === toListFC Some updY
+     let x' = over (ixF idx_x) twiddle x
+         y' = (ixF idx_y) %~ twiddle $ y
+         updX = x & ixF idx_x .~ x' U.! idx_x
+         updY = y & ixF idx_y .~ y' S.! idx_y
 
-   , testProperty "safe_eq" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkSAsgn vals1
-        Some y <- return $ mkSAsgn vals2
-        case testEquality x y of
-          Just Refl -> vals1 === vals2
-          Nothing   -> vals1 /== vals2
-   , testProperty "unsafe_eq" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkUAsgn vals1
-        Some y <- return $ mkUAsgn vals2
-        case testEquality x y of
-          Just Refl -> vals1 === vals2
-          Nothing   -> vals1 /== vals2
+     toListFC Some updX === toListFC Some updY
+     -- update actually modified the entry
+     toListFC Some x /== toListFC Some updX
+     toListFC Some y /== toListFC Some updY
+     -- update modified the expected entry
+     toListFC Some x' === toListFC Some updX
+     toListFC Some y' === toListFC Some updY
 
-   , testProperty "take none" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
-        case P.leftId z of
-          Refl -> let r = C.take U.zeroSize (U.size z) z in
-                    assert $ isJust $ testEquality U.empty r
-   , testProperty "drop none" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
-        case P.leftId z of
-          Refl -> let r = C.drop U.zeroSize (U.size z) z in
-                    assert $ isJust $ testEquality z r
+prop_safeEq :: Property
+prop_safeEq = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     Some x <- return $ mkSAsgn vals1
+     Some y <- return $ mkSAsgn vals2
+     case testEquality x y of
+       Just Refl -> vals1 === vals2
+       Nothing   -> vals1 /== vals2
 
-   , testProperty "take all" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
-        let r = C.take (U.size z) U.zeroSize z
-        assert $ isJust $ testEquality z r
-   , testProperty "drop all" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        vals3 <- forAll genSomePayloadList
-        Some w <- return $ mkUAsgn vals1
-        Some x <- return $ mkUAsgn vals2
-        Some y <- return $ mkUAsgn vals3
-        let z = w U.<++> x U.<++> y
-        let r = C.drop (U.size z) U.zeroSize z
-        assert $ isJust $ testEquality U.empty r
+prop_unsafeEq :: Property
+prop_unsafeEq = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     Some x <- return $ mkUAsgn vals1
+     Some y <- return $ mkUAsgn vals2
+     case testEquality x y of
+       Just Refl -> vals1 === vals2
+       Nothing   -> vals1 /== vals2
 
-   , testProperty "append_take" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkUAsgn vals1
-        Some y <- return $ mkUAsgn vals2
-        let z = x U.<++> y
-        let x' = C.take (U.size x) (U.size y) z
-        assert $ isJust $ testEquality x x'
+prop_takeNone :: Property
+prop_takeNone = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     vals3 <- forAll genSomePayloadList
+     Some w <- return $ mkUAsgn vals1
+     Some x <- return $ mkUAsgn vals2
+     Some y <- return $ mkUAsgn vals3
+     let z = w U.<++> x U.<++> y
+     case P.leftId z of
+       Refl -> let r = C.take U.zeroSize (U.size z) z in
+                 assert $ isJust $ testEquality U.empty r
 
-   , testProperty "append_take_drop" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        Some x <- return $ mkUAsgn vals1
-        Some y <- return $ mkUAsgn vals2
-        let z = x U.<++> y
-        let x' = C.take (U.size x) (U.size y) z
-        let y' = C.drop (U.size x) (U.size y) z
-        assert $ isJust $ testEquality x x'
-        assert $ isJust $ testEquality y y'
+prop_dropNone :: Property
+prop_dropNone = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     vals3 <- forAll genSomePayloadList
+     Some w <- return $ mkUAsgn vals1
+     Some x <- return $ mkUAsgn vals2
+     Some y <- return $ mkUAsgn vals3
+     let z = w U.<++> x U.<++> y
+     case P.leftId z of
+       Refl -> let r = C.drop U.zeroSize (U.size z) z in
+                 assert $ isJust $ testEquality z r
 
-   , testProperty "append_take_drop_multiple" $ property $
-     do vals1 <- forAll genSomePayloadList
-        vals2 <- forAll genSomePayloadList
-        vals3 <- forAll genSomePayloadList
-        vals4 <- forAll genSomePayloadList
-        vals5 <- forAll genSomePayloadList
-        Some u <- return $ mkUAsgn vals1
-        Some v <- return $ mkUAsgn vals2
-        Some w <- return $ mkUAsgn vals3
-        Some x <- return $ mkUAsgn vals4
-        Some y <- return $ mkUAsgn vals5
-        let uv = u U.<++> v
-        let wxy = w U.<++> x U.<++> y
-        -- let z = u C.<++> v C.<++> w C.<++> x C.<++> y
-        let z = uv U.<++> wxy
-        let uv' = C.take (U.size uv) (U.size wxy) z
-        let wxy' = C.drop (U.size uv) (U.size wxy) z
-        let withWXY = C.dropPrefix z uv (error "failed dropPrefix")
-        assert $ isJust $ testEquality (u U.<++> v) uv'
-        assert $ isJust $ testEquality (w U.<++> x U.<++> y) wxy'
-        assert $ isJust $ testEquality uv uv'
-        assert $ isJust $ testEquality wxy wxy'
-        withWXY $ \t -> assert $ isJust $ testEquality wxy' t
+prop_takeAll :: Property
+prop_takeAll = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     vals3 <- forAll genSomePayloadList
+     Some w <- return $ mkUAsgn vals1
+     Some x <- return $ mkUAsgn vals2
+     Some y <- return $ mkUAsgn vals3
+     let z = w U.<++> x U.<++> y
+     let r = C.take (U.size z) U.zeroSize z
+     assert $ isJust $ testEquality z r
 
-   , testProperty "zip/unzip" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        let zipped = C.zipWith Pair x x
-        let (x', x'') = C.unzip zipped
-        assert $ isJust $ testEquality x x'
-        assert $ isJust $ testEquality x x''
+prop_dropAll :: Property
+prop_dropAll = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     vals3 <- forAll genSomePayloadList
+     Some w <- return $ mkUAsgn vals1
+     Some x <- return $ mkUAsgn vals2
+     Some y <- return $ mkUAsgn vals3
+     let z = w U.<++> x U.<++> y
+     let r = C.drop (U.size z) U.zeroSize z
+     assert $ isJust $ testEquality U.empty r
 
-   , testProperty "fmapFC_identity" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        assert $ isJust $ testEquality x (fmapFC id x)
+prop_appendTake :: Property
+prop_appendTake = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     Some x <- return $ mkUAsgn vals1
+     Some y <- return $ mkUAsgn vals2
+     let z = x U.<++> y
+     let x' = C.take (U.size x) (U.size y) z
+     assert $ isJust $ testEquality x x'
 
-   , testProperty "fmapFC_assoc" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        Fun f <- forAll $ HG.element funs
-        Fun g <- forAll $ HG.element funs
-        assert $ isJust $ testEquality
-                            (fmapFC g (fmapFC f x))
-                            (fmapFC (g . f) x)
+prop_appendTakeDrop :: Property
+prop_appendTakeDrop = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     Some x <- return $ mkUAsgn vals1
+     Some y <- return $ mkUAsgn vals2
+     let z = x U.<++> y
+     let x' = C.take (U.size x) (U.size y) z
+     let y' = C.drop (U.size x) (U.size y) z
+     assert $ isJust $ testEquality x x'
+     assert $ isJust $ testEquality y y'
 
-   , testProperty "imapFC_index_noop" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        assert $
-          isJust $
-            testEquality x (imapFC (\idx _ -> x U.! idx) x)
+prop_appendTakeDropMultiple :: Property
+prop_appendTakeDropMultiple = property $
+  do vals1 <- forAll genSomePayloadList
+     vals2 <- forAll genSomePayloadList
+     vals3 <- forAll genSomePayloadList
+     vals4 <- forAll genSomePayloadList
+     vals5 <- forAll genSomePayloadList
+     Some u <- return $ mkUAsgn vals1
+     Some v <- return $ mkUAsgn vals2
+     Some w <- return $ mkUAsgn vals3
+     Some x <- return $ mkUAsgn vals4
+     Some y <- return $ mkUAsgn vals5
+     let uv = u U.<++> v
+     let wxy = w U.<++> x U.<++> y
+     -- let z = u C.<++> v C.<++> w C.<++> x C.<++> y
+     let z = uv U.<++> wxy
+     let uv' = C.take (U.size uv) (U.size wxy) z
+     let wxy' = C.drop (U.size uv) (U.size wxy) z
+     let withWXY = C.dropPrefix z uv (error "failed dropPrefix")
+     assert $ isJust $ testEquality (u U.<++> v) uv'
+     assert $ isJust $ testEquality (w U.<++> x U.<++> y) wxy'
+     assert $ isJust $ testEquality uv uv'
+     assert $ isJust $ testEquality wxy wxy'
+     withWXY $ \t -> assert $ isJust $ testEquality wxy' t
 
-   , testProperty "imapFC/fmapFC" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        Fun f <- forAll $ HG.element funs
-        assert $ isJust $ testEquality
-                            (fmapFC f x)
-                            (imapFC (const f) x)
+prop_zipUnzip :: Property
+prop_zipUnzip = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     let zipped = C.zipWith Pair x x
+     let (x', x'') = C.unzip zipped
+     assert $ isJust $ testEquality x x'
+     assert $ isJust $ testEquality x x''
 
-   , testProperty "ifoldMapFC/foldMapFC" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        assert $ foldMapFC show x == ifoldMapFC (const show) x
+prop_fmapFCIdentity :: Property
+prop_fmapFCIdentity = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     assert $ isJust $ testEquality x (fmapFC id x)
 
-   , testProperty "itraverseFC/traverseFC" $ property $
-     do Some x <- mkUAsgn <$> forAll genSomePayloadList
-        Fun f <- forAll $ HG.element funs
-        let f' :: forall a. Payload a -> Identity (Payload a)
-            f' = Identity . f
-        assert $ isJust $ testEquality
-                            (runIdentity (traverseFC f' x))
-                            (runIdentity (itraverseFC (const f') x))
+prop_fmapFCAssoc :: Property
+prop_fmapFCAssoc = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     Fun f <- forAll $ HG.element funs
+     Fun g <- forAll $ HG.element funs
+     assert $ isJust $ testEquality
+                         (fmapFC g (fmapFC f x))
+                         (fmapFC (g . f) x)
+
+prop_imapFCIndexNoop :: Property
+prop_imapFCIndexNoop = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     assert $
+       isJust $
+         testEquality x (imapFC (\idx _ -> x U.! idx) x)
+
+prop_imapFCFmapFC :: Property
+prop_imapFCFmapFC = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     Fun f <- forAll $ HG.element funs
+     assert $ isJust $ testEquality
+                         (fmapFC f x)
+                         (imapFC (const f) x)
+
+prop_ifoldMapFCFoldMapFC :: Property
+prop_ifoldMapFCFoldMapFC = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     assert $ foldMapFC show x == ifoldMapFC (const show) x
+
+prop_itraverseFCTraverseFC :: Property
+prop_itraverseFCTraverseFC = property $
+  do Some x <- mkUAsgn <$> forAll genSomePayloadList
+     Fun f <- forAll $ HG.element funs
+     let f' :: forall a. Payload a -> Identity (Payload a)
+         f' = Identity . f
+     assert $ isJust $ testEquality
+                         (runIdentity (traverseFC f' x))
+                         (runIdentity (itraverseFC (const f') x))
+
+----------------------------------------------------------------------
+
+contextTests :: IO TestTree
+contextTests = testGroup "Context" <$> return
+   [ testProperty "size (unsafe)" prop_sizeUnsafe
+   , testProperty "size (safe)" prop_sizeSafe
+
+   , testProperty "safe_index_eq" prop_safeIndexEq
+
+   , testProperty "unsafe_index_eq" prop_unsafeIndexEq
+
+   , testProperty "safe_tolist" prop_safeToList
+   , testProperty "unsafe_tolist" prop_unsafeToList
+
+   , testProperty "adjust test monadic" prop_adjustTestMonadic
+
+   , testProperty "adjust test" prop_adjustTest
+
+   , testProperty "update test" prop_updateTest
+
+   , testProperty "safe_eq" prop_safeEq
+   , testProperty "unsafe_eq" prop_unsafeEq
+
+   , testProperty "take none" prop_takeNone
+   , testProperty "drop none" prop_dropNone
+
+   , testProperty "take all" prop_takeAll
+   , testProperty "drop all" prop_dropAll
+
+   , testProperty "append_take" prop_appendTake
+
+   , testProperty "append_take_drop" prop_appendTakeDrop
+
+   , testProperty "append_take_drop_multiple" prop_appendTakeDropMultiple
+
+   , testProperty "zip/unzip" prop_zipUnzip
+
+   , testProperty "fmapFC_identity" prop_fmapFCIdentity
+
+   , testProperty "fmapFC_assoc" prop_fmapFCAssoc
+
+   , testProperty "imapFC_index_noop" prop_imapFCIndexNoop
+
+   , testProperty "imapFC/fmapFC" prop_imapFCFmapFC
+
+   , testProperty "ifoldMapFC/foldMapFC" prop_ifoldMapFCFoldMapFC
+
+   , testProperty "itraverseFC/traverseFC" prop_itraverseFCTraverseFC
 
    , testCaseSteps "explicit indexing (unsafe)" $ \step -> do
        let mkUPayload :: U.Assignment Payload TestCtx

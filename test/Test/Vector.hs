@@ -98,148 +98,202 @@ orderingEndomorphisms =
       GT -> LT
   ]
 
+prop_reverse100 :: Property
+prop_reverse100 = property $
+  do SomeVector v <- forAll $ genSomeVector genOrdering
+     case testLeq (knownNat @1) (length v) of
+       Nothing -> pure ()
+       Just LeqProof -> v === (reverse $ reverse v)
+
+prop_reverseSingleton :: Property
+prop_reverseSingleton = property $
+  do l <- (:[]) <$> forAll genOrdering
+     Just v <- return $ fromList (knownNat @1) l
+     v === reverse v
+
+prop_splitJoin :: Property
+prop_splitJoin = property $
+  do let n = knownNat @5
+     v <- forAll $ genVectorKnownLength @(5 * 5) genOrdering
+     v === (join n $ split n (knownNat @5) v)
+
+prop_cons :: Property
+prop_cons = property $
+  do let n = knownNat @20
+         w = widthVal n
+     l <- forAll $ HG.list (constant w w) genOrdering
+     x <- forAll genOrdering
+     (cons x <$> fromList n l) === fromList (incNat n) (x:l)
+
+prop_snoc :: Property
+prop_snoc = property $
+  do let n = knownNat @20
+         w = widthVal n
+     l <- forAll $ HG.list (constant w w) genOrdering
+     x <- forAll genOrdering
+     (flip snoc x <$> fromList n l) === fromList (incNat n) (l ++ [x])
+
+prop_snocUnsnoc :: Property
+prop_snocUnsnoc = property $
+  do let n = knownNat @20
+         w = widthVal n
+     l <- forAll $ HG.list (constant w w) genOrdering
+     x <- forAll genOrdering
+     (fst  . unsnoc . flip snoc x <$> fromList n l) === Just x
+
+prop_generate :: Property
+prop_generate = property $
+  do let n = knownNat @55
+         w = widthVal n
+         funs :: [ Int -> Ordering ]  -- some miscellaneous functions to generate Vector values
+         funs =  [ const EQ
+                 , \i -> if i < 10 then LT else if i > 15 then GT else EQ
+                 , \i -> if i == 0 then EQ else GT
+                 ]
+     f <- forAll $ HG.element funs
+     Just (generate n (f . widthVal)) === fromList (incNat n) (map f [0..w])
+
+prop_unfold :: Property
+prop_unfold = property $
+  do let n = knownNat @55
+         w = widthVal n
+         funs :: [ Ordering -> (Ordering, Ordering) ]  -- some miscellaneous functions to generate Vector values
+         funs =  [ const (EQ, EQ)
+                 , \case
+                     LT -> (LT, GT)
+                     GT -> (GT, LT)
+                     EQ -> (EQ, EQ)
+                 ]
+     f <- forAll $ HG.element funs
+     o <- forAll $ HG.element [EQ, LT, GT]
+     Just (unfoldr n f o) === fromList (incNat n) (P.take (w + 1) (List.unfoldr (Just . f) o))
+
+prop_toFromAssignment :: Property
+prop_toFromAssignment = property $
+  do vals <- forAll genSomePayloadList
+     Some a <- return $ mkUAsgn vals
+     let sz = Ctx.size a
+     case Ctx.viewSize sz of
+       Ctx.ZeroSize -> pure ()
+       Ctx.IncSize _ ->
+         let a' =
+               toAssignment
+                 sz
+                 (\_idx val -> Const val)
+                 (fromAssignment Some a)
+         in do assert $
+                 isJust $
+                   testEquality
+                     (Ctx.sizeToNatRepr sz)
+                     (Ctx.sizeToNatRepr (Ctx.size a'))
+               viewSome
+                 (\lastElem ->
+                    assert $
+                      isJust $
+                        testEquality
+                          (a Ctx.! Ctx.lastIndex sz) lastElem)
+                 (getConst (a' Ctx.! Ctx.lastIndex sz))
+
+prop_fmapId :: Property
+prop_fmapId = property $
+  do SomeVector v <- forAll $ genSomeVector genOrdering
+     fmap id v === v
+
+prop_fmapCompose :: Property
+prop_fmapCompose = property $
+  do SomeVector v <- forAll $ genSomeVector genOrdering
+     f <- forAll $ HG.element orderingEndomorphisms
+     g <- forAll $ HG.element orderingEndomorphisms
+     fmap (g . f) v === fmap g (fmap f v)
+
+prop_iterateNRange :: Property
+prop_iterateNRange = property $
+  do Some len <- mkNatRepr <$> forAll (HG.integral (linear 0 (99 :: Natural)))
+     toList (iterateN len (+1) 0) === [0..(natValue len)]
+
+prop_indicesOfRange :: Property
+prop_indicesOfRange = property $
+  do SomeVector v <- forAll $ genSomeVector genOrdering
+     toList (fmap (viewFin natValue) (indicesOf v)) === [0..(natValue (length v) - 1)]
+
+prop_imapConst :: Property
+prop_imapConst = property $
+  do f <- forAll $ HG.element orderingEndomorphisms
+     SomeVector v <- forAll $ genSomeVector genOrdering
+     imap (const f) v === fmap f v
+
+prop_ifoldMapConst :: Property
+prop_ifoldMapConst = property $
+  do let funs :: [ Ordering -> String ]
+         funs = [const "s", show]
+     f <- forAll $ HG.element funs
+     SomeVector v <- forAll $ genSomeVector genOrdering
+     ifoldMap (const f) v === foldMap f v
+
+prop_imapConstIndicesOf :: Property
+prop_imapConstIndicesOf = property $
+  do SomeVector v <- forAll $ genSomeVector genOrdering
+     imap const v === indicesOf v
+
+prop_imapElemAt :: Property
+prop_imapElemAt = property $
+  do SomeVector v <- forAll $ genSomeVector genOrdering
+     imap (\i _ -> viewFin (\x -> elemAt x v) i) v === v
+
+prop_OrdEqVectorIndex :: Property
+prop_OrdEqVectorIndex = property $
+  do i <- forAll $ genFin (knownNat @10)
+     j <- forAll $ genFin (knownNat @10)
+     (i == j) === (compare i j == EQ)
+
 -- We use @Ordering@ just because it's simple
 vecTests :: IO TestTree
 vecTests = testGroup "Vector" <$> return
-  [ testProperty "reverse100" $ property $
-    do SomeVector v <- forAll $ genSomeVector genOrdering
-       case testLeq (knownNat @1) (length v) of
-         Nothing -> pure ()
-         Just LeqProof -> v === (reverse $ reverse v)
-  , testProperty "reverseSingleton" $ property $
-    do l <- (:[]) <$> forAll genOrdering
-       Just v <- return $ fromList (knownNat @1) l
-       v === reverse v
+  [ testProperty "reverse100" prop_reverse100
+  , testProperty "reverseSingleton" prop_reverseSingleton
 
-  , testProperty "split-join" $ property $
-    do let n = knownNat @5
-       v <- forAll $ genVectorKnownLength @(5 * 5) genOrdering
-       v === (join n $ split n (knownNat @5) v)
+  , testProperty "split-join" prop_splitJoin
 
   -- @cons@ is the same for vectors or lists
-  , testProperty "cons" $ property $
-    do let n = knownNat @20
-           w = widthVal n
-       l <- forAll $ HG.list (constant w w) genOrdering
-       x <- forAll genOrdering
-       (cons x <$> fromList n l) === fromList (incNat n) (x:l)
+  , testProperty "cons" prop_cons
 
   -- @snoc@ is like appending to a list
-  , testProperty "snoc" $ property $
-    do let n = knownNat @20
-           w = widthVal n
-       l <- forAll $ HG.list (constant w w) genOrdering
-       x <- forAll genOrdering
-       (flip snoc x <$> fromList n l) === fromList (incNat n) (l ++ [x])
+  , testProperty "snoc" prop_snoc
 
   -- @snoc@ and @unsnoc@ are inverses
-  , testProperty "snoc/unsnoc" $ property $
-    do let n = knownNat @20
-           w = widthVal n
-       l <- forAll $ HG.list (constant w w) genOrdering
-       x <- forAll genOrdering
-       (fst  . unsnoc . flip snoc x <$> fromList n l) === Just x
+  , testProperty "snoc/unsnoc" prop_snocUnsnoc
 
   -- @generate@ is like mapping a function over indices
-  , testProperty "generate" $ property $
-    do let n = knownNat @55
-           w = widthVal n
-           funs :: [ Int -> Ordering ]  -- some miscellaneous functions to generate Vector values
-           funs =  [ const EQ
-                   , \i -> if i < 10 then LT else if i > 15 then GT else EQ
-                   , \i -> if i == 0 then EQ else GT
-                   ]
-       f <- forAll $ HG.element funs
-       Just (generate n (f . widthVal)) === fromList (incNat n) (map f [0..w])
+  , testProperty "generate" prop_generate
 
   -- @unfold@ works like @unfold@ on lists
-  , testProperty "unfold" $ property $
-    do let n = knownNat @55
-           w = widthVal n
-           funs :: [ Ordering -> (Ordering, Ordering) ]  -- some miscellaneous functions to generate Vector values
-           funs =  [ const (EQ, EQ)
-                   , \case
-                       LT -> (LT, GT)
-                       GT -> (GT, LT)
-                       EQ -> (EQ, EQ)
-                   ]
-       f <- forAll $ HG.element funs
-       o <- forAll $ HG.element [EQ, LT, GT]
-       Just (unfoldr n f o) === fromList (incNat n) (P.take (w + 1) (List.unfoldr (Just . f) o))
+  , testProperty "unfold" prop_unfold
 
   -- Converting to and from assignments preserves size and last element
-  , testProperty "to-from-assignment" $ property $
-    do vals <- forAll genSomePayloadList
-       Some a <- return $ mkUAsgn vals
-       let sz = Ctx.size a
-       case Ctx.viewSize sz of
-         Ctx.ZeroSize -> pure ()
-         Ctx.IncSize _ ->
-           let a' =
-                 toAssignment
-                   sz
-                   (\_idx val -> Const val)
-                   (fromAssignment Some a)
-           in do assert $
-                   isJust $
-                     testEquality
-                       (Ctx.sizeToNatRepr sz)
-                       (Ctx.sizeToNatRepr (Ctx.size a'))
-                 viewSome
-                   (\lastElem ->
-                      assert $
-                        isJust $
-                          testEquality
-                            (a Ctx.! Ctx.lastIndex sz) lastElem)
-                   (getConst (a' Ctx.! Ctx.lastIndex sz))
+  , testProperty "to-from-assignment" prop_toFromAssignment
 
   -- NOTE: We don't use hedgehog-classes here, because the way the types work
   -- would require this to only tests vectors of some fixed size.
   --
   -- Also, for 'fmap-compose', hedgehog-classes only tests two fixed functions
   -- over integers.
-  , testProperty "fmap-id" $ property $
-    do SomeVector v <- forAll $ genSomeVector genOrdering
-       fmap id v === v
+  , testProperty "fmap-id" prop_fmapId
 
-  , testProperty "fmap-compose" $ property $
-    do SomeVector v <- forAll $ genSomeVector genOrdering
-       f <- forAll $ HG.element orderingEndomorphisms
-       g <- forAll $ HG.element orderingEndomorphisms
-       fmap (g . f) v === fmap g (fmap f v)
+  , testProperty "fmap-compose" prop_fmapCompose
 
-  , testProperty "iterateN-range" $ property $
-    do Some len <- mkNatRepr <$> forAll (HG.integral (linear 0 (99 :: Natural)))
-       toList (iterateN len (+1) 0) === [0..(natValue len)]
+  , testProperty "iterateN-range" prop_iterateNRange
 
-  , testProperty "indicesOf-range" $ property $
-    do SomeVector v <- forAll $ genSomeVector genOrdering
-       toList (fmap (viewFin natValue) (indicesOf v)) === [0..(natValue (length v) - 1)]
+  , testProperty "indicesOf-range" prop_indicesOfRange
 
-  , testProperty "imap-const" $ property $
-    do f <- forAll $ HG.element orderingEndomorphisms
-       SomeVector v <- forAll $ genSomeVector genOrdering
-       imap (const f) v === fmap f v
+  , testProperty "imap-const" prop_imapConst
 
-  , testProperty "ifoldMap-const" $ property $
-    do let funs :: [ Ordering -> String ]
-           funs = [const "s", show]
-       f <- forAll $ HG.element funs
-       SomeVector v <- forAll $ genSomeVector genOrdering
-       ifoldMap (const f) v === foldMap f v
+  , testProperty "ifoldMap-const" prop_ifoldMapConst
 
-  , testProperty "imap-const-indicesOf" $ property $
-    do SomeVector v <- forAll $ genSomeVector genOrdering
-       imap const v === indicesOf v
+  , testProperty "imap-const-indicesOf" prop_imapConstIndicesOf
 
-  , testProperty "imap-elemAt" $ property $
-    do SomeVector v <- forAll $ genSomeVector genOrdering
-       imap (\i _ -> viewFin (\x -> elemAt x v) i) v === v
+  , testProperty "imap-elemAt" prop_imapElemAt
 
-  , testProperty "Ord-Eq-VectorIndex" $ property $
-    do i <- forAll $ genFin (knownNat @10)
-       j <- forAll $ genFin (knownNat @10)
-       (i == j) === (compare i j == EQ)
+  , testProperty "Ord-Eq-VectorIndex" prop_OrdEqVectorIndex
 
 #if __GLASGOW_HASKELL__ >= 806
   -- Test a few different sizes since the types force each test to use a
