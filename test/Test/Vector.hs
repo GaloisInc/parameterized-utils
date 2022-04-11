@@ -5,6 +5,7 @@
 {-# Language ExplicitForAll #-}
 {-# Language FlexibleInstances #-}
 {-# Language LambdaCase #-}
+{-# Language OverloadedStrings #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TypeFamilies #-}
@@ -249,51 +250,51 @@ prop_OrdEqVectorIndex = property $
 -- We use @Ordering@ just because it's simple
 vecTests :: IO TestTree
 vecTests = testGroup "Vector" <$> return
-  [ testProperty "reverse100" prop_reverse100
-  , testProperty "reverseSingleton" prop_reverseSingleton
+  [ testPropertyNamed "reverse100" "prop_reverse100" prop_reverse100
+  , testPropertyNamed "reverseSingleton" "prop_reverseSingleton" prop_reverseSingleton
 
-  , testProperty "split-join" prop_splitJoin
+  , testPropertyNamed "split-join" "prop_splitJoin" prop_splitJoin
 
   -- @cons@ is the same for vectors or lists
-  , testProperty "cons" prop_cons
+  , testPropertyNamed "cons" "prop_cons" prop_cons
 
   -- @snoc@ is like appending to a list
-  , testProperty "snoc" prop_snoc
+  , testPropertyNamed "snoc" "prop_snoc" prop_snoc
 
   -- @snoc@ and @unsnoc@ are inverses
-  , testProperty "snoc/unsnoc" prop_snocUnsnoc
+  , testPropertyNamed "snoc/unsnoc" "prop_snocUnsnoc" prop_snocUnsnoc
 
   -- @generate@ is like mapping a function over indices
-  , testProperty "generate" prop_generate
+  , testPropertyNamed "generate" "prop_generate" prop_generate
 
   -- @unfold@ works like @unfold@ on lists
-  , testProperty "unfold" prop_unfold
+  , testPropertyNamed "unfold" "prop_unfold" prop_unfold
 
   -- Converting to and from assignments preserves size and last element
-  , testProperty "to-from-assignment" prop_toFromAssignment
+  , testPropertyNamed "to-from-assignment" "prop_toFromAssignment" prop_toFromAssignment
 
   -- NOTE: We don't use hedgehog-classes here, because the way the types work
   -- would require this to only tests vectors of some fixed size.
   --
   -- Also, for 'fmap-compose', hedgehog-classes only tests two fixed functions
   -- over integers.
-  , testProperty "fmap-id" prop_fmapId
+  , testPropertyNamed "fmap-id" "prop_fmapId" prop_fmapId
 
-  , testProperty "fmap-compose" prop_fmapCompose
+  , testPropertyNamed "fmap-compose" "prop_fmapCompose" prop_fmapCompose
 
-  , testProperty "iterateN-range" prop_iterateNRange
+  , testPropertyNamed "iterateN-range" "prop_iterateNRange" prop_iterateNRange
 
-  , testProperty "indicesOf-range" prop_indicesOfRange
+  , testPropertyNamed "indicesOf-range" "prop_indicesOfRange" prop_indicesOfRange
 
-  , testProperty "imap-const" prop_imapConst
+  , testPropertyNamed "imap-const" "prop_imapConst" prop_imapConst
 
-  , testProperty "ifoldMap-const" prop_ifoldMapConst
+  , testPropertyNamed "ifoldMap-const" "prop_ifoldMapConst" prop_ifoldMapConst
 
-  , testProperty "imap-const-indicesOf" prop_imapConstIndicesOf
+  , testPropertyNamed "imap-const-indicesOf" "prop_imapConstIndicesOf" prop_imapConstIndicesOf
 
-  , testProperty "imap-elemAt" prop_imapElemAt
+  , testPropertyNamed "imap-elemAt" "prop_imapElemAt" prop_imapElemAt
 
-  , testProperty "Ord-Eq-VectorIndex" prop_OrdEqVectorIndex
+  , testPropertyNamed "Ord-Eq-VectorIndex" "prop_OrdEqVectorIndex" prop_OrdEqVectorIndex
 
 #if __GLASGOW_HASKELL__ >= 806
   -- Test a few different sizes since the types force each test to use a
