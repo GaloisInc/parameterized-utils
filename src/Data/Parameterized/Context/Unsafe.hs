@@ -246,10 +246,13 @@ type role Index nominal nominal
 instance Eq (Index ctx tp) where
   Index i == Index j = i == j
 
-instance EqF (Index ctx) where
-  eqF (Index i) (Index j)
+instance TestEquality (Index ctx) where
+  testEquality (Index i) (Index j)
     | i == j = Just unsafeAxiom
     | otherwise = Nothing
+
+instance EqF (Index ctx) where
+  eqF = testEquality
 
 instance Ord (Index ctx tp) where
   Index i `compare` Index j = compare i j
