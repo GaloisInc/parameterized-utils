@@ -246,8 +246,8 @@ type role Index nominal nominal
 instance Eq (Index ctx tp) where
   Index i == Index j = i == j
 
-instance TestEquality (Index ctx) where
-  testEquality (Index i) (Index j)
+instance EqF (Index ctx) where
+  eqF (Index i) (Index j)
     | i == j = Just unsafeAxiom
     | otherwise = Nothing
 
@@ -832,8 +832,11 @@ instance TestEqualityFC Assignment where
 instance TestEquality f => TestEquality (Assignment f) where
   testEquality = testEqualityFC testEquality
 
-instance TestEquality f => Eq (Assignment f ctx) where
-  x == y = isJust (testEquality x y)
+instance EqF f => Eq (Assignment f ctx) where
+  x == y = isJust (eqF x y)
+
+instance EqF f => EqF (Assignment f) where
+  eqF = testEqualityFC eqF
 
 instance OrdFC Assignment where
   compareFC test (Assignment x) (Assignment y) =

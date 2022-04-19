@@ -290,6 +290,9 @@ instance TestEquality (Index ctx) where
          Just Refl -> Just Refl
          Nothing -> Nothing
 
+instance EqF (Index ctx) where
+  eqF = testEquality
+
 instance Ord (Index ctx tp) where
   compare i j = toOrdering (compareF i j)
 
@@ -543,8 +546,8 @@ idxlookup _ AssignmentEmpty idx = case idx of {}
 (!^) :: KnownDiff l r => Assignment f r -> Index l tp -> f tp
 a !^ i = a ! extendIndex i
 
-instance TestEquality f => Eq (Assignment f ctx) where
-  x == y = isJust (testEquality x y)
+instance EqF f => Eq (Assignment f ctx) where
+  x == y = isJust (eqF x y)
 
 testEq :: (forall x y. f x -> f y -> Maybe (x :~: y))
        -> Assignment f cxt1 -> Assignment f cxt2 -> Maybe (cxt1 :~: cxt2)
@@ -563,8 +566,10 @@ instance TestEqualityFC Assignment where
    testEqualityFC f = testEq f
 instance TestEquality f => TestEquality (Assignment f) where
    testEquality x y = testEq testEquality x y
-instance TestEquality f => PolyEq (Assignment f x) (Assignment f y) where
-  polyEqF x y = fmap (\Refl -> Refl) $ testEquality x y
+instance EqF f => PolyEq (Assignment f x) (Assignment f y) where
+  polyEqF x y = fmap (\Refl -> Refl) $ eqF x y
+instance EqF f => EqF (Assignment f) where
+  eqF x y = testEq eqF x y
 
 compareAsgn :: (forall x y. f x -> f y -> OrderingF x y)
             -> Assignment f ctx1 -> Assignment f ctx2 -> OrderingF ctx1 ctx2

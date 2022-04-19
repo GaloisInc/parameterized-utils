@@ -214,6 +214,14 @@ instance TestEquality f => TestEquality (List f) where
     pure Refl
   testEquality _ _ = Nothing
 
+instance EqF f => EqF (List f) where
+  eqF Nil Nil = Just Refl
+  eqF (xh :< xl) (yh :< yl) = do
+    Refl <- eqF xh yh
+    Refl <- eqF xl yl
+    pure Refl
+  eqF _ _ = Nothing
+
 instance OrdF f => OrdF (List f) where
   compareF Nil Nil = EQF
   compareF Nil _ = LTF
@@ -267,10 +275,10 @@ deriving instance Show  (Index l x)
 
 instance ShowF (Index l)
 
-instance TestEquality (Index l) where
-  testEquality IndexHere IndexHere = Just Refl
-  testEquality (IndexThere x) (IndexThere y) = testEquality x y
-  testEquality _ _ = Nothing
+instance EqF (Index l) where
+  eqF IndexHere IndexHere = Just Refl
+  eqF (IndexThere x) (IndexThere y) = eqF x y
+  eqF _ _ = Nothing
 
 instance OrdF (Index l) where
   compareF IndexHere IndexHere = EQF

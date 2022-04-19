@@ -132,6 +132,9 @@ instance TestEquality (Nonce s) where
   testEquality x y | indexValue x == indexValue y = Just unsafeAxiom
                    | otherwise = Nothing
 
+instance EqF (Nonce s) where
+  eqF = testEquality
+
 instance OrdF (Nonce s) where
   compareF x y =
     case compare (indexValue x) (indexValue y) of

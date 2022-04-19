@@ -27,8 +27,8 @@ import Data.Parameterized.TraversableF
 
 data Some (f:: k -> Type) = forall x . Some (f x)
 
-instance TestEquality f => Eq (Some f) where
-  Some x == Some y = isJust (testEquality x y)
+instance EqF f => Eq (Some f) where
+  Some x == Some y = isJust (eqF x y)
 
 instance OrdF f => Ord (Some f) where
   compare (Some x) (Some y) = toOrdering (compareF x y)

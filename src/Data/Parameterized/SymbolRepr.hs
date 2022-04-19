@@ -84,6 +84,8 @@ instance TestEquality SymbolRepr where
    testEquality (SymbolRepr x :: SymbolRepr x) (SymbolRepr y)
       | x == y    = Just unsafeAxiom
       | otherwise = Nothing
+instance EqF SymbolRepr where
+  eqF = testEquality
 instance OrdF SymbolRepr where
    compareF (SymbolRepr x :: SymbolRepr x) (SymbolRepr y)
       | x <  y    = LTF

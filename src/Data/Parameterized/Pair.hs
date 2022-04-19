@@ -27,10 +27,12 @@ import Data.Parameterized.TraversableF
 data Pair (a :: k -> Type) (b :: k -> Type) where
   Pair :: !(a tp) -> !(b tp) -> Pair a b
 
-instance (TestEquality a, EqF b) => Eq (Pair a b) where
+instance (EqF a, EqF b) => Eq (Pair a b) where
   Pair xa xb == Pair ya yb =
-    case testEquality xa ya of
-      Just Refl -> eqF xb yb
+    case xa `eqF` ya of
+      Just Refl -> case xb `eqF` yb of
+        Just Refl -> True
+        Nothing -> False
       Nothing -> False
 
 instance FunctorF (Pair a) where
