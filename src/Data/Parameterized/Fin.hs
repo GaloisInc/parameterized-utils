@@ -27,6 +27,7 @@ module Data.Parameterized.Fin
   , embed
   , tryEmbed
   , minFin
+  , incFin
   , fin0Void
   , fin1Unit
   , fin2Bool
@@ -86,6 +87,11 @@ tryEmbed n m i =
 -- | The smallest element of @'Fin' n@
 minFin :: (1 <= n) => Fin n
 minFin = Fin (knownNat @0)
+
+incFin :: forall n. Fin n -> Fin (n + 1)
+incFin (Fin (i :: NatRepr i)) =
+  case leqAdd2 (LeqProof :: LeqProof (i + 1) n) (LeqProof :: LeqProof 1 1) of
+    LeqProof -> mkFin (incNat i)
 
 fin0Void :: Iso' (Fin 0) Void
 fin0Void =

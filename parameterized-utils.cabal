@@ -94,6 +94,9 @@ library
     Data.Parameterized.Pair
     Data.Parameterized.Peano
     Data.Parameterized.Some
+    Data.Parameterized.SizedMap
+    Data.Parameterized.SizedMap.Safe
+    Data.Parameterized.SizedMap.Unsafe
     Data.Parameterized.SymbolRepr
     Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
@@ -122,6 +125,7 @@ test-suite parameterizedTests
     Test.Fin
     Test.List
     Test.NatRepr
+    Test.SizedMap
     Test.SymbolRepr
     Test.TH
     Test.Vector

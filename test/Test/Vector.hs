@@ -16,6 +16,10 @@
 #endif
 module Test.Vector
   ( vecTests
+  , SomeVector(..)
+  , genSomeVector
+  , genOrdering
+  , orderingEndomorphisms
   )
 where
 
