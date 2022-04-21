@@ -9,10 +9,10 @@
 
 
 module Test.FinMap
-  ( finMapTests
-  )
 where
 
+import           Control.Monad (foldM)
+import           Data.Foldable.WithIndex (itoList)
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Type.Equality ((:~:)(Refl))
 
@@ -22,6 +22,8 @@ import           Data.Parameterized.NatRepr (LeqProof, NatRepr, type (<=), type 
 import qualified Data.Parameterized.NatRepr as NatRepr
 
 import           Hedgehog
+import qualified Hedgehog.Gen as HG
+import           Hedgehog.Range (linear)
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
@@ -32,17 +34,18 @@ import qualified Hedgehog.Classes as HC
 
 import qualified Data.Parameterized.FinMap.Safe as S
 import qualified Data.Parameterized.FinMap.Unsafe as U
+import qualified Data.Parameterized.Vector as Vec
 
 import           Test.Fin (genFin)
 import           Test.Vector (SomeVector(..), genSomeVector, genVectorOfLength, genOrdering)
 
-data SomeSafeFinMap a = forall n. SomeSafeFinMap (S.FinMap n a)
-data SomeUnsafeFinMap a = forall n. SomeUnsafeFinMap (U.FinMap n a)
+data SomeSafeFinMap a = forall n. SomeSafeFinMap (NatRepr n) (S.FinMap n a)
+data SomeUnsafeFinMap a = forall n. SomeUnsafeFinMap (NatRepr n) (U.FinMap n a)
 
 instance Show a => Show (SomeSafeFinMap a) where
-  show (SomeSafeFinMap v) = show v
+  show (SomeSafeFinMap _ v) = show v
 instance Show a => Show (SomeUnsafeFinMap a) where
-  show (SomeUnsafeFinMap v) = show v
+  show (SomeUnsafeFinMap _ v) = show v
 
 genSafeFinMap :: (Monad m) => NatRepr n -> GenT m a -> GenT m (S.FinMap (n + 1) a)
 genSafeFinMap n genElem = S.fromVector <$> genVectorOfLength n genElem
@@ -53,21 +56,21 @@ genUnsafeFinMap n genElem = U.fromVector <$> genVectorOfLength n genElem
 genSomeSafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeSafeFinMap a)
 genSomeSafeFinMap genElem =
   do SomeVector v <- genSomeVector genElem
-     return (SomeSafeFinMap (S.fromVector v))
+     return (SomeSafeFinMap (Vec.length v) (S.fromVector v))
 
 genSomeUnsafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeUnsafeFinMap a)
 genSomeUnsafeFinMap genElem =
   do SomeVector v <- genSomeVector genElem
-     return (SomeUnsafeFinMap (U.fromVector v))
+     return (SomeUnsafeFinMap (Vec.length v) (U.fromVector v))
 
 prop_incMax_size_safe :: Property
 prop_incMax_size_safe = property $
-  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
+  do SomeSafeFinMap _ sm <- forAll $ genSomeSafeFinMap genOrdering
      Fin.finToNat (S.size (S.incMax sm)) === Fin.finToNat (S.size sm)
 
 prop_incMax_size_unsafe :: Property
 prop_incMax_size_unsafe = property $
-  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
+  do SomeUnsafeFinMap _ sm <- forAll $ genSomeUnsafeFinMap genOrdering
      Fin.finToNat (U.size (U.incMax sm)) === Fin.finToNat (U.size sm)
 
 cancelPlusOne ::
@@ -99,6 +102,17 @@ withSizeSafe sm k =
             NatRepr.LeqProof -> k i)
         sz
 
+withIndexSafe ::
+  SomeSafeFinMap a ->
+  (forall n. Fin n -> S.FinMap n a -> PropertyT IO ()) ->
+  PropertyT IO ()
+withIndexSafe (SomeSafeFinMap n sm) k =
+  case NatRepr.isZeroOrGT1 n of
+    Left Refl -> k Fin.minFin (S.incMax sm)
+    Right NatRepr.LeqProof ->
+      do idx <- forAll (genFin n)
+         k idx sm
+
 withSizeUnsafe ::
   U.FinMap n a ->
   (forall i. (i + 1 <= n + 1, i <= n) => NatRepr i -> r) ->
@@ -112,11 +126,21 @@ withSizeUnsafe sm k =
             NatRepr.LeqProof -> k i)
         sz
 
+withIndexUnsafe ::
+  SomeUnsafeFinMap a ->
+  (forall n. Fin n -> U.FinMap n a -> PropertyT IO ()) ->
+  PropertyT IO ()
+withIndexUnsafe (SomeUnsafeFinMap n sm) k =
+  case NatRepr.isZeroOrGT1 n of
+    Left Refl -> k Fin.minFin (U.incMax sm)
+    Right NatRepr.LeqProof ->
+      do idx <- forAll (genFin n)
+         k idx sm
+
 prop_insert_size_safe :: Property
 prop_insert_size_safe = property $
-  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
-     withSizeSafe sm $ \i -> do
-      idx <- forAll (genFin i)
+  do ssm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe ssm $ \idx sm -> do
       o <- forAll genOrdering
       let size = Fin.finToNat (S.size sm)
       let newSize = Fin.finToNat (S.size (S.insert (Fin.embed idx) o sm))
@@ -124,9 +148,8 @@ prop_insert_size_safe = property $
 
 prop_insert_size_unsafe :: Property
 prop_insert_size_unsafe = property $
-  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withSizeUnsafe sm $ \i -> do
-      idx <- forAll (genFin i)
+  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe ssm $ \idx sm -> do
       o <- forAll genOrdering
       let size = Fin.finToNat (U.size sm)
       let newSize = Fin.finToNat (U.size (U.insert (Fin.embed idx) o sm))
@@ -134,35 +157,93 @@ prop_insert_size_unsafe = property $
 
 prop_insert_delete_safe :: Property
 prop_insert_delete_safe = property $
-  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
-     withSizeSafe sm $ \i -> do
-      idx <- Fin.embed <$> forAll (genFin i)
+  do ssm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe ssm $ \idx sm -> do
       o <- forAll genOrdering
       S.delete idx (S.insert idx o sm) === S.delete idx sm
 
 prop_insert_delete_unsafe :: Property
 prop_insert_delete_unsafe = property $
-  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withSizeUnsafe sm $ \i -> do
-      idx <- Fin.embed <$> forAll (genFin i)
+  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe ssm $ \idx sm -> do
       o <- forAll genOrdering
       U.delete idx (U.insert idx o sm) === U.delete idx sm
 
 prop_delete_insert_safe :: Property
 prop_delete_insert_safe = property $
-  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
-     withSizeSafe sm $ \i -> do
-      idx <- Fin.embed <$> forAll (genFin i)
+  do ssm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe ssm $ \idx sm -> do
       o <- forAll genOrdering
       S.insert idx o (S.delete idx sm) === S.insert idx o sm
 
 prop_delete_insert_unsafe :: Property
 prop_delete_insert_unsafe = property $
-  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withSizeUnsafe sm $ \i -> do
-      idx <- Fin.embed <$> forAll (genFin i)
+  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe ssm $ \idx sm -> do
       o <- forAll genOrdering
       U.insert idx o (U.delete idx sm) === U.insert idx o sm
+
+prop_empty_insert_safe :: Property
+prop_empty_insert_safe = property $
+  do withIndexSafe (SomeSafeFinMap NatRepr.knownNat S.empty) $ \idx sm -> do
+      o <- forAll genOrdering
+      sm /== S.insert idx o sm
+
+prop_empty_insert_unsafe :: Property
+prop_empty_insert_unsafe = property $
+  do withIndexUnsafe (SomeUnsafeFinMap NatRepr.knownNat U.empty) $ \idx sm -> do
+      o <- forAll genOrdering
+      sm /== U.insert idx o sm
+
+-- | Type used for comparative API tests
+data MatchedMaps a =
+  forall n.
+  MatchedMaps
+    { _unsafe :: U.FinMap n a
+    , _safe :: S.FinMap n a
+    }
+
+operations :: Show a => Gen a -> [MatchedMaps a -> PropertyT IO (MatchedMaps a)]
+operations genValue =
+  [
+    \(MatchedMaps u s) ->
+      withSizeUnsafe u $ \sz -> do
+        case NatRepr.isZeroOrGT1 sz of
+          Left Refl ->
+            do v <- forAll genValue
+               return $
+                 MatchedMaps
+                   (U.insert Fin.minFin v (U.incMax u))
+                   (S.insert Fin.minFin v (S.incMax s))
+          Right NatRepr.LeqProof ->
+            do idx <- Fin.embed <$> forAll (genFin sz)
+               v <- forAll genValue
+               return (MatchedMaps (U.insert idx v u) (S.insert idx v s))
+  , \(MatchedMaps u s) ->
+        return (MatchedMaps (U.incMax u) (S.incMax s))
+  , \(MatchedMaps _ _) ->
+        return (MatchedMaps U.empty S.empty)
+  ]
+
+-- | Possibly the most important and far-reaching test: The unsafe API should
+-- yield the same results as the safe API, after some randomized sequence of
+-- operations.
+prop_safe_unsafe :: Property
+prop_safe_unsafe = property $
+  do numOps <- forAll (HG.integral (linear 0 (99 :: Int)))
+     let empty = MatchedMaps U.empty S.empty
+     MatchedMaps u s <-
+       doTimes (chooseAndApply (operations genOrdering)) numOps empty
+     itoList u === itoList s
+  where
+    chooseAndApply :: [a -> PropertyT IO b] -> a -> PropertyT IO b
+    chooseAndApply funs arg =
+      do f <- forAll $ HG.choice (map return funs)
+         f arg
+
+    doTimes f n m =
+      foldM (\accum () -> f accum) m (take n (repeat ()))
+
 
 finMapTests :: IO TestTree
 finMapTests = testGroup "FinMap" <$> return
@@ -174,6 +255,9 @@ finMapTests = testGroup "FinMap" <$> return
   , testPropertyNamed "insert-delete-unsafe" "prop_insert_delete_unsafe" prop_insert_delete_unsafe
   , testPropertyNamed "delete-insert-safe" "prop_delete_insert_safe" prop_delete_insert_safe
   , testPropertyNamed "delete-insert-unsafe" "prop_delete_insert_unsafe" prop_delete_insert_unsafe
+  , testPropertyNamed "empty-insert-safe" "prop_empty_insert_safe" prop_empty_insert_safe
+  , testPropertyNamed "empty-insert-unsafe" "prop_empty_insert_unsafe" prop_empty_insert_unsafe
+  , testPropertyNamed "safe-unsafe" "prop_safe_unsafe" prop_safe_unsafe
 
 #if __GLASGOW_HASKELL__ >= 806
   , testCase "Eq-Safe-FinMap-laws-1" $
