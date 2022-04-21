@@ -64,20 +64,20 @@ import qualified Data.Parameterized.Vector as Vec
 newtype FinMap (n :: Nat) a = FinMap { getFinMap :: IntMap a }
 
 instance Eq a => Eq (FinMap n a) where
-  sm1 == sm2 = getFinMap sm1 == getFinMap sm2
+  fm1 == fm2 = getFinMap fm1 == getFinMap fm2
 
 instance Functor (FinMap n) where
-  fmap f sm = FinMap (fmap f (getFinMap sm))
+  fmap f fm = FinMap (fmap f (getFinMap fm))
 
 instance Foldable (FinMap n) where
-  foldMap f sm = foldMap f (getFinMap sm)
+  foldMap f fm = foldMap f (getFinMap fm)
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
-  imap f sm = mapWithKey f sm
+  imap f fm = mapWithKey f fm
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
-  show sm = show (getFinMap sm)
+  show fm = show (getFinMap fm)
 
 ------------------------------------------------------------------------
 -- Query
@@ -109,7 +109,7 @@ unsafeFin i =
 
 -- | /O(n)/. Number of elements in the map.
 size :: forall n a. FinMap n a -> Fin (n + 1)
-size sm = unsafeFin (IntMap.size (getFinMap sm))
+size fm = unsafeFin (IntMap.size (getFinMap fm))
 
 ------------------------------------------------------------------------
 -- Construction
@@ -133,8 +133,8 @@ singleton = FinMap . IntMap.singleton 0
 
 -- | /O(min(n,W))/.
 insert :: Fin n -> a -> FinMap n a -> FinMap n a
-insert k v sm =
-  FinMap (IntMap.insert (fromIntegral (Fin.finToNat k)) v (getFinMap sm))
+insert k v fm =
+  FinMap (IntMap.insert (fromIntegral (Fin.finToNat k)) v (getFinMap fm))
 
 newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
@@ -144,9 +144,9 @@ newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
 -- | /O(min(n,W))/.
 append :: NatRepr n -> a -> FinMap n a -> FinMap (n + 1) a
-append k v sm =
+append k v fm =
   case NatRepr.leqSucc k of
-    NatRepr.LeqProof -> insert (mkFin k) v (incMax sm)
+    NatRepr.LeqProof -> insert (mkFin k) v (incMax fm)
 
 fromVector :: forall n a. Vector n a -> FinMap n a
 fromVector v =
@@ -167,12 +167,12 @@ delete k =
 
 -- | Decrement the key/size, removing the item at key @n + 1@ if present.
 decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
-decMax k sm =
-  let sm' = getFinMap sm
-  in FinMap (IntMap.delete (fromIntegral (NatRepr.natValue k)) sm')
+decMax k fm =
+  let fm' = getFinMap fm
+  in FinMap (IntMap.delete (fromIntegral (NatRepr.natValue k)) fm')
 
 mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
-mapWithKey f sm = FinMap (IntMap.mapWithKey (f . unsafeFin) (getFinMap sm))
+mapWithKey f fm = FinMap (IntMap.mapWithKey (f . unsafeFin) (getFinMap fm))
 
 foldrWithKey :: (Fin n -> a -> b -> b) -> b -> FinMap n a -> b
-foldrWithKey f b sm = IntMap.foldrWithKey (f . unsafeFin) b (getFinMap sm)
+foldrWithKey f b fm = IntMap.foldrWithKey (f . unsafeFin) b (getFinMap fm)

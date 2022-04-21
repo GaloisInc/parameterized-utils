@@ -59,20 +59,20 @@ data FinMap (n :: Nat) a =
     }
 
 instance Eq a => Eq (FinMap n a) where
-  sm1 == sm2 = getFinMap sm1 == getFinMap sm2
+  fm1 == fm2 = getFinMap fm1 == getFinMap fm2
 
 instance Functor (FinMap n) where
-  fmap f sm = sm { getFinMap = fmap f (getFinMap sm) }
+  fmap f fm = fm { getFinMap = fmap f (getFinMap fm) }
 
 instance Foldable (FinMap n) where
-  foldMap f sm = foldMap f (getFinMap sm)
+  foldMap f fm = foldMap f (getFinMap fm)
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
-  imap f sm = mapWithKey f sm
+  imap f fm = mapWithKey f fm
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
-  show sm = show (getFinMap sm)
+  show fm = show (getFinMap fm)
 
 ------------------------------------------------------------------------
 -- Query
@@ -88,14 +88,14 @@ newtype Fin' n = Fin' { getFin' :: Fin (n + 1) }
 
 -- | /O(nlog(n))/. Number of elements in the map.
 size :: forall n a. FinMap n a -> Fin (n + 1)
-size sm =
+size fm =
   getFin' $
     NatRepr.natRecStrictlyBounded
-      (maxSize sm)
+      (maxSize fm)
       (Fin' Fin.minFin)
       (\(k :: NatRepr m) (Fin' count) ->
         Fin' $
-          case lookup (Fin.mkFin k) sm of
+          case lookup (Fin.mkFin k) fm of
             Just _ -> Fin.incFin count
             Nothing ->
               case NatRepr.leqSucc count of
@@ -108,12 +108,12 @@ size sm =
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: forall n a. FinMap n a -> FinMap (n + 1) a
-incMax sm =
+incMax fm =
   FinMap
     { getFinMap =
       case NatRepr.leqSucc (Proxy :: Proxy n) of
-        NatRepr.LeqProof -> Map.mapKeys Fin.embed (getFinMap sm)
-    , maxSize = NatRepr.incNat (maxSize sm)
+        NatRepr.LeqProof -> Map.mapKeys Fin.embed (getFinMap fm)
+    , maxSize = NatRepr.incNat (maxSize fm)
     }
 
 -- | /O(1)/. The empty map.
@@ -130,7 +130,7 @@ singleton item =
 
 -- | /O(log n)/.
 insert :: Fin n -> a -> FinMap n a -> FinMap n a
-insert k v sm = sm { getFinMap = Map.insert k v (getFinMap sm) }
+insert k v fm = fm { getFinMap = Map.insert k v (getFinMap fm) }
 
 newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
@@ -140,9 +140,9 @@ newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
 -- | /O(log n)/.
 append :: NatRepr n -> a -> FinMap n a -> FinMap (n + 1) a
-append k v sm =
+append k v fm =
   case NatRepr.leqSucc k of
-    NatRepr.LeqProof -> insert (Fin.mkFin k) v (incMax sm)
+    NatRepr.LeqProof -> insert (Fin.mkFin k) v (incMax fm)
 
 fromVector :: forall n a. Vector n a -> FinMap n a
 fromVector v =
@@ -158,17 +158,17 @@ fromVector v =
 
 -- | /O(log n)/.
 delete :: Fin n -> FinMap n a -> FinMap n a
-delete k sm = sm { getFinMap = Map.delete k (getFinMap sm) }
+delete k fm = fm { getFinMap = Map.delete k (getFinMap fm) }
 
 -- | Decrement the key/size, removing the item at key @n + 1@ if present.
 decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
-decMax n sm =
+decMax n fm =
   FinMap
-    { getFinMap = maybeMapKeys (Fin.tryEmbed sz n) (getFinMap sm)
+    { getFinMap = maybeMapKeys (Fin.tryEmbed sz n) (getFinMap fm)
     , maxSize = n
     }
   where
-    sz = maxSize sm
+    sz = maxSize fm
 
     maybeMapKeys :: Ord k2 => (k1 -> Maybe k2) -> Map k1 a -> Map k2 a
     maybeMapKeys f m =
@@ -181,7 +181,7 @@ decMax n sm =
         m
 
 mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
-mapWithKey f sm = sm { getFinMap = Map.mapWithKey f (getFinMap sm) }
+mapWithKey f fm = fm { getFinMap = Map.mapWithKey f (getFinMap fm) }
 
 foldrWithKey :: (Fin n -> a -> b -> b) -> b -> FinMap n a -> b
-foldrWithKey f b sm = Map.foldrWithKey f b (getFinMap sm)
+foldrWithKey f b fm = Map.foldrWithKey f b (getFinMap fm)
