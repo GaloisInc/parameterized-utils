@@ -26,9 +26,9 @@ import           Data.Parameterized.Some (Some(Some))
 import qualified Hedgehog.Classes as HC
 #endif
 
-genFin :: (0 <= n, Monad m) => NatRepr n -> GenT m (Fin n)
+genFin :: (1 <= n, Monad m) => NatRepr n -> GenT m (Fin n)
 genFin n =
-  do x0 <- HG.integral (linear 0 ((natValue n) - 1 :: Natural))
+  do x0 <- HG.integral (linear 0 (natValue n - 1 :: Natural))
      Some x <- return (mkNatRepr x0)
      return $
        case testLeq (incNat x) n of
