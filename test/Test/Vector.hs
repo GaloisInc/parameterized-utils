@@ -18,6 +18,7 @@ module Test.Vector
   ( vecTests
   , SomeVector(..)
   , genSomeVector
+  , genVectorOfLength
   , genOrdering
   , orderingEndomorphisms
   )

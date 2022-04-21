@@ -1,8 +1,10 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 
@@ -23,11 +25,16 @@ import           Hedgehog
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
+#if __GLASGOW_HASKELL__ >= 806
+import           Test.Tasty.HUnit (assertBool, testCase)
+import qualified Hedgehog.Classes as HC
+#endif
+
 import qualified Data.Parameterized.FinMap.Safe as S
 import qualified Data.Parameterized.FinMap.Unsafe as U
 
 import           Test.Fin (genFin)
-import           Test.Vector (SomeVector(..), genSomeVector, genOrdering)
+import           Test.Vector (SomeVector(..), genSomeVector, genVectorOfLength, genOrdering)
 
 data SomeSafeFinMap a = forall n. SomeSafeFinMap (S.FinMap n a)
 data SomeUnsafeFinMap a = forall n. SomeUnsafeFinMap (U.FinMap n a)
@@ -36,6 +43,12 @@ instance Show a => Show (SomeSafeFinMap a) where
   show (SomeSafeFinMap v) = show v
 instance Show a => Show (SomeUnsafeFinMap a) where
   show (SomeUnsafeFinMap v) = show v
+
+genSafeFinMap :: (Monad m) => NatRepr n -> GenT m a -> GenT m (S.FinMap (n + 1) a)
+genSafeFinMap n genElem = S.fromVector <$> genVectorOfLength n genElem
+
+genUnsafeFinMap :: (Monad m) => NatRepr n -> GenT m a -> GenT m (U.FinMap (n + 1) a)
+genUnsafeFinMap n genElem = U.fromVector <$> genVectorOfLength n genElem
 
 genSomeSafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeSafeFinMap a)
 genSomeSafeFinMap genElem =
@@ -161,4 +174,31 @@ finMapTests = testGroup "FinMap" <$> return
   , testPropertyNamed "insert-delete-unsafe" "prop_insert_delete_unsafe" prop_insert_delete_unsafe
   , testPropertyNamed "delete-insert-safe" "prop_delete_insert_safe" prop_delete_insert_safe
   , testPropertyNamed "delete-insert-unsafe" "prop_delete_insert_unsafe" prop_delete_insert_unsafe
+
+#if __GLASGOW_HASKELL__ >= 806
+  , testCase "Eq-Safe-FinMap-laws-1" $
+      assertBool "Eq-Safe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.eqLaws (genSafeFinMap (NatRepr.knownNat @1) genOrdering))
+  , testCase "Eq-Unsafe-FinMap-laws-1" $
+      assertBool "Eq-Unsafe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.eqLaws (genUnsafeFinMap (NatRepr.knownNat @1) genOrdering))
+  , testCase "Eq-Safe-FinMap-laws-10" $
+      assertBool "Eq-Safe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.eqLaws (genSafeFinMap (NatRepr.knownNat @10) genOrdering))
+  , testCase "Eq-Unsafe-FinMap-laws-10" $
+      assertBool "Eq-Unsafe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.eqLaws (genUnsafeFinMap (NatRepr.knownNat @10) genOrdering))
+  , testCase "Foldable-Safe-FinMap-laws-1" $
+      assertBool "Foldable-Safe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.foldableLaws (genSafeFinMap (NatRepr.knownNat @1)))
+  , testCase "Foldable-Unsafe-FinMap-laws-1" $
+      assertBool "Foldable-Unsafe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.foldableLaws (genUnsafeFinMap (NatRepr.knownNat @1)))
+  , testCase "Foldable-Safe-FinMap-laws-10" $
+      assertBool "Foldable-Safe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.foldableLaws (genSafeFinMap (NatRepr.knownNat @10)))
+  , testCase "Foldable-Unsafe-FinMap-laws-10" $
+      assertBool "Foldable-Unsafe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.foldableLaws (genUnsafeFinMap (NatRepr.knownNat @10)))
+#endif
   ]
