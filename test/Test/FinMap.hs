@@ -8,12 +8,12 @@
 {-# LANGUAGE TypeOperators #-}
 
 
-module Test.FinMap
-where
+module Test.FinMap (finMapTests) where
 
 import           Control.Monad (foldM)
 import           Data.Foldable.WithIndex (itoList)
 import           Data.Functor.WithIndex (FunctorWithIndex(imap))
+import           Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Type.Equality ((:~:)(Refl))
 
@@ -38,7 +38,7 @@ import qualified Data.Parameterized.FinMap.Unsafe as U
 import qualified Data.Parameterized.Vector as Vec
 
 import           Test.Fin (genFin)
-import           Test.Vector (SomeVector(..), genSomeVector, genVectorOfLength, genOrdering, orderingEndomorphisms)
+import           Test.Vector (SomeVector(..), genSomeVector, genVectorOfLength, genOrdering, orderingEndomorphisms, orderingToStringFuns)
 
 data SomeSafeFinMap a = forall n. SomeSafeFinMap (NatRepr n) (S.FinMap n a)
 data SomeUnsafeFinMap a = forall n. SomeUnsafeFinMap (NatRepr n) (U.FinMap n a)
@@ -74,6 +74,30 @@ prop_incMax_size_unsafe = property $
   do SomeUnsafeFinMap _ fm <- forAll $ genSomeUnsafeFinMap genOrdering
      Fin.finToNat (U.size (U.incMax fm)) === Fin.finToNat (U.size fm)
 
+prop_imap_const_safe :: Property
+prop_imap_const_safe = property $
+  do f <- forAll (HG.element orderingEndomorphisms)
+     SomeSafeFinMap _ fm <- forAll (genSomeSafeFinMap genOrdering)
+     imap (const f) fm === fmap f fm
+
+prop_imap_const_unsafe :: Property
+prop_imap_const_unsafe = property $
+  do f <- forAll (HG.element orderingEndomorphisms)
+     SomeUnsafeFinMap _ fm <- forAll (genSomeUnsafeFinMap genOrdering)
+     imap (const f) fm === fmap f fm
+
+prop_ifoldMap_const_safe :: Property
+prop_ifoldMap_const_safe = property $
+  do f <- forAll (HG.element orderingToStringFuns)
+     SomeSafeFinMap _ fm <- forAll (genSomeSafeFinMap genOrdering)
+     ifoldMap (const f) fm === foldMap f fm
+
+prop_ifoldMap_const_unsafe :: Property
+prop_ifoldMap_const_unsafe = property $
+  do f <- forAll (HG.element orderingToStringFuns)
+     SomeUnsafeFinMap _ fm <- forAll (genSomeUnsafeFinMap genOrdering)
+     ifoldMap (const f) fm === foldMap f fm
+
 cancelPlusOne ::
   forall f g i n.
   f i ->
@@ -90,19 +114,6 @@ cancelPlusOne i n NatRepr.LeqProof =
                   (NatRepr.LeqProof :: LeqProof 1 1) of
             NatRepr.LeqProof -> NatRepr.LeqProof
 
-withSizeSafe ::
-  S.FinMap n a ->
-  (forall i. (i + 1 <= n + 1, i <= n) => NatRepr i -> r) ->
-  r
-withSizeSafe fm k =
-  case S.size fm of
-    (sz :: Fin (n + 1)) ->
-      Fin.viewFin
-        (\(i :: NatRepr i) ->
-          case cancelPlusOne i (Proxy :: Proxy n) NatRepr.LeqProof of
-            NatRepr.LeqProof -> k i)
-        sz
-
 withIndexSafe ::
   SomeSafeFinMap a ->
   (forall n. Fin n -> S.FinMap n a -> PropertyT IO ()) ->
@@ -110,6 +121,17 @@ withIndexSafe ::
 withIndexSafe (SomeSafeFinMap n fm) k =
   case NatRepr.isZeroOrGT1 n of
     Left Refl -> k Fin.minFin (S.incMax fm)
+    Right NatRepr.LeqProof ->
+      do idx <- forAll (genFin n)
+         k idx fm
+
+withIndexUnsafe ::
+  SomeUnsafeFinMap a ->
+  (forall n. Fin n -> U.FinMap n a -> PropertyT IO ()) ->
+  PropertyT IO ()
+withIndexUnsafe (SomeUnsafeFinMap n fm) k =
+  case NatRepr.isZeroOrGT1 n of
+    Left Refl -> k Fin.minFin (U.incMax fm)
     Right NatRepr.LeqProof ->
       do idx <- forAll (genFin n)
          k idx fm
@@ -126,17 +148,6 @@ withSizeUnsafe fm k =
           case cancelPlusOne i (Proxy :: Proxy n) NatRepr.LeqProof of
             NatRepr.LeqProof -> k i)
         sz
-
-withIndexUnsafe ::
-  SomeUnsafeFinMap a ->
-  (forall n. Fin n -> U.FinMap n a -> PropertyT IO ()) ->
-  PropertyT IO ()
-withIndexUnsafe (SomeUnsafeFinMap n fm) k =
-  case NatRepr.isZeroOrGT1 n of
-    Left Refl -> k Fin.minFin (U.incMax fm)
-    Right NatRepr.LeqProof ->
-      do idx <- forAll (genFin n)
-         k idx fm
 
 prop_insert_size_safe :: Property
 prop_insert_size_safe = property $
@@ -310,6 +321,10 @@ finMapTests = testGroup "FinMap" <$> return
   , testPropertyNamed "insert-insert-unsafe" "prop_insert_insert_unsafe" prop_insert_insert_unsafe
   , testPropertyNamed "delete-delete-safe" "prop_delete_delete_safe" prop_delete_delete_safe
   , testPropertyNamed "delete-delete-unsafe" "prop_delete_delete_unsafe" prop_delete_delete_unsafe
+  , testPropertyNamed "imap-const-safe" "prop_imap_const_safe" prop_imap_const_safe
+  , testPropertyNamed "imap-const-unsafe" "prop_imap_const_unsafe" prop_imap_const_unsafe
+  , testPropertyNamed "ifoldMap-const-safe" "prop_ifoldMap_const_safe" prop_ifoldMap_const_safe
+  , testPropertyNamed "ifoldMap-const-unsafe" "prop_ifoldMap_const_unsafe" prop_ifoldMap_const_unsafe
   , testPropertyNamed "safe-unsafe" "prop_safe_unsafe" prop_safe_unsafe
 
 #if __GLASGOW_HASKELL__ >= 806

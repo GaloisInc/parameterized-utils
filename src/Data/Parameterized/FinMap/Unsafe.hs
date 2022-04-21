@@ -77,7 +77,9 @@ instance FunctorWithIndex (Fin n) (FinMap n) where
   imap f fm = mapWithKey f fm
 
 instance FoldableWithIndex (Fin n) (FinMap n) where
-  ifoldMap f fm = foldrWithKey (\k v m -> f k v <> m) mempty fm
+  ifoldMap f fm =
+    -- m goes on the right-hand side because this is a right-associative fold
+    foldrWithKey (\k v m -> f k v <> m) mempty fm
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where

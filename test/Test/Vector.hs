@@ -21,6 +21,7 @@ module Test.Vector
   , genVectorOfLength
   , genOrdering
   , orderingEndomorphisms
+  , orderingToStringFuns
   )
 where
 
@@ -102,6 +103,13 @@ orderingEndomorphisms =
       LT -> EQ
       EQ -> GT
       GT -> LT
+  ]
+  
+-- | Used to test ifoldMap.
+orderingToStringFuns :: [ Ordering -> String ]
+orderingToStringFuns =
+  [ const "s"
+  , show
   ]
 
 prop_reverse100 :: Property
