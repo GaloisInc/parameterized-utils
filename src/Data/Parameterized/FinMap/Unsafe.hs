@@ -56,8 +56,7 @@ import qualified Data.Parameterized.Vector as Vec
 -- If this invariant holds, all of the unsafe operations in this module
 -- (fromJust, unsafeCoerce) will work as intended.
 
--- | @'FinMap' n a@ is a map with 'NatRepr' keys, @a@ values, and keys all
--- less than @n@ (and so, size up to @n@).
+-- | @'FinMap' n a@ is a map with @'Fin' n@ keys and @a@ values.
 newtype FinMap (n :: Nat) a = FinMap { getFinMap :: IntMap a }
 
 instance Eq a => Eq (FinMap n a) where

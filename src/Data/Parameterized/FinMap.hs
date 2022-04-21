@@ -1,19 +1,29 @@
 {-|
 Copyright        : (c) Galois, Inc 2022
 
-'FinMap' is a map with 'NatRepr' keys and a maximum size reflected in its
-type. @'FinMap' n a@ can be used as a more space-efficient replacement for a
-@'Data.Parameterized.Vector.Vector' n ('Maybe' a)@, or a replacement for an
-@'Data.IntMap.IntMap' a@ where the maximum key (i.e., size) of the map can be
-tracked statically.
+@'FinMap' n a@ conceptually (see NOTE) a map with @'Data.Parameterized.Fin.Fin'
+n@ keys, implying a maximum size of @n@. Here's how 'FinMap' compares to other
+map-like types:
 
-This interface has two implementations:
+* @'FinMap' n a@ is conceptually isomorphic to a
+  @'Data.Parameterized.Vector' n ('Maybe' a)@, but can be more space-efficient
+  especially if @n@ is large and the vector is sparsely populated with 'Just'
+  values.
+* @'FinMap'@ is less general than 'Data.Map.Map', because it has a fixed key
+  type (@'Data.Parameterized.Fin.Fin' n@).
+* @'FinMap' n a@ is similar to @'Data.IntMap.IntMap' a@, but it provides a
+  static guarantee of a maximum size, and its operations (such as 'size') allow
+  the recovery of more type-level information.
+* @'FinMap'@ is dissimilar from "Data.Parameterized.Map.MapF" in that neither
+  the key nor value type is parameterized.
 
-* 'Data.Parameterized.FinMap.Unsafe.FinMap' is backed by an
+The 'FinMap' interface has two implementations:
+
+* The implementation in "Data.Parameterized.FinMap.Unsafe" is backed by an
   'Data.IntMap.IntMap', and must have a size of at most @'maxBound' :: 'Int'@.
   This module uses unsafe operations like 'Unsafe.Coerce.unsafeCoerce'
   internally for the sake of time and space efficiency.
-* 'Data.Parameterized.FinMap.Safe.FinMap' is backed by an
+* The implementation in "Data.Parameterized.FinMap.Safe" is backed by an
   @'Data.Map.Map' ('Data.Parameterized.Fin.Fin' n)@. All of its functions are
   implemented using safe operations.
 
@@ -21,8 +31,12 @@ The implementation in 'Data.Parameterized.FinMap.Unsafe.FinMap' is property
 tested against that in 'Data.Parameterized.FinMap.Safe.FinMap' to ensure
 they have the same behavior.
 
-/W/ is used in big-O notations the same way as in the "Data.IntMap"
-documentation.
+In this documentation, /W/ is used in big-O notations the same way as in the
+"Data.IntMap" documentation.
+
+NOTE: Where the word "conceptually" is used, it implies that this correspondence
+is not literally true, but is true modulo some details such as differences
+between bounded types like 'Int' and unbounded types like 'Integer'.
 -}
 
 {-# LANGUAGE CPP #-}

@@ -46,8 +46,7 @@ import qualified Data.Parameterized.Vector as Vec
 ------------------------------------------------------------------------
 -- Type
 
--- | @'FinMap' n a@ is a map with 'NatRepr' keys, @a@ values, and keys all
--- less than @n@ (and so, size up to @n@).
+-- | @'FinMap' n a@ is a map with @'Fin' n@ keys and @a@ values.
 data FinMap (n :: Nat) a =
   FinMap
     { getFinMap :: Map (Fin n) a
