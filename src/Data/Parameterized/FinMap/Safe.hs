@@ -7,6 +7,7 @@ See "Data.Parameterized.FinMap".
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -27,10 +28,14 @@ module Data.Parameterized.FinMap.Safe
   -- * Operations
   , delete
   , decMax
+  , mapWithKey
+  , foldrWithKey
   ) where
 
 import           Prelude hiding (lookup, null)
 
+
+import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Map (Map)
 import qualified Data.Map as Map
@@ -61,6 +66,9 @@ instance Functor (FinMap n) where
 
 instance Foldable (FinMap n) where
   foldMap f sm = foldMap f (getFinMap sm)
+
+instance FunctorWithIndex (Fin n) (FinMap n) where
+  imap f sm = mapWithKey f sm
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
@@ -171,3 +179,9 @@ decMax n sm =
              Nothing -> accum)
         Map.empty
         m
+
+mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
+mapWithKey f sm = sm { getFinMap = Map.mapWithKey f (getFinMap sm) }
+
+foldrWithKey :: (Fin n -> a -> b -> b) -> b -> FinMap n a -> b
+foldrWithKey f b sm = Map.foldrWithKey f b (getFinMap sm)

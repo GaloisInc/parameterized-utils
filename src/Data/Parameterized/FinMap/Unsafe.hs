@@ -7,6 +7,7 @@ See "Data.Parameterized.FinMap".
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -27,10 +28,13 @@ module Data.Parameterized.FinMap.Unsafe
   -- * Operations
   , delete
   , decMax
+  , mapWithKey
+  , foldrWithKey
   ) where
 
 import           Prelude hiding (lookup, null)
 
+import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import           GHC.Types (Nat)
@@ -68,6 +72,9 @@ instance Functor (FinMap n) where
 instance Foldable (FinMap n) where
   foldMap f sm = foldMap f (getFinMap sm)
 
+instance FunctorWithIndex (Fin n) (FinMap n) where
+  imap f sm = mapWithKey f sm
+
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
   show sm = show (getFinMap sm)
@@ -91,13 +98,18 @@ intToNat :: Int -> Natural
 intToNat = fromIntegral
 {-# INLINE intToNat #-}
 
+-- | Unsafely create a @'Fin' n@ from an 'Int' which is known to be less than
+-- @n@ for reasons not visible to the type system.
+unsafeFin :: forall n. Int -> Fin n
+unsafeFin i =
+  case NatRepr.mkNatRepr (intToNat i) of
+    Some (repr :: NatRepr m) ->
+      case unsafeCoerce (NatRepr.LeqProof :: LeqProof 0 0) :: LeqProof (m + 1) n of
+        NatRepr.LeqProof -> mkFin @m @n repr
+
 -- | /O(n)/. Number of elements in the map.
 size :: forall n a. FinMap n a -> Fin (n + 1)
-size sm =
-  case NatRepr.mkNatRepr (intToNat (IntMap.size (getFinMap sm))) of
-    Some (repr :: NatRepr m) ->
-      case unsafeCoerce (NatRepr.LeqProof :: LeqProof 0 0) :: LeqProof (m + 1) (n + 1) of
-        NatRepr.LeqProof -> mkFin @m @(n + 1) repr
+size sm = unsafeFin (IntMap.size (getFinMap sm))
 
 ------------------------------------------------------------------------
 -- Construction
@@ -158,3 +170,9 @@ decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
 decMax k sm =
   let sm' = getFinMap sm
   in FinMap (IntMap.delete (fromIntegral (NatRepr.natValue k)) sm')
+
+mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
+mapWithKey f sm = FinMap (IntMap.mapWithKey (f . unsafeFin) (getFinMap sm))
+
+foldrWithKey :: (Fin n -> a -> b -> b) -> b -> FinMap n a -> b
+foldrWithKey f b sm = IntMap.foldrWithKey (f . unsafeFin) b (getFinMap sm)
