@@ -61,15 +61,19 @@ data FinMap (n :: Nat) a =
 
 instance Eq a => Eq (FinMap n a) where
   fm1 == fm2 = getFinMap fm1 == getFinMap fm2
+  {-# INLINABLE (==) #-}
 
 instance Functor (FinMap n) where
   fmap f fm = fm { getFinMap = fmap f (getFinMap fm) }
+  {-# INLINABLE fmap #-}
 
 instance Foldable (FinMap n) where
   foldMap f fm = foldMap f (getFinMap fm)
+  {-# INLINABLE foldMap #-}
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
   imap f fm = mapWithKey f fm
+  {-# INLINABLE imap #-}
 
 instance FoldableWithIndex (Fin n) (FinMap n) where
   ifoldMap f fm =
@@ -79,6 +83,7 @@ instance FoldableWithIndex (Fin n) (FinMap n) where
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
   show fm = show (getFinMap fm)
+  {-# INLINABLE show #-}
 
 ------------------------------------------------------------------------
 -- Query
@@ -86,9 +91,11 @@ instance Show a => Show (FinMap n a) where
 -- | /O(1)/. Is the map empty?
 null :: FinMap n a -> Bool
 null = Map.null . getFinMap
+{-# INLINABLE null #-}
 
 lookup :: Fin n -> FinMap n a -> Maybe a
 lookup k = Map.lookup k . getFinMap
+{-# INLINABLE lookup #-}
 
 newtype Fin' n = Fin' { getFin' :: Fin (n + 1) }
 
@@ -125,6 +132,7 @@ incMax fm =
 -- | /O(1)/. The empty map.
 empty :: FinMap 0 a
 empty = FinMap Map.empty (NatRepr.knownNat :: NatRepr 0)
+{-# INLINABLE empty #-}
 
 -- | /O(1)/. A map with one element.
 singleton :: a -> FinMap 1 a

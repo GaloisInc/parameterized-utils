@@ -63,12 +63,14 @@ instance Show (Fin n) where
 
 mkFin :: forall i n. (i + 1 <= n) => NatRepr i -> Fin n
 mkFin = Fin
+{-# INLINE mkFin #-}
 
 viewFin ::  (forall i. (i + 1 <= n) => NatRepr i -> r) -> Fin n -> r
 viewFin f (Fin i) = f i
 
 finToNat :: Fin n -> Natural
 finToNat (Fin i) = natValue i
+{-# INLINABLE finToNat #-}
 
 embed :: forall n m. (n <= m) => Fin n -> Fin m
 embed =
@@ -87,6 +89,7 @@ tryEmbed n m i =
 -- | The smallest element of @'Fin' n@
 minFin :: (1 <= n) => Fin n
 minFin = Fin (knownNat @0)
+{-# INLINABLE minFin #-}
 
 incFin :: forall n. Fin n -> Fin (n + 1)
 incFin (Fin (i :: NatRepr i)) =

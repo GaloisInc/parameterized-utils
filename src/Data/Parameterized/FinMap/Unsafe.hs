@@ -34,6 +34,7 @@ module Data.Parameterized.FinMap.Unsafe
 
 import           Prelude hiding (lookup, null)
 
+import           Data.Coerce (coerce)
 import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import           Data.IntMap (IntMap)
@@ -66,15 +67,19 @@ newtype FinMap (n :: Nat) a = FinMap { getFinMap :: IntMap a }
 
 instance Eq a => Eq (FinMap n a) where
   fm1 == fm2 = getFinMap fm1 == getFinMap fm2
+  {-# INLINABLE (==) #-}
 
 instance Functor (FinMap n) where
   fmap f fm = FinMap (fmap f (getFinMap fm))
+  {-# INLINABLE fmap #-}
 
 instance Foldable (FinMap n) where
   foldMap f fm = foldMap f (getFinMap fm)
+  {-# INLINABLE foldMap #-}
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
   imap f fm = mapWithKey f fm
+  {-# INLINABLE imap #-}
 
 instance FoldableWithIndex (Fin n) (FinMap n) where
   ifoldMap f fm =
@@ -84,6 +89,7 @@ instance FoldableWithIndex (Fin n) (FinMap n) where
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
   show fm = show (getFinMap fm)
+  {-# INLINABLE show #-}
 
 ------------------------------------------------------------------------
 -- Query
@@ -124,7 +130,7 @@ size fm = unsafeFin (IntMap.size (getFinMap fm))
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: FinMap n a -> FinMap (n + 1) a
-incMax = FinMap . getFinMap
+incMax = coerce
 {-# INLINE incMax #-}
 
 -- | /O(1)/. The empty map.
@@ -169,7 +175,7 @@ fromVector v =
 -- | /O(min(n,W))/.
 delete :: Fin n -> FinMap n a -> FinMap n a
 delete k =
-  FinMap . (IntMap.delete (fromIntegral (Fin.finToNat k))) . getFinMap
+  FinMap . IntMap.delete (fromIntegral (Fin.finToNat k)) . getFinMap
 
 -- | Decrement the key/size, removing the item at key @n + 1@ if present.
 decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
