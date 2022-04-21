@@ -195,6 +195,32 @@ prop_empty_insert_unsafe = property $
       o <- forAll genOrdering
       sm /== U.insert idx o sm
 
+prop_insert_insert_safe :: Property
+prop_insert_insert_safe = property $
+  do ssm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe ssm $ \idx sm -> do
+      o <- forAll genOrdering
+      S.insert idx o (S.insert idx o sm) === S.insert idx o sm
+
+prop_insert_insert_unsafe :: Property
+prop_insert_insert_unsafe = property $
+  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe ssm $ \idx sm -> do
+      o <- forAll genOrdering
+      U.insert idx o (U.insert idx o sm) === U.insert idx o sm
+
+prop_delete_delete_safe :: Property
+prop_delete_delete_safe = property $
+  do ssm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe ssm $ \idx sm -> do
+      S.delete idx (S.delete idx sm) === S.delete idx sm
+
+prop_delete_delete_unsafe :: Property
+prop_delete_delete_unsafe = property $
+  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe ssm $ \idx sm -> do
+      U.delete idx (U.delete idx sm) === U.delete idx sm
+
 -- | Type used for comparative API tests
 data MatchedMaps a =
   forall n.
@@ -257,6 +283,10 @@ finMapTests = testGroup "FinMap" <$> return
   , testPropertyNamed "delete-insert-unsafe" "prop_delete_insert_unsafe" prop_delete_insert_unsafe
   , testPropertyNamed "empty-insert-safe" "prop_empty_insert_safe" prop_empty_insert_safe
   , testPropertyNamed "empty-insert-unsafe" "prop_empty_insert_unsafe" prop_empty_insert_unsafe
+  , testPropertyNamed "insert-insert-safe" "prop_insert_insert_safe" prop_insert_insert_safe
+  , testPropertyNamed "insert-insert-unsafe" "prop_insert_insert_unsafe" prop_insert_insert_unsafe
+  , testPropertyNamed "delete-delete-safe" "prop_delete_delete_safe" prop_delete_delete_safe
+  , testPropertyNamed "delete-delete-unsafe" "prop_delete_delete_unsafe" prop_delete_delete_unsafe
   , testPropertyNamed "safe-unsafe" "prop_safe_unsafe" prop_safe_unsafe
 
 #if __GLASGOW_HASKELL__ >= 806
