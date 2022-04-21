@@ -35,6 +35,7 @@ module Data.Parameterized.FinMap.Safe
 import           Prelude hiding (lookup, null)
 
 
+import           Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Map (Map)
@@ -69,6 +70,9 @@ instance Foldable (FinMap n) where
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
   imap f fm = mapWithKey f fm
+
+instance FoldableWithIndex (Fin n) (FinMap n) where
+  ifoldMap f fm = foldrWithKey (\k v m -> f k v <> m) mempty fm
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
