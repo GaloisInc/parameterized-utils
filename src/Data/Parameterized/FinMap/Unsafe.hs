@@ -1,7 +1,7 @@
 {-|
 Copyright        : (c) Galois, Inc 2022
 
-See "Data.Parameterized.SizedMap".
+See "Data.Parameterized.FinMap".
 -}
 
 {-# LANGUAGE DataKinds #-}
@@ -11,8 +11,8 @@ See "Data.Parameterized.SizedMap".
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Parameterized.SizedMap.Unsafe
-  ( SizedMap
+module Data.Parameterized.FinMap.Unsafe
+  ( FinMap
   -- * Query
   , null
   , lookup
@@ -56,28 +56,28 @@ import qualified Data.Parameterized.Vector as Vec
 -- If this invariant holds, all of the unsafe operations in this module
 -- (fromJust, unsafeCoerce) will work as intended.
 
--- | @'SizedMap' n a@ is a map with 'NatRepr' keys, @a@ values, and keys all
+-- | @'FinMap' n a@ is a map with 'NatRepr' keys, @a@ values, and keys all
 -- less than @n@ (and so, size up to @n@).
-newtype SizedMap (n :: Nat) a = SizedMap { getSizedMap :: IntMap a }
+newtype FinMap (n :: Nat) a = FinMap { getFinMap :: IntMap a }
 
-instance Eq a => Eq (SizedMap n a) where
-  sm1 == sm2 = getSizedMap sm1 == getSizedMap sm2
+instance Eq a => Eq (FinMap n a) where
+  sm1 == sm2 = getFinMap sm1 == getFinMap sm2
 
 -- | Non-lawful instance, provided for testing
-instance Show a => Show (SizedMap n a) where
-  show sm = show (getSizedMap sm)
+instance Show a => Show (FinMap n a) where
+  show sm = show (getFinMap sm)
 
 ------------------------------------------------------------------------
 -- Query
 
 -- | /O(1)/. Is the map empty?
-null :: SizedMap n a -> Bool
-null = IntMap.null . getSizedMap
+null :: FinMap n a -> Bool
+null = IntMap.null . getFinMap
 {-# INLINABLE null #-}
 
 -- | /O(min(n,W))/. Get the value at the given key in the map.
-lookup :: Fin n -> SizedMap n a -> Maybe a
-lookup k = IntMap.lookup (fromIntegral (Fin.finToNat k)) . getSizedMap
+lookup :: Fin n -> FinMap n a -> Maybe a
+lookup k = IntMap.lookup (fromIntegral (Fin.finToNat k)) . getFinMap
 
 -- This is pulled out as a function so that it's obvious that its use is safe
 -- (since Natural is unbounded), whereas other uses of fromIntegral require more
@@ -87,9 +87,9 @@ intToNat = fromIntegral
 {-# INLINE intToNat #-}
 
 -- | /O(n)/. Number of elements in the map.
-size :: forall n a. SizedMap n a -> Fin (n + 1)
+size :: forall n a. FinMap n a -> Fin (n + 1)
 size sm =
-  case NatRepr.mkNatRepr (intToNat (IntMap.size (getSizedMap sm))) of
+  case NatRepr.mkNatRepr (intToNat (IntMap.size (getFinMap sm))) of
     Some (repr :: NatRepr m) ->
       case unsafeCoerce (NatRepr.LeqProof :: LeqProof 0 0) :: LeqProof (m + 1) (n + 1) of
         NatRepr.LeqProof -> mkFin @m @(n + 1) repr
@@ -100,38 +100,38 @@ size sm =
 -- | /O(1)/. Increase maximum key/size.
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
-incMax :: SizedMap n a -> SizedMap (n + 1) a
-incMax = SizedMap . getSizedMap
+incMax :: FinMap n a -> FinMap (n + 1) a
+incMax = FinMap . getFinMap
 {-# INLINE incMax #-}
 
 -- | /O(1)/. The empty map.
-empty :: SizedMap 0 a
-empty = SizedMap IntMap.empty
+empty :: FinMap 0 a
+empty = FinMap IntMap.empty
 {-# INLINE empty #-}
 
 -- | /O(1)/. A map with one element.
-singleton :: a -> SizedMap 1 a
-singleton = SizedMap . IntMap.singleton 0
+singleton :: a -> FinMap 1 a
+singleton = FinMap . IntMap.singleton 0
 {-# INLINABLE singleton #-}
 
 -- | /O(min(n,W))/.
-insert :: Fin n -> a -> SizedMap n a -> SizedMap n a
+insert :: Fin n -> a -> FinMap n a -> FinMap n a
 insert k v sm =
-  SizedMap (IntMap.insert (fromIntegral (Fin.finToNat k)) v (getSizedMap sm))
+  FinMap (IntMap.insert (fromIntegral (Fin.finToNat k)) v (getFinMap sm))
 
-newtype FlipMap a n = FlipMap { unFlipMap :: SizedMap n a }
+newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
 -- append and fromVector are duplicated exactly between the safe and unsafe
 -- modules because they are used in comparative testing (and so implementations
 -- must be available for both types).
 
 -- | /O(min(n,W))/.
-append :: NatRepr n -> a -> SizedMap n a -> SizedMap (n + 1) a
+append :: NatRepr n -> a -> FinMap n a -> FinMap (n + 1) a
 append k v sm =
   case NatRepr.leqSucc k of
     NatRepr.LeqProof -> insert (mkFin k) v (incMax sm)
 
-fromVector :: forall n a. Vector n a -> SizedMap n a
+fromVector :: forall n a. Vector n a -> FinMap n a
 fromVector v =
   unFlipMap $
     NatRepr.natRecStrictlyBounded
@@ -144,12 +144,12 @@ fromVector v =
 -- Operations
 
 -- | /O(min(n,W))/.
-delete :: Fin n -> SizedMap n a -> SizedMap n a
+delete :: Fin n -> FinMap n a -> FinMap n a
 delete k =
-  SizedMap . (IntMap.delete (fromIntegral (Fin.finToNat k))) . getSizedMap
+  FinMap . (IntMap.delete (fromIntegral (Fin.finToNat k))) . getFinMap
 
 -- | Decrement the key/size, removing the item at key @n + 1@ if present.
-decMax :: NatRepr n -> SizedMap (n + 1) a -> SizedMap n a
+decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
 decMax k sm =
-  let sm' = getSizedMap sm
-  in SizedMap (IntMap.delete (fromIntegral (NatRepr.natValue k)) sm')
+  let sm' = getFinMap sm
+  in FinMap (IntMap.delete (fromIntegral (NatRepr.natValue k)) sm')

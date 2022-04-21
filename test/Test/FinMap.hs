@@ -6,8 +6,8 @@
 {-# LANGUAGE TypeOperators #-}
 
 
-module Test.SizedMap
-  ( sizedMapTests
+module Test.FinMap
+  ( finMapTests
   )
 where
 
@@ -23,38 +23,38 @@ import           Hedgehog
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 
-import qualified Data.Parameterized.SizedMap.Safe as S
-import qualified Data.Parameterized.SizedMap.Unsafe as U
+import qualified Data.Parameterized.FinMap.Safe as S
+import qualified Data.Parameterized.FinMap.Unsafe as U
 
 import           Test.Fin (genFin)
 import           Test.Vector (SomeVector(..), genSomeVector, genOrdering)
 
-data SomeSafeSizedMap a = forall n. SomeSafeSizedMap (S.SizedMap n a)
-data SomeUnsafeSizedMap a = forall n. SomeUnsafeSizedMap (U.SizedMap n a)
+data SomeSafeFinMap a = forall n. SomeSafeFinMap (S.FinMap n a)
+data SomeUnsafeFinMap a = forall n. SomeUnsafeFinMap (U.FinMap n a)
 
-instance Show a => Show (SomeSafeSizedMap a) where
-  show (SomeSafeSizedMap v) = show v
-instance Show a => Show (SomeUnsafeSizedMap a) where
-  show (SomeUnsafeSizedMap v) = show v
+instance Show a => Show (SomeSafeFinMap a) where
+  show (SomeSafeFinMap v) = show v
+instance Show a => Show (SomeUnsafeFinMap a) where
+  show (SomeUnsafeFinMap v) = show v
 
-genSomeSafeSizedMap :: (Monad m) => GenT m a -> GenT m (SomeSafeSizedMap a)
-genSomeSafeSizedMap genElem =
+genSomeSafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeSafeFinMap a)
+genSomeSafeFinMap genElem =
   do SomeVector v <- genSomeVector genElem
-     return (SomeSafeSizedMap (S.fromVector v))
+     return (SomeSafeFinMap (S.fromVector v))
 
-genSomeUnsafeSizedMap :: (Monad m) => GenT m a -> GenT m (SomeUnsafeSizedMap a)
-genSomeUnsafeSizedMap genElem =
+genSomeUnsafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeUnsafeFinMap a)
+genSomeUnsafeFinMap genElem =
   do SomeVector v <- genSomeVector genElem
-     return (SomeUnsafeSizedMap (U.fromVector v))
+     return (SomeUnsafeFinMap (U.fromVector v))
 
 prop_incMax_size_safe :: Property
 prop_incMax_size_safe = property $
-  do SomeSafeSizedMap sm <- forAll $ genSomeSafeSizedMap genOrdering
+  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
      Fin.finToNat (S.size (S.incMax sm)) === Fin.finToNat (S.size sm)
 
 prop_incMax_size_unsafe :: Property
 prop_incMax_size_unsafe = property $
-  do SomeUnsafeSizedMap sm <- forAll $ genSomeUnsafeSizedMap genOrdering
+  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
      Fin.finToNat (U.size (U.incMax sm)) === Fin.finToNat (U.size sm)
 
 cancelPlusOne ::
@@ -74,7 +74,7 @@ cancelPlusOne i n NatRepr.LeqProof =
             NatRepr.LeqProof -> NatRepr.LeqProof
 
 withSizeSafe ::
-  S.SizedMap n a ->
+  S.FinMap n a ->
   (forall i. (i + 1 <= n + 1, i <= n) => NatRepr i -> r) ->
   r
 withSizeSafe sm k =
@@ -87,7 +87,7 @@ withSizeSafe sm k =
         sz
 
 withSizeUnsafe ::
-  U.SizedMap n a ->
+  U.FinMap n a ->
   (forall i. (i + 1 <= n + 1, i <= n) => NatRepr i -> r) ->
   r
 withSizeUnsafe sm k =
@@ -101,7 +101,7 @@ withSizeUnsafe sm k =
 
 prop_insert_size_safe :: Property
 prop_insert_size_safe = property $
-  do SomeSafeSizedMap sm <- forAll $ genSomeSafeSizedMap genOrdering
+  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
      withSizeSafe sm $ \i -> do
       idx <- forAll (genFin i)
       o <- forAll genOrdering
@@ -111,7 +111,7 @@ prop_insert_size_safe = property $
 
 prop_insert_size_unsafe :: Property
 prop_insert_size_unsafe = property $
-  do SomeUnsafeSizedMap sm <- forAll $ genSomeUnsafeSizedMap genOrdering
+  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
      withSizeUnsafe sm $ \i -> do
       idx <- forAll (genFin i)
       o <- forAll genOrdering
@@ -121,7 +121,7 @@ prop_insert_size_unsafe = property $
 
 prop_insert_delete_safe :: Property
 prop_insert_delete_safe = property $
-  do SomeSafeSizedMap sm <- forAll $ genSomeSafeSizedMap genOrdering
+  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
      withSizeSafe sm $ \i -> do
       idx <- Fin.embed <$> forAll (genFin i)
       o <- forAll genOrdering
@@ -129,7 +129,7 @@ prop_insert_delete_safe = property $
 
 prop_insert_delete_unsafe :: Property
 prop_insert_delete_unsafe = property $
-  do SomeUnsafeSizedMap sm <- forAll $ genSomeUnsafeSizedMap genOrdering
+  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
      withSizeUnsafe sm $ \i -> do
       idx <- Fin.embed <$> forAll (genFin i)
       o <- forAll genOrdering
@@ -137,7 +137,7 @@ prop_insert_delete_unsafe = property $
 
 prop_delete_insert_safe :: Property
 prop_delete_insert_safe = property $
-  do SomeSafeSizedMap sm <- forAll $ genSomeSafeSizedMap genOrdering
+  do SomeSafeFinMap sm <- forAll $ genSomeSafeFinMap genOrdering
      withSizeSafe sm $ \i -> do
       idx <- Fin.embed <$> forAll (genFin i)
       o <- forAll genOrdering
@@ -145,14 +145,14 @@ prop_delete_insert_safe = property $
 
 prop_delete_insert_unsafe :: Property
 prop_delete_insert_unsafe = property $
-  do SomeUnsafeSizedMap sm <- forAll $ genSomeUnsafeSizedMap genOrdering
+  do SomeUnsafeFinMap sm <- forAll $ genSomeUnsafeFinMap genOrdering
      withSizeUnsafe sm $ \i -> do
       idx <- Fin.embed <$> forAll (genFin i)
       o <- forAll genOrdering
       U.insert idx o (U.delete idx sm) === U.insert idx o sm
 
-sizedMapTests :: IO TestTree
-sizedMapTests = testGroup "SizedMap" <$> return
+finMapTests :: IO TestTree
+finMapTests = testGroup "FinMap" <$> return
   [ testPropertyNamed "incSize-decSize-safe" "prop_incMax_size_safe" prop_incMax_size_safe
   , testPropertyNamed "incSize-decSize-unsafe" "prop_incMax_size_unsafe" prop_incMax_size_unsafe
   , testPropertyNamed "insert-size-safe" "prop_insert_size_safe" prop_insert_size_safe

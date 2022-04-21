@@ -84,6 +84,9 @@ library
     Data.Parameterized.DataKind
     Data.Parameterized.DecidableEq
     Data.Parameterized.Fin
+    Data.Parameterized.FinMap
+    Data.Parameterized.FinMap.Safe
+    Data.Parameterized.FinMap.Unsafe
     Data.Parameterized.HashTable
     Data.Parameterized.List
     Data.Parameterized.Map
@@ -94,9 +97,6 @@ library
     Data.Parameterized.Pair
     Data.Parameterized.Peano
     Data.Parameterized.Some
-    Data.Parameterized.SizedMap
-    Data.Parameterized.SizedMap.Safe
-    Data.Parameterized.SizedMap.Unsafe
     Data.Parameterized.SymbolRepr
     Data.Parameterized.TH.GADT
     Data.Parameterized.TraversableF
@@ -123,9 +123,9 @@ test-suite parameterizedTests
   other-modules:
     Test.Context
     Test.Fin
+    Test.FinMap
     Test.List
     Test.NatRepr
-    Test.SizedMap
     Test.SymbolRepr
     Test.TH
     Test.Vector
