@@ -62,6 +62,12 @@ newtype FinMap (n :: Nat) a = FinMap { getFinMap :: IntMap a }
 instance Eq a => Eq (FinMap n a) where
   sm1 == sm2 = getFinMap sm1 == getFinMap sm2
 
+instance Functor (FinMap n) where
+  fmap f sm = FinMap (fmap f (getFinMap sm))
+
+instance Foldable (FinMap n) where
+  foldMap f sm = foldMap f (getFinMap sm)
+
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
   show sm = show (getFinMap sm)
