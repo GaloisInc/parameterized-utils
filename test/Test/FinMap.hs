@@ -13,6 +13,7 @@ where
 
 import           Control.Monad (foldM)
 import           Data.Foldable.WithIndex (itoList)
+import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Type.Equality ((:~:)(Refl))
 
@@ -37,7 +38,7 @@ import qualified Data.Parameterized.FinMap.Unsafe as U
 import qualified Data.Parameterized.Vector as Vec
 
 import           Test.Fin (genFin)
-import           Test.Vector (SomeVector(..), genSomeVector, genVectorOfLength, genOrdering)
+import           Test.Vector (SomeVector(..), genSomeVector, genVectorOfLength, genOrdering, orderingEndomorphisms)
 
 data SomeSafeFinMap a = forall n. SomeSafeFinMap (NatRepr n) (S.FinMap n a)
 data SomeUnsafeFinMap a = forall n. SomeUnsafeFinMap (NatRepr n) (U.FinMap n a)
@@ -229,10 +230,14 @@ data MatchedMaps a =
     , _safe :: S.FinMap n a
     }
 
-operations :: Show a => Gen a -> [MatchedMaps a -> PropertyT IO (MatchedMaps a)]
-operations genValue =
-  [
-    \(MatchedMaps u s) ->
+operations ::
+  Show a =>
+  Gen a ->
+  -- | For testing 'fmap'.
+  [a -> a] ->
+  [MatchedMaps a -> PropertyT IO (MatchedMaps a)]
+operations genValue valEndomorphisms =
+  [ \(MatchedMaps u s) ->
       withSizeUnsafe u $ \sz -> do
         case NatRepr.isZeroOrGT1 sz of
           Left Refl ->
@@ -246,7 +251,23 @@ operations genValue =
                v <- forAll genValue
                return (MatchedMaps (U.insert idx v u) (S.insert idx v s))
   , \(MatchedMaps u s) ->
+      withSizeUnsafe u $ \sz -> do
+        case NatRepr.isZeroOrGT1 sz of
+          Left Refl -> return (MatchedMaps u s)
+          Right NatRepr.LeqProof ->
+            do idx <- Fin.embed <$> forAll (genFin sz)
+               return (MatchedMaps (U.delete idx u) (S.delete idx s))
+  , \(MatchedMaps u s) ->
         return (MatchedMaps (U.incMax u) (S.incMax s))
+  , \(MatchedMaps u s) ->
+      do f <- forAll (HG.element (id:valEndomorphisms))
+         return (MatchedMaps (fmap f u) (fmap f s))
+  , \(MatchedMaps u s) ->
+      do f <- forAll (HG.element (id:valEndomorphisms))
+         return (MatchedMaps (imap (const f) u) (fmap f s))
+  , \(MatchedMaps _ _) ->
+      do v <- forAll genValue
+         return (MatchedMaps (U.singleton v) (S.singleton v))
   , \(MatchedMaps _ _) ->
         return (MatchedMaps U.empty S.empty)
   ]
@@ -259,12 +280,14 @@ prop_safe_unsafe = property $
   do numOps <- forAll (HG.integral (linear 0 (99 :: Int)))
      let empty = MatchedMaps U.empty S.empty
      MatchedMaps u s <-
-       doTimes (chooseAndApply (operations genOrdering)) numOps empty
+       doTimes (chooseAndApply orderingOps) numOps empty
      itoList u === itoList s
   where
+    orderingOps = operations genOrdering orderingEndomorphisms
+    
     chooseAndApply :: [a -> PropertyT IO b] -> a -> PropertyT IO b
     chooseAndApply funs arg =
-      do f <- forAll $ HG.choice (map return funs)
+      do f <- forAll (HG.element funs)
          f arg
 
     doTimes f n m =
