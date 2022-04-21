@@ -66,13 +66,13 @@ genSomeUnsafeFinMap genElem =
 
 prop_incMax_size_safe :: Property
 prop_incMax_size_safe = property $
-  do SomeSafeFinMap _ sm <- forAll $ genSomeSafeFinMap genOrdering
-     Fin.finToNat (S.size (S.incMax sm)) === Fin.finToNat (S.size sm)
+  do SomeSafeFinMap _ fm <- forAll $ genSomeSafeFinMap genOrdering
+     Fin.finToNat (S.size (S.incMax fm)) === Fin.finToNat (S.size fm)
 
 prop_incMax_size_unsafe :: Property
 prop_incMax_size_unsafe = property $
-  do SomeUnsafeFinMap _ sm <- forAll $ genSomeUnsafeFinMap genOrdering
-     Fin.finToNat (U.size (U.incMax sm)) === Fin.finToNat (U.size sm)
+  do SomeUnsafeFinMap _ fm <- forAll $ genSomeUnsafeFinMap genOrdering
+     Fin.finToNat (U.size (U.incMax fm)) === Fin.finToNat (U.size fm)
 
 cancelPlusOne ::
   forall f g i n.
@@ -94,8 +94,8 @@ withSizeSafe ::
   S.FinMap n a ->
   (forall i. (i + 1 <= n + 1, i <= n) => NatRepr i -> r) ->
   r
-withSizeSafe sm k =
-  case S.size sm of
+withSizeSafe fm k =
+  case S.size fm of
     (sz :: Fin (n + 1)) ->
       Fin.viewFin
         (\(i :: NatRepr i) ->
@@ -107,19 +107,19 @@ withIndexSafe ::
   SomeSafeFinMap a ->
   (forall n. Fin n -> S.FinMap n a -> PropertyT IO ()) ->
   PropertyT IO ()
-withIndexSafe (SomeSafeFinMap n sm) k =
+withIndexSafe (SomeSafeFinMap n fm) k =
   case NatRepr.isZeroOrGT1 n of
-    Left Refl -> k Fin.minFin (S.incMax sm)
+    Left Refl -> k Fin.minFin (S.incMax fm)
     Right NatRepr.LeqProof ->
       do idx <- forAll (genFin n)
-         k idx sm
+         k idx fm
 
 withSizeUnsafe ::
   U.FinMap n a ->
   (forall i. (i + 1 <= n + 1, i <= n) => NatRepr i -> r) ->
   r
-withSizeUnsafe sm k =
-  case U.size sm of
+withSizeUnsafe fm k =
+  case U.size fm of
     (sz :: Fin (n + 1)) ->
       Fin.viewFin
         (\(i :: NatRepr i) ->
@@ -131,96 +131,96 @@ withIndexUnsafe ::
   SomeUnsafeFinMap a ->
   (forall n. Fin n -> U.FinMap n a -> PropertyT IO ()) ->
   PropertyT IO ()
-withIndexUnsafe (SomeUnsafeFinMap n sm) k =
+withIndexUnsafe (SomeUnsafeFinMap n fm) k =
   case NatRepr.isZeroOrGT1 n of
-    Left Refl -> k Fin.minFin (U.incMax sm)
+    Left Refl -> k Fin.minFin (U.incMax fm)
     Right NatRepr.LeqProof ->
       do idx <- forAll (genFin n)
-         k idx sm
+         k idx fm
 
 prop_insert_size_safe :: Property
 prop_insert_size_safe = property $
-  do ssm <- forAll $ genSomeSafeFinMap genOrdering
-     withIndexSafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      let size = Fin.finToNat (S.size sm)
-      let newSize = Fin.finToNat (S.size (S.insert (Fin.embed idx) o sm))
+      let size = Fin.finToNat (S.size fm)
+      let newSize = Fin.finToNat (S.size (S.insert (Fin.embed idx) o fm))
       assert (size == newSize || size + 1 == newSize)
 
 prop_insert_size_unsafe :: Property
 prop_insert_size_unsafe = property $
-  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withIndexUnsafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      let size = Fin.finToNat (U.size sm)
-      let newSize = Fin.finToNat (U.size (U.insert (Fin.embed idx) o sm))
+      let size = Fin.finToNat (U.size fm)
+      let newSize = Fin.finToNat (U.size (U.insert (Fin.embed idx) o fm))
       assert (size == newSize || size + 1 == newSize)
 
 prop_insert_delete_safe :: Property
 prop_insert_delete_safe = property $
-  do ssm <- forAll $ genSomeSafeFinMap genOrdering
-     withIndexSafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      S.delete idx (S.insert idx o sm) === S.delete idx sm
+      S.delete idx (S.insert idx o fm) === S.delete idx fm
 
 prop_insert_delete_unsafe :: Property
 prop_insert_delete_unsafe = property $
-  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withIndexUnsafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      U.delete idx (U.insert idx o sm) === U.delete idx sm
+      U.delete idx (U.insert idx o fm) === U.delete idx fm
 
 prop_delete_insert_safe :: Property
 prop_delete_insert_safe = property $
-  do ssm <- forAll $ genSomeSafeFinMap genOrdering
-     withIndexSafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      S.insert idx o (S.delete idx sm) === S.insert idx o sm
+      S.insert idx o (S.delete idx fm) === S.insert idx o fm
 
 prop_delete_insert_unsafe :: Property
 prop_delete_insert_unsafe = property $
-  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withIndexUnsafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      U.insert idx o (U.delete idx sm) === U.insert idx o sm
+      U.insert idx o (U.delete idx fm) === U.insert idx o fm
 
 prop_empty_insert_safe :: Property
 prop_empty_insert_safe = property $
-  do withIndexSafe (SomeSafeFinMap NatRepr.knownNat S.empty) $ \idx sm -> do
+  do withIndexSafe (SomeSafeFinMap NatRepr.knownNat S.empty) $ \idx fm -> do
       o <- forAll genOrdering
-      sm /== S.insert idx o sm
+      fm /== S.insert idx o fm
 
 prop_empty_insert_unsafe :: Property
 prop_empty_insert_unsafe = property $
-  do withIndexUnsafe (SomeUnsafeFinMap NatRepr.knownNat U.empty) $ \idx sm -> do
+  do withIndexUnsafe (SomeUnsafeFinMap NatRepr.knownNat U.empty) $ \idx fm -> do
       o <- forAll genOrdering
-      sm /== U.insert idx o sm
+      fm /== U.insert idx o fm
 
 prop_insert_insert_safe :: Property
 prop_insert_insert_safe = property $
-  do ssm <- forAll $ genSomeSafeFinMap genOrdering
-     withIndexSafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      S.insert idx o (S.insert idx o sm) === S.insert idx o sm
+      S.insert idx o (S.insert idx o fm) === S.insert idx o fm
 
 prop_insert_insert_unsafe :: Property
 prop_insert_insert_unsafe = property $
-  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withIndexUnsafe ssm $ \idx sm -> do
+  do sfm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe sfm $ \idx fm -> do
       o <- forAll genOrdering
-      U.insert idx o (U.insert idx o sm) === U.insert idx o sm
+      U.insert idx o (U.insert idx o fm) === U.insert idx o fm
 
 prop_delete_delete_safe :: Property
 prop_delete_delete_safe = property $
-  do ssm <- forAll $ genSomeSafeFinMap genOrdering
-     withIndexSafe ssm $ \idx sm -> do
-      S.delete idx (S.delete idx sm) === S.delete idx sm
+  do sfm <- forAll $ genSomeSafeFinMap genOrdering
+     withIndexSafe sfm $ \idx fm -> do
+      S.delete idx (S.delete idx fm) === S.delete idx fm
 
 prop_delete_delete_unsafe :: Property
 prop_delete_delete_unsafe = property $
-  do ssm <- forAll $ genSomeUnsafeFinMap genOrdering
-     withIndexUnsafe ssm $ \idx sm -> do
-      U.delete idx (U.delete idx sm) === U.delete idx sm
+  do sfm <- forAll $ genSomeUnsafeFinMap genOrdering
+     withIndexUnsafe sfm $ \idx fm -> do
+      U.delete idx (U.delete idx fm) === U.delete idx fm
 
 -- | Type used for comparative API tests
 data MatchedMaps a =
