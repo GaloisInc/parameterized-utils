@@ -99,7 +99,7 @@ null :: FinMap n a -> Bool
 null = IntMap.null . getFinMap
 {-# INLINABLE null #-}
 
--- | /O(min(n,W))/. Get the value at the given key in the map.
+-- | /O(min(n,W))/. Fetch the value at the given key in the map.
 lookup :: Fin n -> FinMap n a -> Maybe a
 lookup k = IntMap.lookup (fromIntegral (Fin.finToNat k)) . getFinMap
 

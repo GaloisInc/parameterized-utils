@@ -8,6 +8,7 @@ See "Data.Parameterized.FinMap".
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -34,9 +35,9 @@ module Data.Parameterized.FinMap.Safe
 
 import           Prelude hiding (lookup, null)
 
-
 import           Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import           Data.Functor.WithIndex (FunctorWithIndex(imap))
+import           Data.Maybe (isJust)
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Map (Map)
 import qualified Data.Map as Map
@@ -93,26 +94,15 @@ null :: FinMap n a -> Bool
 null = Map.null . getFinMap
 {-# INLINABLE null #-}
 
+-- | /O(log n)/. Fetch the value at the given key in the map.
 lookup :: Fin n -> FinMap n a -> Maybe a
 lookup k = Map.lookup k . getFinMap
 {-# INLINABLE lookup #-}
 
-newtype Fin' n = Fin' { getFin' :: Fin (n + 1) }
-
 -- | /O(nlog(n))/. Number of elements in the map.
 size :: forall n a. FinMap n a -> Fin (n + 1)
 size fm =
-  getFin' $
-    NatRepr.natRecStrictlyBounded
-      (maxSize fm)
-      (Fin' Fin.minFin)
-      (\(k :: NatRepr m) (Fin' count) ->
-        Fin' $
-          case lookup (Fin.mkFin k) fm of
-            Just _ -> Fin.incFin count
-            Nothing ->
-              case NatRepr.leqSucc count of
-                NatRepr.LeqProof -> Fin.embed count)
+  Fin.countFin (maxSize fm) (\k _count -> isJust (lookup (Fin.mkFin k) fm))
 
 ------------------------------------------------------------------------
 -- Construction
