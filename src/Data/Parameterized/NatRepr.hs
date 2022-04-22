@@ -618,7 +618,7 @@ natRecBounded m h base indH =
           absurd $ f (LeqProof :: LeqProof m h)
 
 -- | A version of 'natRecBounded' which doesn't require the type index of the
--- result to be greater than @0@.
+-- result to be greater than @0@ and provides a strict inequality constraint.
 natRecStrictlyBounded ::
   forall m f.
   NatRepr m ->
