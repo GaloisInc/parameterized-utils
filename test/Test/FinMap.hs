@@ -275,12 +275,12 @@ operations genValue valEndomorphisms =
          return (MatchedMaps (fmap f u) (fmap f s))
   , \(MatchedMaps u s) ->
       do f <- forAll (HG.element (id:valEndomorphisms))
-         return (MatchedMaps (imap (const f) u) (fmap f s))
+         return (MatchedMaps (imap (const f) u) (imap (const f) s))
   , \(MatchedMaps _ _) ->
       do v <- forAll genValue
          return (MatchedMaps (U.singleton v) (S.singleton v))
   , \(MatchedMaps _ _) ->
-        return (MatchedMaps U.empty S.empty)
+      return (MatchedMaps U.empty S.empty)
   ]
 
 -- | Possibly the most important and far-reaching test: The unsafe API should
@@ -301,8 +301,7 @@ prop_safe_unsafe = property $
       do f <- forAll (HG.element funs)
          f arg
 
-    doTimes f n m =
-      foldM (\accum () -> f accum) m (take n (repeat ()))
+    doTimes f n m = foldM (\accum () -> f accum) m (replicate n ())
 
 
 finMapTests :: IO TestTree
