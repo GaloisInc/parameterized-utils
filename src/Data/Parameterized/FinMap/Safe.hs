@@ -21,6 +21,7 @@ module Data.Parameterized.FinMap.Safe
   , size
   -- * Construction
   , incMax
+  , embed
   , empty
   , singleton
   , insert
@@ -107,16 +108,22 @@ size fm =
 ------------------------------------------------------------------------
 -- Construction
 
--- | /O(1)/. Increase maximum key/size.
+-- | /O(n log n)/. Increase maximum key/size by 1.
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: forall n a. FinMap n a -> FinMap (n + 1) a
 incMax fm =
+  case NatRepr.leqSucc (Proxy :: Proxy n) of
+    NatRepr.LeqProof -> embed (NatRepr.incNat (maxSize fm)) fm
+
+-- | /O(n log n)/. Increase maximum key/size.
+--
+-- Requires @m < (maxBound :: Int)@.
+embed :: (n <= m) => NatRepr m -> FinMap n a -> FinMap m a
+embed m fm =
   FinMap
-    { getFinMap =
-      case NatRepr.leqSucc (Proxy :: Proxy n) of
-        NatRepr.LeqProof -> Map.mapKeys Fin.embed (getFinMap fm)
-    , maxSize = NatRepr.incNat (maxSize fm)
+    { getFinMap = Map.mapKeys Fin.embed (getFinMap fm)
+    , maxSize = m
     }
 
 -- | /O(1)/. The empty map.

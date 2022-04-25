@@ -22,6 +22,7 @@ module Data.Parameterized.FinMap.Unsafe
   , size
   -- * Construction
   , incMax
+  , embed
   , empty
   , singleton
   , insert
@@ -138,12 +139,19 @@ size = unsafeFin . IntMap.size . getFinMap
 ------------------------------------------------------------------------
 -- Construction
 
--- | /O(1)/. Increase maximum key/size.
+-- | /O(1)/. Increase maximum key/size by 1.
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: FinMap n a -> FinMap (n + 1) a
 incMax = FinMap . getFinMap
 {-# INLINE incMax #-}
+
+-- | /O(1)/. Increase maximum key/size.
+--
+-- Requires @m < (maxBound :: Int)@.
+embed :: (n <= m) => NatRepr m -> FinMap n a -> FinMap m a
+embed _ = FinMap . getFinMap
+{-# INLINE embed #-}
 
 -- | /O(1)/. The empty map.
 empty :: KnownNat n => FinMap n a
