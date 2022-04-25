@@ -30,7 +30,6 @@ module Data.Parameterized.FinMap.Safe
   , delete
   , decMax
   , mapWithKey
-  , foldrWithKey
   ) where
 
 import           Prelude hiding (lookup, null)
@@ -69,17 +68,17 @@ instance Functor (FinMap n) where
   {-# INLINABLE fmap #-}
 
 instance Foldable (FinMap n) where
-  foldMap f fm = foldMap f (getFinMap fm)
+  foldMap f = foldMap f . getFinMap
   {-# INLINABLE foldMap #-}
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
-  imap f fm = mapWithKey f fm
-  {-# INLINABLE imap #-}
+  imap f fm = fm { getFinMap = Map.mapWithKey f (getFinMap fm) }
+  -- Inline so that RULES for Map.mapWithKey can fire
+  {-# INLINE imap #-}
 
 instance FoldableWithIndex (Fin n) (FinMap n) where
-  ifoldMap f fm =
-    -- m goes on the right-hand side because this is a right-associative fold
-    foldrWithKey (\k v m -> f k v <> m) mempty fm
+  ifoldMap f = Map.foldMapWithKey f . getFinMap
+  {-# INLINABLE ifoldMap #-}
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
@@ -135,6 +134,7 @@ singleton item =
 -- | /O(log n)/.
 insert :: Fin n -> a -> FinMap n a -> FinMap n a
 insert k v fm = fm { getFinMap = Map.insert k v (getFinMap fm) }
+{-# INLINABLE insert #-}
 
 newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
@@ -163,6 +163,7 @@ fromVector v =
 -- | /O(log n)/.
 delete :: Fin n -> FinMap n a -> FinMap n a
 delete k fm = fm { getFinMap = Map.delete k (getFinMap fm) }
+{-# INLINABLE delete #-}
 
 -- | Decrement the key/size, removing the item at key @n + 1@ if present.
 decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
@@ -186,6 +187,5 @@ decMax n fm =
 
 mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
 mapWithKey f fm = fm { getFinMap = Map.mapWithKey f (getFinMap fm) }
-
-foldrWithKey :: (Fin n -> a -> b -> b) -> b -> FinMap n a -> b
-foldrWithKey f b fm = Map.foldrWithKey f b (getFinMap fm)
+-- Inline so that RULES for Map.mapWithKey can fire
+{-# INLINE mapWithKey #-}

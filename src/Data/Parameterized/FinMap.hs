@@ -37,6 +37,16 @@ In this documentation, /W/ is used in big-O notations the same way as in the
 NOTE: Where the word "conceptually" is used, it implies that this correspondence
 is not literally true, but is true modulo some details such as differences
 between bounded types like 'Int' and unbounded types like 'Integer'.
+
+Several of the functions in both implementations are marked @INLINE@ or
+@INLINABLE@. There are three reasons for this:
+
+* Some of these just have very small definitions and so inclining is likely more
+  beneficial than harmful.
+* Some participate in @RULES@ relevant to functions used in their
+  implementations.
+* They are thin wrappers (often just newtype wrappers) around functions marked
+  @INLINE@, which should therefore also be inlined.
 -}
 
 {-# LANGUAGE CPP #-}

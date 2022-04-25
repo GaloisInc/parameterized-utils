@@ -29,12 +29,10 @@ module Data.Parameterized.FinMap.Unsafe
   , delete
   , decMax
   , mapWithKey
-  , foldrWithKey
   ) where
 
 import           Prelude hiding (lookup, null)
 
-import           Data.Coerce (coerce)
 import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import           Data.IntMap (IntMap)
@@ -50,6 +48,23 @@ import qualified Data.Parameterized.NatRepr as NatRepr
 import           Data.Parameterized.Some (Some(Some))
 import           Data.Parameterized.Vector (Vector)
 import qualified Data.Parameterized.Vector as Vec
+
+-- This is pulled out as a function so that it's obvious that its use is safe
+-- (since Natural is unbounded).
+intToNat :: Int -> Natural
+intToNat = fromIntegral
+{-# INLINE intToNat #-}
+
+-- These are un-inlined so that it's obvious that their use is unsafe (since
+-- Natural is unbounded).
+
+unsafeFinToInt :: Fin n -> Int
+unsafeFinToInt = fromIntegral . Fin.finToNat
+{-# INLINE unsafeFinToInt #-}
+
+unsafeNatReprToInt :: NatRepr n -> Int
+unsafeNatReprToInt = fromIntegral . NatRepr.natValue
+{-# INLINE unsafeNatReprToInt #-}
 
 ------------------------------------------------------------------------
 -- Type
@@ -70,21 +85,20 @@ instance Eq a => Eq (FinMap n a) where
   {-# INLINABLE (==) #-}
 
 instance Functor (FinMap n) where
-  fmap f fm = FinMap (fmap f (getFinMap fm))
+  fmap f = FinMap . fmap f . getFinMap
   {-# INLINABLE fmap #-}
 
 instance Foldable (FinMap n) where
-  foldMap f fm = foldMap f (getFinMap fm)
+  foldMap f = foldMap f . getFinMap
   {-# INLINABLE foldMap #-}
 
 instance FunctorWithIndex (Fin n) (FinMap n) where
-  imap f fm = mapWithKey f fm
-  {-# INLINABLE imap #-}
+  imap f = FinMap . IntMap.mapWithKey (f . unsafeFin) . getFinMap
+  -- Inline so that RULES for IntMap.mapWithKey can fire
+  {-# INLINE imap #-}
 
 instance FoldableWithIndex (Fin n) (FinMap n) where
-  ifoldMap f fm =
-    -- m goes on the right-hand side because this is a right-associative fold
-    foldrWithKey (\k v m -> f k v <> m) mempty fm
+  ifoldMap f = IntMap.foldMapWithKey (f . unsafeFin) . getFinMap
 
 -- | Non-lawful instance, provided for testing
 instance Show a => Show (FinMap n a) where
@@ -101,14 +115,8 @@ null = IntMap.null . getFinMap
 
 -- | /O(min(n,W))/. Fetch the value at the given key in the map.
 lookup :: Fin n -> FinMap n a -> Maybe a
-lookup k = IntMap.lookup (fromIntegral (Fin.finToNat k)) . getFinMap
-
--- This is pulled out as a function so that it's obvious that its use is safe
--- (since Natural is unbounded), whereas other uses of fromIntegral require more
--- careful reasoning.
-intToNat :: Int -> Natural
-intToNat = fromIntegral
-{-# INLINE intToNat #-}
+lookup k = IntMap.lookup (unsafeFinToInt k) . getFinMap
+{-# INLINABLE lookup #-}
 
 -- | Unsafely create a @'Fin' n@ from an 'Int' which is known to be less than
 -- @n@ for reasons not visible to the type system.
@@ -121,7 +129,8 @@ unsafeFin i =
 
 -- | /O(n)/. Number of elements in the map.
 size :: forall n a. FinMap n a -> Fin (n + 1)
-size fm = unsafeFin (IntMap.size (getFinMap fm))
+size = unsafeFin . IntMap.size . getFinMap
+{-# INLINEABLE size #-}
 
 ------------------------------------------------------------------------
 -- Construction
@@ -130,7 +139,7 @@ size fm = unsafeFin (IntMap.size (getFinMap fm))
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: FinMap n a -> FinMap (n + 1) a
-incMax = coerce
+incMax = FinMap . getFinMap
 {-# INLINE incMax #-}
 
 -- | /O(1)/. The empty map.
@@ -145,8 +154,8 @@ singleton = FinMap . IntMap.singleton 0
 
 -- | /O(min(n,W))/.
 insert :: Fin n -> a -> FinMap n a -> FinMap n a
-insert k v fm =
-  FinMap (IntMap.insert (fromIntegral (Fin.finToNat k)) v (getFinMap fm))
+insert k v = FinMap . IntMap.insert (unsafeFinToInt k) v . getFinMap
+{-# INLINABLE insert #-}
 
 newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
 
@@ -174,17 +183,15 @@ fromVector v =
 
 -- | /O(min(n,W))/.
 delete :: Fin n -> FinMap n a -> FinMap n a
-delete k =
-  FinMap . IntMap.delete (fromIntegral (Fin.finToNat k)) . getFinMap
+delete k = FinMap . IntMap.delete (unsafeFinToInt k) . getFinMap
+{-# INLINABLE delete #-}
 
 -- | Decrement the key/size, removing the item at key @n + 1@ if present.
 decMax :: NatRepr n -> FinMap (n + 1) a -> FinMap n a
-decMax k fm =
-  let fm' = getFinMap fm
-  in FinMap (IntMap.delete (fromIntegral (NatRepr.natValue k)) fm')
+decMax k = FinMap . IntMap.delete (unsafeNatReprToInt k) . getFinMap
+{-# INLINABLE decMax #-}
 
 mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
-mapWithKey f fm = FinMap (IntMap.mapWithKey (f . unsafeFin) (getFinMap fm))
-
-foldrWithKey :: (Fin n -> a -> b -> b) -> b -> FinMap n a -> b
-foldrWithKey f b fm = IntMap.foldrWithKey (f . unsafeFin) b (getFinMap fm)
+mapWithKey f = FinMap . IntMap.mapWithKey (f . unsafeFin) . getFinMap
+-- Inline so that RULES for IntMap.mapWithKey can fire
+{-# INLINE mapWithKey #-}
