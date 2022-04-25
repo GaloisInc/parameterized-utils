@@ -24,6 +24,7 @@ module Data.Parameterized.FinMap.Safe
   , empty
   , singleton
   , insert
+  , buildFinMap
   , append
   , fromVector
   -- * Operations
@@ -44,7 +45,7 @@ import           GHC.Types (Nat)
 
 import           Data.Parameterized.Fin (Fin)
 import qualified Data.Parameterized.Fin as Fin
-import           Data.Parameterized.NatRepr (NatRepr, type (+))
+import           Data.Parameterized.NatRepr (NatRepr, type (+), type (<=))
 import qualified Data.Parameterized.NatRepr as NatRepr
 import           Data.Parameterized.Vector (Vector)
 import qualified Data.Parameterized.Vector as Vec
@@ -136,26 +137,30 @@ insert :: Fin n -> a -> FinMap n a -> FinMap n a
 insert k v fm = fm { getFinMap = Map.insert k v (getFinMap fm) }
 {-# INLINABLE insert #-}
 
-newtype FlipMap a n = FlipMap { unFlipMap :: FinMap n a }
+-- buildFinMap, append, and fromVector are duplicated exactly between the safe
+-- and unsafe modules because they are used in comparative testing (and so
+-- implementations must be available for both types).
 
--- append and fromVector are duplicated exactly between the safe and unsafe
--- modules because they are used in comparative testing (and so implementations
--- must be available for both types).
+newtype FinMap' a (n :: Nat) = FinMap' { unFinMap' :: FinMap n a }
 
--- | /O(log n)/.
+buildFinMap ::
+  forall m a.
+  NatRepr m ->
+  (forall n. (n + 1 <= m) => NatRepr n -> FinMap n a -> FinMap (n + 1) a) ->
+  FinMap m a
+buildFinMap m f =
+  let f' :: forall k. (k + 1 <= m) => NatRepr k -> FinMap' a k -> FinMap' a (k + 1)
+      f' = (\n (FinMap' fin) -> FinMap' (f n fin))
+  in unFinMap' (NatRepr.natRecStrictlyBounded m (FinMap' empty) f')
+
+-- | /O(min(n,W))/.
 append :: NatRepr n -> a -> FinMap n a -> FinMap (n + 1) a
 append k v fm =
   case NatRepr.leqSucc k of
     NatRepr.LeqProof -> insert (Fin.mkFin k) v (incMax fm)
 
 fromVector :: forall n a. Vector n a -> FinMap n a
-fromVector v =
-  unFlipMap $
-    NatRepr.natRecStrictlyBounded
-    len
-    (FlipMap empty)
-    (\k (FlipMap m) -> FlipMap (append k (Vec.elemAt k v) m))
-  where len = Vec.length v
+fromVector v = buildFinMap (Vec.length v) (\k m -> append k (Vec.elemAt k v) m)
 
 ------------------------------------------------------------------------
 -- Operations
