@@ -159,8 +159,14 @@ append k v fm =
   case NatRepr.leqSucc k of
     NatRepr.LeqProof -> insert (Fin.mkFin k) v (incMax fm)
 
-fromVector :: forall n a. Vector n a -> FinMap n a
-fromVector v = buildFinMap (Vec.length v) (\k m -> append k (Vec.elemAt k v) m)
+fromVector :: forall n a. Vector n (Maybe a) -> FinMap n a
+fromVector v =
+  buildFinMap
+    (Vec.length v)
+    (\k m ->
+      case Vec.elemAt k v of
+        Just e -> append k e m
+        Nothing -> incMax m)
 
 ------------------------------------------------------------------------
 -- Operations

@@ -49,19 +49,19 @@ instance Show a => Show (SomeUnsafeFinMap a) where
   show (SomeUnsafeFinMap _ v) = show v
 
 genSafeFinMap :: (Monad m) => NatRepr n -> GenT m a -> GenT m (S.FinMap (n + 1) a)
-genSafeFinMap n genElem = S.fromVector <$> genVectorOfLength n genElem
+genSafeFinMap n genElem = S.fromVector <$> genVectorOfLength n (HG.maybe genElem)
 
 genUnsafeFinMap :: (Monad m) => NatRepr n -> GenT m a -> GenT m (U.FinMap (n + 1) a)
-genUnsafeFinMap n genElem = U.fromVector <$> genVectorOfLength n genElem
+genUnsafeFinMap n genElem = U.fromVector <$> genVectorOfLength n (HG.maybe genElem)
 
 genSomeSafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeSafeFinMap a)
 genSomeSafeFinMap genElem =
-  do SomeVector v <- genSomeVector genElem
+  do SomeVector v <- genSomeVector (HG.maybe genElem)
      return (SomeSafeFinMap (Vec.length v) (S.fromVector v))
 
 genSomeUnsafeFinMap :: (Monad m) => GenT m a -> GenT m (SomeUnsafeFinMap a)
 genSomeUnsafeFinMap genElem =
-  do SomeVector v <- genSomeVector genElem
+  do SomeVector v <- genSomeVector (HG.maybe genElem)
      return (SomeUnsafeFinMap (Vec.length v) (U.fromVector v))
 
 prop_incMax_size_safe :: Property
@@ -295,7 +295,7 @@ prop_safe_unsafe = property $
      itoList u === itoList s
   where
     orderingOps = operations genOrdering orderingEndomorphisms
-    
+
     chooseAndApply :: [a -> PropertyT IO b] -> a -> PropertyT IO b
     chooseAndApply funs arg =
       do f <- forAll (HG.element funs)
