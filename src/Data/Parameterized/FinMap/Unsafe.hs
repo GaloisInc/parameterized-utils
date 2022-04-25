@@ -58,8 +58,8 @@ intToNat :: Int -> Natural
 intToNat = fromIntegral
 {-# INLINE intToNat #-}
 
--- These are un-inlined so that it's obvious that their use is unsafe (since
--- Natural is unbounded).
+-- These are pulled out as functions so that it's obvious that their use is
+-- unsafe (since Natural is unbounded).
 
 unsafeFinToInt :: Fin n -> Int
 unsafeFinToInt = fromIntegral . Fin.finToNat
@@ -77,7 +77,7 @@ unsafeNatReprToInt = fromIntegral . NatRepr.natValue
 -- * Its keys must be less than the nat in its type.
 -- * Its size must be less than the maximum Int.
 --
--- If this invariant holds, all of the unsafe operations in this module
+-- If these invariants hold, all of the unsafe operations in this module
 -- (fromJust, unsafeCoerce) will work as intended.
 
 -- | @'FinMap' n a@ is a map with @'Fin' n@ keys and @a@ values.
