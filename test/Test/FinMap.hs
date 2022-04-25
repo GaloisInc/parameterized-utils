@@ -197,13 +197,13 @@ prop_delete_insert_unsafe = property $
 
 prop_empty_insert_safe :: Property
 prop_empty_insert_safe = property $
-  do withIndexSafe (SomeSafeFinMap NatRepr.knownNat S.empty) $ \idx fm -> do
+  do withIndexSafe (SomeSafeFinMap (NatRepr.knownNat @0) S.empty) $ \idx fm -> do
       o <- forAll genOrdering
       fm /== S.insert idx o fm
 
 prop_empty_insert_unsafe :: Property
 prop_empty_insert_unsafe = property $
-  do withIndexUnsafe (SomeUnsafeFinMap NatRepr.knownNat U.empty) $ \idx fm -> do
+  do withIndexUnsafe (SomeUnsafeFinMap (NatRepr.knownNat @0) U.empty) $ \idx fm -> do
       o <- forAll genOrdering
       fm /== U.insert idx o fm
 
@@ -280,7 +280,9 @@ operations genValue valEndomorphisms =
       do v <- forAll genValue
          return (MatchedMaps (U.singleton v) (S.singleton v))
   , \(MatchedMaps _ _) ->
-      return (MatchedMaps U.empty S.empty)
+      return (MatchedMaps (U.empty @0) S.empty)
+  , \(MatchedMaps _ _) ->
+      return (MatchedMaps (U.empty @8) S.empty)
   ]
 
 -- | Possibly the most important and far-reaching test: The unsafe API should
@@ -289,7 +291,7 @@ operations genValue valEndomorphisms =
 prop_safe_unsafe :: Property
 prop_safe_unsafe = property $
   do numOps <- forAll (HG.integral (linear 0 (99 :: Int)))
-     let empty = MatchedMaps U.empty S.empty
+     let empty = MatchedMaps (U.empty @0) S.empty
      MatchedMaps u s <-
        doTimes (chooseAndApply orderingOps) numOps empty
      itoList u === itoList s

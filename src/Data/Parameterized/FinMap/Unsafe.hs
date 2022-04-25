@@ -40,7 +40,7 @@ import           Data.Functor.WithIndex (FunctorWithIndex(imap))
 import           Data.Foldable.WithIndex (FoldableWithIndex(ifoldMap))
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import           GHC.Types (Nat)
+import           GHC.TypeLits (KnownNat, Nat)
 import           Numeric.Natural (Natural)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -146,7 +146,7 @@ incMax = FinMap . getFinMap
 {-# INLINE incMax #-}
 
 -- | /O(1)/. The empty map.
-empty :: FinMap 0 a
+empty :: KnownNat n => FinMap n a
 empty = FinMap IntMap.empty
 {-# INLINE empty #-}
 

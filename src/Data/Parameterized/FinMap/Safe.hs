@@ -41,7 +41,7 @@ import           Data.Maybe (isJust)
 import           Data.Proxy (Proxy(Proxy))
 import           Data.Map (Map)
 import qualified Data.Map as Map
-import           GHC.Types (Nat)
+import           GHC.TypeLits (KnownNat, Nat)
 
 import           Data.Parameterized.Fin (Fin)
 import qualified Data.Parameterized.Fin as Fin
@@ -120,8 +120,8 @@ incMax fm =
     }
 
 -- | /O(1)/. The empty map.
-empty :: FinMap 0 a
-empty = FinMap Map.empty (NatRepr.knownNat :: NatRepr 0)
+empty :: KnownNat n => FinMap n a
+empty = FinMap Map.empty NatRepr.knownNat
 {-# INLINABLE empty #-}
 
 -- | /O(1)/. A map with one element.
