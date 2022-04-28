@@ -131,7 +131,7 @@ unsafeFin i =
       case unsafeCoerce (NatRepr.LeqProof :: LeqProof 0 0) :: LeqProof (m + 1) n of
         NatRepr.LeqProof -> mkFin @m @n repr
 
--- | /O(n)/. Number of elements in the map.
+-- | /O(1)/. Number of elements in the map.
 size :: forall n a. FinMap n a -> Fin (n + 1)
 size = unsafeFin . IntMap.size . getFinMap
 {-# INLINEABLE size #-}
