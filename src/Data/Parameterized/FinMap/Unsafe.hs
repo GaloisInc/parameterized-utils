@@ -33,6 +33,9 @@ module Data.Parameterized.FinMap.Unsafe
   , delete
   , decMax
   , mapWithKey
+  , unionWithKey
+  , unionWith
+  , union
   ) where
 
 import           Prelude hiding (lookup, null)
@@ -87,6 +90,14 @@ newtype FinMap (n :: Nat) a = FinMap { getFinMap :: IntMap a }
 instance Eq a => Eq (FinMap n a) where
   fm1 == fm2 = getFinMap fm1 == getFinMap fm2
   {-# INLINABLE (==) #-}
+
+instance Semigroup (FinMap n a) where
+  (<>) = union
+  {-# INLINE (<>) #-}
+
+instance KnownNat n => Monoid (FinMap n a) where
+  mempty = empty
+  {-# INLINE mempty #-}
 
 instance Functor (FinMap n) where
   fmap f = FinMap . fmap f . getFinMap
@@ -220,3 +231,16 @@ mapWithKey :: (Fin n -> a -> b) -> FinMap n a -> FinMap n b
 mapWithKey f = FinMap . IntMap.mapWithKey (f . unsafeFin) . getFinMap
 -- Inline so that RULES for IntMap.mapWithKey can fire
 {-# INLINE mapWithKey #-}
+
+-- | /O(n+m)/.
+unionWithKey :: (Fin n -> a -> a -> a) -> FinMap n a -> FinMap n a -> FinMap n a
+unionWithKey f fm1 fm2 =
+  FinMap (IntMap.unionWithKey (f . unsafeFin) (getFinMap fm1) (getFinMap fm2))
+
+-- | /O(n+m)/.
+unionWith :: (a -> a -> a) -> FinMap n a -> FinMap n a -> FinMap n a
+unionWith f = unionWithKey (\_ v1 v2 -> f v1 v2)
+
+-- | /O(n+m)/. Left-biased union, i.e. (@'union' == 'unionWith' 'const'@).
+union :: FinMap n a -> FinMap n a -> FinMap n a
+union = unionWith const

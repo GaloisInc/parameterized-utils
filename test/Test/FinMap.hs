@@ -336,11 +336,35 @@ finMapTests = testGroup "FinMap" <$> return
       assertBool "Eq-Unsafe-FinMap-laws-1" =<<
         HC.lawsCheck (HC.eqLaws (genUnsafeFinMap (NatRepr.knownNat @1) genOrdering))
   , testCase "Eq-Safe-FinMap-laws-10" $
-      assertBool "Eq-Safe-FinMap-laws-1" =<<
+      assertBool "Eq-Safe-FinMap-laws-10" =<<
         HC.lawsCheck (HC.eqLaws (genSafeFinMap (NatRepr.knownNat @10) genOrdering))
   , testCase "Eq-Unsafe-FinMap-laws-10" $
-      assertBool "Eq-Unsafe-FinMap-laws-1" =<<
+      assertBool "Eq-Unsafe-FinMap-laws-10" =<<
         HC.lawsCheck (HC.eqLaws (genUnsafeFinMap (NatRepr.knownNat @10) genOrdering))
+  , testCase "Semigroup-Safe-FinMap-laws-1" $
+      assertBool "Semigroup-Safe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.semigroupLaws (genSafeFinMap (NatRepr.knownNat @1) genOrdering))
+  , testCase "Semigroup-Unsafe-FinMap-laws-1" $
+      assertBool "Semigroup-Unsafe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.semigroupLaws (genUnsafeFinMap (NatRepr.knownNat @1) genOrdering))
+  , testCase "Semigroup-Safe-FinMap-laws-10" $
+      assertBool "Semigroup-Safe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.semigroupLaws (genSafeFinMap (NatRepr.knownNat @10) genOrdering))
+  , testCase "Semigroup-Unsafe-FinMap-laws-10" $
+      assertBool "Semigroup-Unsafe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.semigroupLaws (genUnsafeFinMap (NatRepr.knownNat @10) genOrdering))
+  , testCase "Monoid-Safe-FinMap-laws-1" $
+      assertBool "Monoid-Safe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.monoidLaws (genSafeFinMap (NatRepr.knownNat @1) genOrdering))
+  , testCase "Monoid-Unsafe-FinMap-laws-1" $
+      assertBool "Monoid-Unsafe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.monoidLaws (genUnsafeFinMap (NatRepr.knownNat @1) genOrdering))
+  , testCase "Monoid-Safe-FinMap-laws-10" $
+      assertBool "Monoid-Safe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.monoidLaws (genSafeFinMap (NatRepr.knownNat @10) genOrdering))
+  , testCase "Monoid-Unsafe-FinMap-laws-10" $
+      assertBool "Monoid-Unsafe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.monoidLaws (genUnsafeFinMap (NatRepr.knownNat @10) genOrdering))
   , testCase "Foldable-Safe-FinMap-laws-1" $
       assertBool "Foldable-Safe-FinMap-laws-1" =<<
         HC.lawsCheck (HC.foldableLaws (genSafeFinMap (NatRepr.knownNat @1)))
