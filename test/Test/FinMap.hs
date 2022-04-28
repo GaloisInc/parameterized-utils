@@ -353,5 +353,17 @@ finMapTests = testGroup "FinMap" <$> return
   , testCase "Foldable-Unsafe-FinMap-laws-10" $
       assertBool "Foldable-Unsafe-FinMap-laws-10" =<<
         HC.lawsCheck (HC.foldableLaws (genUnsafeFinMap (NatRepr.knownNat @10)))
+  , testCase "Traversable-Safe-FinMap-laws-1" $
+      assertBool "Traversable-Safe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.traversableLaws (genSafeFinMap (NatRepr.knownNat @1)))
+  , testCase "Traversable-Unsafe-FinMap-laws-1" $
+      assertBool "Traversable-Unsafe-FinMap-laws-1" =<<
+        HC.lawsCheck (HC.traversableLaws (genUnsafeFinMap (NatRepr.knownNat @1)))
+  , testCase "Traversable-Safe-FinMap-laws-10" $
+      assertBool "Traversable-Safe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.traversableLaws (genSafeFinMap (NatRepr.knownNat @10)))
+  , testCase "Traversable-Unsafe-FinMap-laws-10" $
+      assertBool "Traversable-Unsafe-FinMap-laws-10" =<<
+        HC.lawsCheck (HC.traversableLaws (genUnsafeFinMap (NatRepr.knownNat @10)))
 #endif
   ]
