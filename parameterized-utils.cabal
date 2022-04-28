@@ -84,6 +84,9 @@ library
     Data.Parameterized.DataKind
     Data.Parameterized.DecidableEq
     Data.Parameterized.Fin
+    Data.Parameterized.FinMap
+    Data.Parameterized.FinMap.Safe
+    Data.Parameterized.FinMap.Unsafe
     Data.Parameterized.HashTable
     Data.Parameterized.List
     Data.Parameterized.Map
@@ -120,6 +123,7 @@ test-suite parameterizedTests
   other-modules:
     Test.Context
     Test.Fin
+    Test.FinMap
     Test.List
     Test.NatRepr
     Test.SymbolRepr

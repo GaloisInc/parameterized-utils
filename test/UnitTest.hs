@@ -4,6 +4,7 @@ import Test.Tasty.Runners.AntXML
 
 import qualified Test.Context
 import qualified Test.Fin
+import qualified Test.FinMap
 import qualified Test.List
 import qualified Test.NatRepr
 import qualified Test.SymbolRepr
@@ -25,6 +26,7 @@ tests = testGroup "ParameterizedUtils" <$> sequence
   [ Test.Context.contextTests
   , pure Test.List.tests
   , Test.Fin.finTests
+  , Test.FinMap.finMapTests
   , Test.NatRepr.natTests
   , Test.SymbolRepr.symbolTests
   , Test.TH.thTests

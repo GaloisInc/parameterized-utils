@@ -63,6 +63,7 @@ module Data.Parameterized.NatRepr
   , natRec
   , natRecStrong
   , natRecBounded
+  , natRecStrictlyBounded
   , natForEach
   , natFromZero
   , NatCases(..)
@@ -86,6 +87,7 @@ module Data.Parameterized.NatRepr
   , testLeq
   , testStrictLeq
   , leqRefl
+  , leqSucc
   , leqTrans
   , leqZero
   , leqAdd2
@@ -177,8 +179,6 @@ isZeroOrGT1 n =
       -- We have n = m + 1 for some m.
       let
         -- | x <= x + 1
-        leqSucc:: forall x. LeqProof x (x+1)
-        leqSucc = leqAdd2 (LeqProof :: LeqProof x x) (LeqProof :: LeqProof 0 1)
         leqPlus :: forall f x y. ((x + 1) ~ y) => f x ->  LeqProof 1 y
         leqPlus fx =
           case (plusComm fx (knownNat @1) :: x + 1 :~: 1 + x)    of { Refl ->
@@ -187,7 +187,7 @@ isZeroOrGT1 n =
           case (LeqProof :: LeqProof (1+x-x) (y-x))              of { LeqProof ->
             leqTrans (LeqProof :: LeqProof 1 (y-x))
                      (leqSub (LeqProof :: LeqProof y y)
-                             (leqTrans (leqSucc :: LeqProof x (x+1))
+                             (leqTrans (leqSucc (Proxy :: Proxy x))
                                        (LeqProof) :: LeqProof x y) :: LeqProof (y - x) y)
           }}}}
       in leqPlus (predNat n)
@@ -423,6 +423,9 @@ testLeq (NatRepr m) (NatRepr n)
 leqRefl :: forall f n . f n -> LeqProof n n
 leqRefl _ = LeqProof
 
+leqSucc :: forall f z. f z -> LeqProof z (z + 1)
+leqSucc fz = leqAdd (leqRefl fz :: LeqProof z z) (knownNat @1)
+
 -- | Apply transitivity to LeqProof
 leqTrans :: LeqProof m n -> LeqProof n p -> LeqProof m p
 leqTrans LeqProof LeqProof = unsafeCoerce (LeqProof :: LeqProof 0 0)
@@ -613,6 +616,28 @@ natRecBounded m h base indH =
             }}
         Right f {- :: (m <= h) -> Void -} ->
           absurd $ f (LeqProof :: LeqProof m h)
+
+-- | A version of 'natRecBounded' which doesn't require the type index of the
+-- result to be greater than @0@ and provides a strict inequality constraint.
+natRecStrictlyBounded ::
+  forall m f.
+  NatRepr m ->
+  f 0 ->
+  (forall n. (n + 1 <= m) => NatRepr n -> f n -> f (n + 1)) ->
+  f m
+natRecStrictlyBounded m base indH =
+  case isZeroNat m of
+    ZeroNat -> base
+    NonZeroNat ->
+      case predNat m of
+        (p :: NatRepr p) ->
+          natRecBounded
+            p
+            p
+            base
+            (\(k :: NatRepr n) (v :: f n) ->
+              case leqAdd2 (LeqProof :: LeqProof n p) (LeqProof :: LeqProof 1 1) of
+                LeqProof -> indH k v)
 
 mulCancelR ::
   (1 <= c, (n1 * c) ~ (n2 * c)) => f1 n1 -> f2 n2 -> f3 c -> (n1 :~: n2)

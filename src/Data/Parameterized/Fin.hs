@@ -22,11 +22,14 @@ that naturally has a fixed size bound of @n@.
 module Data.Parameterized.Fin
   ( Fin
   , mkFin
+  , buildFin
+  , countFin
   , viewFin
   , finToNat
   , embed
   , tryEmbed
   , minFin
+  , incFin
   , fin0Void
   , fin1Unit
   , fin2Bool
@@ -62,12 +65,39 @@ instance Show (Fin n) where
 
 mkFin :: forall i n. (i + 1 <= n) => NatRepr i -> Fin n
 mkFin = Fin
+{-# INLINE mkFin #-}
+
+newtype Fin' n = Fin' { getFin' :: Fin (n + 1) }
+
+buildFin ::
+  forall m.
+  NatRepr m ->
+  (forall n. (n + 1 <= m) => NatRepr n -> Fin (n + 1) -> Fin (n + 1 + 1)) ->
+  Fin (m + 1)
+buildFin m f =
+  let f' :: forall k. (k + 1 <= m) => NatRepr k -> Fin' k -> Fin' (k + 1)
+      f' = (\n (Fin' fin) -> Fin' (f n fin))
+  in getFin' (natRecStrictlyBounded m (Fin' minFin) f')
+
+-- | Count all of the numbers up to @m@ that meet some condition.
+countFin ::
+  NatRepr m ->
+  (forall n. (n + 1 <= m) => NatRepr n -> Fin (n + 1) -> Bool) ->
+  Fin (m + 1)
+countFin m f =
+  buildFin m $
+    \n count ->
+      if f n count
+      then incFin count
+      else case leqSucc count of
+              LeqProof -> embed count
 
 viewFin ::  (forall i. (i + 1 <= n) => NatRepr i -> r) -> Fin n -> r
 viewFin f (Fin i) = f i
 
 finToNat :: Fin n -> Natural
 finToNat (Fin i) = natValue i
+{-# INLINABLE finToNat #-}
 
 embed :: forall n m. (n <= m) => Fin n -> Fin m
 embed =
@@ -86,6 +116,12 @@ tryEmbed n m i =
 -- | The smallest element of @'Fin' n@
 minFin :: (1 <= n) => Fin n
 minFin = Fin (knownNat @0)
+{-# INLINABLE minFin #-}
+
+incFin :: forall n. Fin n -> Fin (n + 1)
+incFin (Fin (i :: NatRepr i)) =
+  case leqAdd2 (LeqProof :: LeqProof (i + 1) n) (LeqProof :: LeqProof 1 1) of
+    LeqProof -> mkFin (incNat i)
 
 fin0Void :: Iso' (Fin 0) Void
 fin0Void =

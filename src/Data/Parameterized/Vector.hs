@@ -441,10 +441,7 @@ singleton :: forall a. a -> Vector 1 a
 singleton a = Vector (Vector.singleton a)
 
 leqLen :: forall n a. Vector n a -> LeqProof 1 (n + 1)
-leqLen v =
-  let leqSucc :: forall f z. f z -> LeqProof z (z + 1)
-      leqSucc fz = leqAdd (leqRefl fz :: LeqProof z z) (knownNat @1)
-  in leqTrans (nonEmpty v :: LeqProof 1 n) (leqSucc (length v))
+leqLen v = leqTrans (nonEmpty v :: LeqProof 1 n) (leqSucc (length v))
 
 -- | Add an element to the head of a vector
 cons :: forall n a. a -> Vector n a -> Vector (n+1) a

@@ -16,6 +16,12 @@
 #endif
 module Test.Vector
   ( vecTests
+  , SomeVector(..)
+  , genSomeVector
+  , genVectorOfLength
+  , genOrdering
+  , orderingEndomorphisms
+  , orderingToStringFuns
   )
 where
 
@@ -97,6 +103,13 @@ orderingEndomorphisms =
       LT -> EQ
       EQ -> GT
       GT -> LT
+  ]
+  
+-- | Used to test ifoldMap.
+orderingToStringFuns :: [ Ordering -> String ]
+orderingToStringFuns =
+  [ const "s"
+  , show
   ]
 
 prop_reverse100 :: Property
@@ -225,9 +238,7 @@ prop_imapConst = property $
 
 prop_ifoldMapConst :: Property
 prop_ifoldMapConst = property $
-  do let funs :: [ Ordering -> String ]
-         funs = [const "s", show]
-     f <- forAll $ HG.element funs
+  do f <- forAll $ HG.element orderingToStringFuns
      SomeVector v <- forAll $ genSomeVector genOrdering
      ifoldMap (const f) v === foldMap f v
 
