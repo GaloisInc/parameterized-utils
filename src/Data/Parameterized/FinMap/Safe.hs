@@ -73,6 +73,9 @@ instance Foldable (FinMap n) where
   foldMap f = foldMap f . getFinMap
   {-# INLINABLE foldMap #-}
 
+instance Traversable (FinMap n) where
+  traverse f fm = FinMap <$> traverse f (getFinMap fm) <*> pure (maxSize fm)
+
 instance FunctorWithIndex (Fin n) (FinMap n) where
   imap f fm = fm { getFinMap = Map.mapWithKey f (getFinMap fm) }
   -- Inline so that RULES for Map.mapWithKey can fire
