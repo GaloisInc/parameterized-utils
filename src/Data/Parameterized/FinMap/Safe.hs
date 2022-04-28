@@ -101,6 +101,11 @@ lookup k = Map.lookup k . getFinMap
 {-# INLINABLE lookup #-}
 
 -- | /O(nlog(n))/. Number of elements in the map.
+--
+-- This operation is much slower than 'Data.Parameterized.FinMap.Unsafe.size'
+-- because its implementation must provide significant evidence to the
+-- type-checker, and the easiest way to do that is fairly inefficient.
+-- If speed is a concern, use "Data.Parameterized.FinMap.Unsafe".
 size :: forall n a. FinMap n a -> Fin (n + 1)
 size fm =
   Fin.countFin (maxSize fm) (\k _count -> isJust (lookup (Fin.mkFin k) fm))
@@ -109,6 +114,10 @@ size fm =
 -- Construction
 
 -- | /O(n log n)/. Increase maximum key/size by 1.
+--
+-- This does not alter the key-value pairs in the map, but rather increases the
+-- maximum number of key-value pairs that the map can hold. See
+-- "Data.Parameterized.FinMap" for more information.
 --
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: forall n a. FinMap n a -> FinMap (n + 1) a

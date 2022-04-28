@@ -141,6 +141,10 @@ size = unsafeFin . IntMap.size . getFinMap
 
 -- | /O(1)/. Increase maximum key/size by 1.
 --
+-- This does not alter the key-value pairs in the map, but rather increases the
+-- maximum number of key-value pairs that the map can hold. See
+-- "Data.Parameterized.FinMap" for more information.
+--
 -- Requires @n + 1 < (maxBound :: Int)@.
 incMax :: FinMap n a -> FinMap (n + 1) a
 incMax = FinMap . getFinMap
