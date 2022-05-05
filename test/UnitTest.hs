@@ -7,6 +7,7 @@ import qualified Test.Fin
 import qualified Test.FinMap
 import qualified Test.List
 import qualified Test.NatRepr
+import qualified Test.Some
 import qualified Test.SymbolRepr
 import qualified Test.TH
 import qualified Test.Vector
@@ -28,6 +29,7 @@ tests = testGroup "ParameterizedUtils" <$> sequence
   , Test.Fin.finTests
   , Test.FinMap.finMapTests
   , Test.NatRepr.natTests
+  , Test.Some.someTests
   , Test.SymbolRepr.symbolTests
   , Test.TH.thTests
   , Test.Vector.vecTests

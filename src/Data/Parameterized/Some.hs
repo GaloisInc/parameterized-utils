@@ -17,8 +17,10 @@ module Data.Parameterized.Some
   , mapSome
   , traverseSome
   , traverseSome_
+  , someLens
   ) where
 
+import Control.Lens (Lens', lens, (&), (^.), (.~))
 import Data.Hashable
 import Data.Kind
 import Data.Parameterized.Classes
@@ -64,3 +66,8 @@ traverseSome_ f (Some x) = (\_ -> ()) `fmap` f x
 instance FunctorF     Some where fmapF     = mapSome
 instance FoldableF    Some where foldMapF  = foldMapFDefault
 instance TraversableF Some where traverseF = traverseSome
+
+-- | A lens that is polymorphic in the index may be used on a value with an
+-- existentially-quantified index.
+someLens :: (forall tp. Lens' (f tp) a) -> Lens' (Some f) a
+someLens l = lens (\(Some x) -> x ^. l) (\(Some x) v -> Some (x & l .~ v))
