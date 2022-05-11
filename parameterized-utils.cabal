@@ -126,6 +126,7 @@ test-suite parameterizedTests
     Test.FinMap
     Test.List
     Test.NatRepr
+    Test.Some
     Test.SymbolRepr
     Test.TH
     Test.Vector
