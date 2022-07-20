@@ -48,8 +48,8 @@ jobs:
           echo GHC=$GHC >> $GITHUB_ENV
           case ${{ matrix.ghc }} in
             8.6.5) GHC_NIXPKGS=github:nixos/nixpkgs/20.09 ;;
-            9.0.2) GHC_NIXPKGS=github:nixos/nixpkgs/nixos-unstable ;;
-            9.2.2) GHC_NIXPKGS=github:nixos/nixpkgs/nixos-unstable ;;
+            9.0.2) GHC_NIXPKGS=github:nixos/nixpkgs/nixos-22.05 ;;
+            9.2.2) GHC_NIXPKGS=github:nixos/nixpkgs/nixos-22.05 ;;
             *)     GHC_NIXPKGS=github:nixos/nixpkgs/21.11 ;;
           esac
           echo NS="nix shell ${GHC_NIXPKGS}#${GHC}" >> $GITHUB_ENV
