@@ -62,6 +62,7 @@ library
                , lens           >=4.16 && <5.2
                , mtl
                , profunctors    >=5.6 && < 5.7
+               , some           >=1.0 && < 2.0
                , template-haskell
                , text
                , vector         ==0.12.*

@@ -8,6 +8,13 @@
     the corresponding `Eq` instances for these data types also require
     `TestEquality` constraints.
 
+  * Make `Some` a newtype around
+    [`Some`](https://hackage.haskell.org/package/some-1.0.4/docs/Data-Some.html#t:Some)
+    from [the `some` package](https://hackage.haskell.org/package/some-1.0.4).
+    This should improve performance, as the latter is a newtype. However, it
+    requires importing the `Some` pattern, rather than a data constructor.
+    Also adds `Semigroup` and `Monoid` instances.
+
 ## 2.1.5.0 -- *2022 Mar 08*
 
   * Add support for GHC 9.2.  Drop support for GHC 8.4 (or earlier).
