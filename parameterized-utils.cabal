@@ -59,7 +59,7 @@ library
                , hashable       >=1.2  && <1.5
                , hashtables     >=1.2  && <1.4
                , indexed-traversable
-               , lens           >=4.16 && <5.2
+               , lens           >=4.16 && <5.3
                , mtl
                , profunctors    >=5.6 && < 5.7
                , template-haskell
