@@ -1,12 +1,15 @@
 # Changelog for the `parameterized-utils` package
 
-## next -- *TBA*
+## 2.1.6.0 -- *2022 Dec 18*
 
+  * Added `FinMap`: an integer map with a statically-known maximum size.
+  * Added `someLens` to `Some` to create a parameterized lens.
   * Allow building with `hashable-1.4.*`. Because `hashable-1.4.0.0` adds an
     `Eq` superclass to `Hashable`, some instances of `Hashable` in
     `parameterized-utils` now require additional `TestEquality` constraints, as
     the corresponding `Eq` instances for these data types also require
     `TestEquality` constraints.
+  * Bump constraints to allow: vector-0.13, lens-5.2, tasty-hedgehog-1.3.0.0--1.4.0.0, GHC-9.4
 
 ## 2.1.5.0 -- *2022 Mar 08*
 
