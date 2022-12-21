@@ -1,5 +1,7 @@
 # Changelog for the `parameterized-utils` package
 
+## next -- *TBA*
+
 ## 2.1.6.0 -- *2022 Dec 18*
 
   * Added `FinMap`: an integer map with a statically-known maximum size.
