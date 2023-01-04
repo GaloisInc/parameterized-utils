@@ -8,11 +8,15 @@
 -- This module provides 'Some', a GADT that hides a type parameter.
 ------------------------------------------------------------------------
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Data.Parameterized.Some
-  ( Some(..)
+  ( Some
+  , pattern Some
   , viewSome
   , mapSome
   , traverseSome
@@ -22,12 +26,24 @@ module Data.Parameterized.Some
 
 import Control.Lens (Lens', lens, (&), (^.), (.~))
 import Data.Hashable
-import Data.Kind
 import Data.Parameterized.Classes
 import Data.Parameterized.TraversableF
+import qualified Data.Some as Some
 
+-- This used to be a @data@ type, but is now a newtype around Some.Some. The
+-- idea is that Some.Some provides an (internally unsafe) newtype-based encoding
+-- which has better performance characteristics, see the upstream documentation.
+newtype Some f = MkSome (Some.Some f)
 
-data Some (f:: k -> Type) = forall x . Some (f x)
+-- | See instances for 'Some.Some'.
+deriving instance Applicative f => Semigroup (Some f)
+-- | See instances for 'Some.Some'.
+deriving instance Applicative f => Monoid (Some f)
+
+{-# COMPLETE Some #-}
+pattern Some :: f a -> Some f
+pattern Some x <- MkSome (Some.Some x)
+  where Some x = MkSome (Some.Some x)
 
 instance TestEquality f => Eq (Some f) where
   Some x == Some y = isJust (testEquality x y)

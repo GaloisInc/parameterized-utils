@@ -8,6 +8,7 @@ See "Data.Parameterized.FinMap".
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -52,7 +53,7 @@ import           Data.Parameterized.Fin (Fin, mkFin)
 import qualified Data.Parameterized.Fin as Fin
 import           Data.Parameterized.NatRepr (LeqProof, NatRepr, type (+), type (<=))
 import qualified Data.Parameterized.NatRepr as NatRepr
-import           Data.Parameterized.Some (Some(Some))
+import           Data.Parameterized.Some (pattern Some)
 import           Data.Parameterized.Vector (Vector)
 import qualified Data.Parameterized.Vector as Vec
 

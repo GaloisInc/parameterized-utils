@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Test.Some
   ( someTests
@@ -13,7 +14,7 @@ import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (assertEqual, testCase)
 
 import           Data.Parameterized.Classes (ShowF)
-import           Data.Parameterized.Some (Some(Some), someLens)
+import           Data.Parameterized.Some (Some, pattern Some, someLens)
 
 data Item b where
   BoolItem :: Item Bool

@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# Language CPP #-}
@@ -22,7 +23,7 @@ import           Test.Tasty.HUnit (assertBool, testCase)
 
 import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Fin
-import           Data.Parameterized.Some (Some(Some))
+import           Data.Parameterized.Some (pattern Some)
 
 #if __GLASGOW_HASKELL__ >= 806
 import qualified Hedgehog.Classes as HC

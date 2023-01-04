@@ -15,9 +15,9 @@ Note that there is still some ambiguity around naming conventions, see
 <https://github.com/GaloisInc/parameterized-utils/issues/23 issue 23>.
 -}
 
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE Safe #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Data.Parameterized.ClassesC
@@ -29,7 +29,7 @@ import Data.Type.Equality ((:~:)(..))
 import Data.Kind
 import Data.Maybe (isJust)
 import Data.Parameterized.Classes (OrderingF, toOrdering)
-import Data.Parameterized.Some (Some(..))
+import Data.Parameterized.Some (Some, pattern Some)
 
 class TestEqualityC (t :: (k -> Type) -> Type) where
   testEqualityC :: (forall x y. f x -> f y -> Maybe (x :~: y))
