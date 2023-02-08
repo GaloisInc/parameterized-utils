@@ -43,6 +43,7 @@ common bldflags
                -Werror=incomplete-patterns
                -Werror=missing-methods
                -Werror=overlapping-patterns
+               -Wno-trustworthy-safe
                -fhide-source-paths
   default-language: Haskell2010
 

@@ -17,7 +17,7 @@ Note that there is still some ambiguity around naming conventions, see
 
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Data.Parameterized.ClassesC
