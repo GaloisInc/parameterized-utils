@@ -12,10 +12,11 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+#if __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
+#endif
 {-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx

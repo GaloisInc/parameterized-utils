@@ -19,7 +19,9 @@ Some code was adapted from containers.
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeFamilies #-}
+#if __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
+#endif
 module Data.Parameterized.Map
   ( MapF
     -- * Construction
