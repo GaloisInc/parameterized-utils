@@ -102,7 +102,7 @@ module Data.Parameterized.Context
 
 import           Prelude hiding (unzip)
 
-import           Control.Applicative (liftA2)
+import qualified Control.Applicative as App (liftA2)
 import           Control.Lens hiding (Index, (:>), Empty)
 import           Data.Functor (void)
 import           Data.Functor.Product (Product(Pair))
@@ -458,7 +458,7 @@ instance Functor (Collector m w) where
   fmap _ (Collector x) = Collector x
 instance (Applicative m, Monoid w) => Applicative (Collector m w) where
   pure _ = Collector (pure mempty)
-  Collector x <*> Collector y = Collector (liftA2 (<>) x y)
+  Collector x <*> Collector y = Collector (App.liftA2 (<>) x y)
 
 -- | Visit each of the elements in an @Assignment@ in order
 --   from left to right and collect the results using the provided @Monoid@.
