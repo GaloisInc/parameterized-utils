@@ -136,7 +136,9 @@ import Data.Data
 import Data.Type.Equality as Equality
 import Data.Void as Void
 import Numeric.Natural
-import GHC.TypeNats as TypeNats
+import GHC.TypeNats ( KnownNat, Nat, SomeNat(..)
+                    , type (+), type (-), type (*), type (<=)
+                    , someNatVal )
 import Unsafe.Coerce
 
 import Data.Parameterized.Axiom

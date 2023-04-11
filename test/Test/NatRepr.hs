@@ -12,7 +12,7 @@ import           Test.Tasty.Hedgehog
 
 import           Data.Parameterized.NatRepr
 import           Data.Parameterized.Some
-import           GHC.TypeLits
+import           GHC.TypeLits (natVal)
 
 prop_withKnownNat :: Property
 prop_withKnownNat = property $
