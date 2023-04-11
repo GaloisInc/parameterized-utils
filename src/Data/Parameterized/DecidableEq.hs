@@ -9,14 +9,17 @@ type family.
 This is different from GHC's @TestEquality@ in that it provides evidence
 of non-equality. In fact, it is a superclass of @TestEquality@.
 -}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Safe #-}
+#if __GLASGOW_HASKELL__ < 806
+{-# LANGUAGE TypeInType #-}
+#endif
 module Data.Parameterized.DecidableEq
   ( DecidableEq(..)
   ) where

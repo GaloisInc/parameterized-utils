@@ -40,10 +40,11 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE StandaloneDeriving #-}
+#if __GLASGOW_HASKELL__ < 806
+{-# LANGUAGE TypeInType #-}
+#endif
 {-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Safe
   ( module Data.Parameterized.Ctx

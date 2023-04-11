@@ -14,6 +14,7 @@ compare the generated nonce values and then assert to the compiler
 (via 'unsafeCoerce') that the types ascribed to the nonces are equal
 if their values are equal.
 -}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE GADTs #-}
@@ -23,7 +24,9 @@ if their values are equal.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE Trustworthy #-}
+#if __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
+#endif
 module Data.Parameterized.Nonce
   ( -- * NonceGenerator
     NonceGenerator
