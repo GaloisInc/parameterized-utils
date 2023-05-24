@@ -81,7 +81,8 @@ module Data.Parameterized.Map
 
 import           Control.Applicative hiding (empty)
 import           Control.Lens (Traversal', Lens')
-import           Control.Monad.Identity
+import           Control.Monad.Identity (Identity(..))
+import           Control.Monad (foldM)
 import           Data.Kind (Type)
 import           Data.List (intercalate, foldl')
 import           Data.Monoid
