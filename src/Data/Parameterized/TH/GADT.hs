@@ -10,11 +10,12 @@
 ------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE EmptyCase #-}
 module Data.Parameterized.TH.GADT
   ( -- * Instance generators
     -- $typePatterns
@@ -133,10 +134,63 @@ typeVars :: TypeSubstitution a => a -> Set Name
 typeVars = Set.fromList . freeVariables
 
 
--- | @structuralEquality@ declares a structural equality predicate.
+-- | @structuralEquality@ declares a structural equality predicate for a GADT.
 structuralEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
-structuralEquality tpq pats =
-  [| \x y -> isJust ($(structuralTypeEquality tpq pats) x y) |]
+structuralEquality tpq pats = do
+  d <- reifyDatatype =<< asTypeCon "structuralEquality" =<< tpq
+
+  -- tpq is some type of GADT: data X p1 p2 ... where ...
+  --
+  -- The general approach is to generate a structural type equality such that the
+  -- result is a Maybe (e :+: f) is Just Refl and then verify it is a Just value
+  -- to assert equality by generating (via template haskell):
+  --
+  --   \ x y -> isJust $(structuralTypeEquality ... x y)
+  --
+  -- However, that result presumes a `TestEquality f where testEquality :: f a ->
+  -- f b -> Maybe (a :~: b)`.  If the GADT has a single type parameter, those
+  -- types align and there is no problem.  If the GADT has multiple type
+  -- variables, GHC is unsure of which we are making the TestEquality assertion
+  -- about and we need to help.  We actually want to make that assertion over
+  -- _all_ of the parameters, so given:
+  --
+  --     data D p1 p2 p3 where ...
+  --
+  -- the template haskell here should generate:
+  --
+  --  \ (x :: D xt1 xt2 xt3) (y :: D yt1 yt2 yt3) ->
+  --      isJust ( ($(structuralTypeEquality ... x y))
+  --               :: Maybe ( '(xt1, xt2, xt3) :~: '(yt1, yt2, yt3) )
+  --             )
+  --
+  -- This will perform the equality check in a way that obtains proof of equality
+  -- for all of the type parameters.  This will require the ScopedTypeVariables
+  -- pragma, but GHC will happily suggest that if it's missing.
+  --
+  -- This is also useful for the equality test on the single parameter case:
+  --
+  --   data D p1 where ...
+  --
+  --   instance Eq (D a) where
+  --     (==) = $(structuralEquality [t|D|] []
+  --
+  -- Again, this will fail without the template haskell assertion of the target
+  -- types matching the argument types.
+
+  gadtParams <- return $ datatypeInstTypes d
+  arg1Params <- fmap varT <$> newNames "xTy" (length gadtParams)
+  arg2Params <- fmap varT <$> newNames "yTy" (length gadtParams)
+  let arg1Ty = foldl appT (conT $ datatypeName d) arg1Params
+  let arg2Ty = foldl appT (conT $ datatypeName d) arg2Params
+  let mkSuperTy tyList = foldl appT (promotedTupleT (length tyList)) tyList
+  let arg1AllParamTy = mkSuperTy arg1Params
+  let arg2AllParamTy = mkSuperTy arg2Params
+
+  [| \(x :: $(arg1Ty)) (y :: $(arg2Ty)) ->
+      isJust ($(structuralTypeEquality tpq pats) x y
+              :: Maybe ($(arg1AllParamTy) :~: $(arg2AllParamTy))
+             )
+   |]
 
 joinEqMaybe :: Name -> Name -> ExpQ -> ExpQ
 joinEqMaybe x y r = do
