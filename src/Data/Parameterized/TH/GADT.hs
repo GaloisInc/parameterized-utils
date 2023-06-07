@@ -182,7 +182,16 @@ structuralEquality tpq pats = do
   arg2Params <- fmap varT <$> newNames "yTy" (length gadtParams)
   let arg1Ty = foldl appT (conT $ datatypeName d) arg1Params
   let arg2Ty = foldl appT (conT $ datatypeName d) arg2Params
+#if MIN_VERSION_base(4,14,0)
   let mkSuperTy tyList = foldl appT (promotedTupleT (length tyList)) tyList
+#else
+  let mkSuperTy tyList =
+         if length tyList < 2
+         then if length tyList == 0
+              then error "Expected at least one type in structuralEquality"
+              else head tyList
+         else foldl appT (promotedTupleT (length tyList)) tyList
+#endif
   let arg1AllParamTy = mkSuperTy arg1Params
   let arg2AllParamTy = mkSuperTy arg2Params
 
