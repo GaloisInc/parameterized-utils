@@ -41,15 +41,16 @@ module Data.Parameterized.TH.GADT
   , assocTypePats
   ) where
 
-import Control.Monad
-import Data.Maybe
-import Data.Set (Set)
+import           Control.Monad
+import           Data.Function ( on )
+import           Data.Maybe
+import           Data.Set (Set)
 import qualified Data.Set as Set
-import Language.Haskell.TH
-import Language.Haskell.TH.Datatype
+import           Language.Haskell.TH
+import           Language.Haskell.TH.Datatype
 
 
-import Data.Parameterized.Classes
+import           Data.Parameterized.Classes
 
 ------------------------------------------------------------------------
 -- Template Haskell utilities
@@ -196,7 +197,7 @@ structuralEquality tpq pats = do
   let arg2AllParamTy = mkSuperTy arg2Params
 
   [| \(x :: $(arg1Ty)) (y :: $(arg2Ty)) ->
-      isJust ($(structuralTypeEquality tpq pats) x y
+      isJust ($(structuralTypeEquality_ True tpq pats) x y
               :: Maybe ($(arg1AllParamTy) :~: $(arg2AllParamTy))
              )
    |]
@@ -244,26 +245,35 @@ matchEqArguments _ _ _ _ _  _  [] = error "Unexpected end of names."
 mkSimpleEqF :: [Type] -- ^ Data declaration types
             -> Set Name
              -> [(TypePat,ExpQ)] -- ^ Patterns for matching arguments
-             -> ConstructorInfo
+             -> ConstructorInfo  -- ^ The constructor we are concerned with
              -> [Name]
              -> ExpQ
-             -> Bool -- ^ wildcard case required
-             -> ExpQ
-mkSimpleEqF dTypes bnd pats con xv yQ multipleCases = do
+             -> [ConstructorInfo] -- ^ All constructors (for determining if wildcard case required)
+            -> Bool -- ^ True if the equality arguments are the same type
+            -> ExpQ
+mkSimpleEqF dTypes bnd pats con xv yQ multipleCases argsSameType = do
   -- Get argument types for constructor.
   let nm = constructorName con
   (yp,yv) <- conPat con "y"
   let rv = matchEqArguments dTypes pats nm bnd (constructorFields con) xv yv
+  let otherMatchingCons =
+        let sameContext = (==) `on` constructorContext
+        in if argsSameType
+           then filter (sameContext con) multipleCases
+           else multipleCases
   caseE yQ $ match (pure yp) (normalB rv) []
-           : [ match wildP (normalB [| Nothing |]) [] | multipleCases ]
+           : [ match wildP (normalB [| Nothing |]) []
+             | 1 < length otherMatchingCons
+             ]
 
 -- | Match equational form.
 mkEqF :: DatatypeInfo -- ^ Data declaration.
       -> [(TypePat,ExpQ)]
-      -> ConstructorInfo
+      -> ConstructorInfo  -- ^ Constructor for which equality is to be determined
       -> [Name]
       -> ExpQ
-      -> Bool -- ^ wildcard case required
+      -> [ConstructorInfo] -- ^ All constructors (for determining if wildcard case required)
+      -> Bool -- ^ True if the equality arguments are the same type
       -> ExpQ
 mkEqF d pats con =
   let dVars = dataParamTypes d  -- the type arguments for the constructor
@@ -279,12 +289,18 @@ mkEqF d pats con =
 --     forall x y . f x -> f y -> Maybe (x :~: y)
 --   @
 structuralTypeEquality :: TypeQ -> [(TypePat,ExpQ)] -> ExpQ
-structuralTypeEquality tpq pats = do
+structuralTypeEquality = structuralTypeEquality_ False
+
+structuralTypeEquality_ :: Bool -> TypeQ -> [(TypePat,ExpQ)] -> ExpQ
+structuralTypeEquality_ argsSameType tpq pats = do
   d <- reifyDatatype =<< asTypeCon "structuralTypeEquality" =<< tpq
 
-  let multipleCons = not (null (drop 1 (datatypeCons d)))
+  let multipleCons = datatypeCons d
       trueEqs yQ = [ do (xp,xv) <- conPat con "x"
-                        match (pure xp) (normalB (mkEqF d pats con xv yQ multipleCons)) []
+                        match (pure xp)
+                          (normalB
+                           (mkEqF d pats con xv yQ multipleCons argsSameType))
+                          []
                    | con <- datatypeCons d
                    ]
 

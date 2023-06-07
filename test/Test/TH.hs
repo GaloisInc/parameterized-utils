@@ -51,6 +51,16 @@ instance Eq (T3 s) where
   (==) = $(structuralEquality [t|T3|] [])
 deriving instance Show (T3 s)
 
+data T4 b (is_a :: Symbol) where
+  T4_Int :: Int -> T4 b "int"
+  T4_Bool :: Bool -> T4 b "bool"
+$(return [])
+instance TestEquality (T4 b) where
+  testEquality = $(structuralTypeEquality [t|T4|] [])
+instance Eq (T4 b s) where
+  (==) = $(structuralEquality [t|T4|] [])
+deriving instance Show (T4 b s)
+
 eqTest :: (TestEquality f, Show (f a), Show (f b)) => f a -> f b -> IO ()
 eqTest a b =
   when (not (isJust (testEquality a b))) $ assertFailure $ show a ++ " /= " ++ show b
@@ -96,6 +106,13 @@ thTests = testGroup "TH" <$> return
       T3_Int 1 `neqTest` T3_Bool True
       T3_Bool False `neqTest` T3_Bool True
       T3_Bool True `eqTest` T3_Bool True
+
+      assertEqual "T4_Int values" (T4_Int @String 5) (T4_Int @String 5)
+      assertNotEqual "T4_Int values" (T4_Int @String 5) (T4_Int @String 54)
+
+      T4_Int @String 1 `eqTest` T4_Int @String 1
+      T4_Int @String 1 `neqTest` T4_Int @String 2
+
 
   , testCase "KnownRepr test" $ do
       -- T1
