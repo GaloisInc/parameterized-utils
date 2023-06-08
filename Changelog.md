@@ -4,9 +4,9 @@
 
 ## 2.1.6.0.100
 
-  * Updates Data.Parameterized.TH.GADT.structuralEquality to add type assertions
-    to cover all type parameters.  This change may require the addition of the
-    @ScopedTypeVariables@ pragma to modules importing this code.
+  * Updates `Data.Parameterized.TH.GADT.structuralEquality` to add type
+    assertions to cover all type parameters.  This change may require the
+    addition of the `ScopedTypeVariables` pragma to modules importing this code.
 
 ## 2.1.6.0 -- *2022 Dec 18*
 
