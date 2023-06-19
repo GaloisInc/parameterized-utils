@@ -257,6 +257,15 @@ mkSimpleEqF dTypes bnd pats con xv yQ multipleCases argsSameType = do
   (yp,yv) <- conPat con "y"
   let rv = matchEqArguments dTypes pats nm bnd (constructorFields con) xv yv
   let otherMatchingCons =
+        -- Determine the other constructors that should be matched relative to
+        -- `con`.  If this is supplying code for `testEquality`, the input
+        -- signature is `f a -> f b -> ...` and will admit different types, so
+        -- all constructors should be checked, but if this is supplying code for
+        -- `Eq` or similar where the input signature is `a -> a -> ...`
+        -- (i.e. `argsSameType` is `True`), then only constructors that have the
+        -- same resulting type should be checked, otherwise GHC will emit
+        -- warnings/errors about "pattern not reached" for the case statement
+        -- being generated here.
         let sameContext = (==) `on` constructorContext
         in if argsSameType
            then filter (sameContext con) multipleCases
