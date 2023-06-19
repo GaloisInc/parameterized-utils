@@ -69,7 +69,7 @@ import Data.Type.Equality as Equality
 import Data.Parameterized.Compose ()
 
 -- We define these type alias here to avoid importing Control.Lens
--- modules, as this apparently causes problems with the safe Hasekll
+-- modules, as this apparently causes problems with the safe Haskell
 -- checking.
 type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
 type Traversal' s a = forall f. Applicative f => (a -> f a) -> s -> f s
