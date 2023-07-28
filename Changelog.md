@@ -1,6 +1,12 @@
 # Changelog for the `parameterized-utils` package
 
-## next -- *TBA*
+## 2.1.7.0 -- *2023 Jul 28*
+
+  * Add support for GHC 9.6.
+  * Allow building with `base-orphans-0.9.*`, `mtl-2.3.*`, and
+    `th-abstraction-0.5.*`.
+  * Mark `Data.Parameterized.ClassesC` as `Trustworthy` to restore the ability
+    to build `parameterized-utils` with versions of `lens` older than `lens-5`.
 
 ## 2.1.6.0 -- *2022 Dec 18*
 
