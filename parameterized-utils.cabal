@@ -1,6 +1,6 @@
 Cabal-version: 2.2
 Name:          parameterized-utils
-Version:       2.1.6.0.99
+Version:       2.1.7.0
 Author:        Galois Inc.
 Maintainer:    kquick@galois.com
 stability:     stable
