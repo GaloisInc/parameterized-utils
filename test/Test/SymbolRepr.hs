@@ -24,10 +24,8 @@ symbolTests :: IO TestTree
 symbolTests = testGroup "Symbol" <$> return
   [
     testCase "SomeSym" $ do
-      let syms = [ SomeSym (Jay "Blue")
-                 , SomeSym Dove
-                 , SomeSym Hawk
-                 ]
-      "Dove" @=? viewSomeSym symbolVal (head (tail syms))
+      "Jay"  @=? viewSomeSym symbolVal (SomeSym (Jay "Blue"))
+      "Dove" @=? viewSomeSym symbolVal (SomeSym Dove)
+      "Hawk" @=? viewSomeSym symbolVal (SomeSym Hawk)
 
   ]
