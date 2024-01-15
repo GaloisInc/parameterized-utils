@@ -1,5 +1,11 @@
 # Changelog for the `parameterized-utils` package
 
+## next -- *TBA*
+
+  * Add support for GHC 9.8.
+  * Allow building with `constraints-0.14.*`, `tasty-1.5.*`, and
+    `th-abstraction-0.6.*`.
+
 ## 2.1.7.0 -- *2023 Jul 28*
 
   * Add support for GHC 9.6.
