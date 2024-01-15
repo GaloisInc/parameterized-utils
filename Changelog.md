@@ -1,6 +1,6 @@
 # Changelog for the `parameterized-utils` package
 
-## next -- *TBA*
+## 2.1.8.0 -- *2023 Jan 15*
 
   * Add support for GHC 9.8.
   * Allow building with `constraints-0.14.*`, `tasty-1.5.*`, and
