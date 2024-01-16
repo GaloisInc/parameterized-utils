@@ -78,6 +78,7 @@ library
     Data.Parameterized.ClassesC
     Data.Parameterized.Compose
     Data.Parameterized.Context
+    Data.Parameterized.Context.Elective
     Data.Parameterized.Context.Safe
     Data.Parameterized.Context.Unsafe
     Data.Parameterized.Ctx
@@ -123,6 +124,7 @@ test-suite parameterizedTests
   main-is: UnitTest.hs
   other-modules:
     Test.Context
+    Test.Context.Elective
     Test.Fin
     Test.FinMap
     Test.List

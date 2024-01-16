@@ -1,5 +1,11 @@
 # Changelog for the `parameterized-utils` package
 
+## next -- *TBA*
+
+  * Add `Data.Parameterized.Context.Elective` module. This provides an
+    `Elective` data type, which offers a generalization of the `Either` type
+    that is indexed by a `Ctx`.
+
 ## 2.1.8.0 -- *2023 Jan 15*
 
   * Add support for GHC 9.8.

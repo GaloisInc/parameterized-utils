@@ -3,6 +3,7 @@ import Test.Tasty.Ingredients
 import Test.Tasty.Runners.AntXML
 
 import qualified Test.Context
+import qualified Test.Context.Elective
 import qualified Test.Fin
 import qualified Test.FinMap
 import qualified Test.List
@@ -25,6 +26,7 @@ ingrs =
 tests :: IO TestTree
 tests = testGroup "ParameterizedUtils" <$> sequence
   [ Test.Context.contextTests
+  , pure Test.Context.Elective.electiveTests
   , pure Test.List.tests
   , Test.Fin.finTests
   , Test.FinMap.finMapTests
