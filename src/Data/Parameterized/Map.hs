@@ -154,7 +154,7 @@ instance Bin.IsBinTree (MapF k a) (Pair k a) where
   size Tip              = 0
   size (Bin sz _ _ _ _) = sz
 
-instance (TestEquality k, EqF a) => Eq (MapF k a) where
+instance (EqF k, EqF a) => Eq (MapF k a) where
   x == y = size x == size y && toList x == toList y
 
 ------------------------------------------------------------------------

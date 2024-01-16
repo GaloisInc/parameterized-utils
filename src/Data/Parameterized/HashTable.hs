@@ -9,7 +9,7 @@
 --
 -- NOTE: This API makes use of 'unsafeCoerce' to implement the parameterized
 -- hashtable abstraction.  This should be type-safe provided that the
--- 'TestEquality' instance on the key type is implemented soundly.
+-- 'EqF' instance on the key type is implemented soundly.
 ------------------------------------------------------------------------
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
@@ -53,7 +53,7 @@ newSized :: Int -> ST s (HashTable s k v)
 newSized n = HashTable <$> H.newSized n
 
 -- | Create a hash table that is a copy of the current one.
-clone :: (HashableF key, TestEquality key)
+clone :: (HashableF key, EqF key)
       => HashTable s key val
       -> ST s (HashTable s key val)
 clone (HashTable tbl) = do
@@ -65,7 +65,7 @@ clone (HashTable tbl) = do
   return $! HashTable r
 
 -- | Lookup value of key in table.
-lookup :: (HashableF key, TestEquality key)
+lookup :: (HashableF key, EqF key)
        => HashTable s key val
        -> key tp
        -> ST s (Maybe (val tp))
@@ -73,7 +73,7 @@ lookup (HashTable h) k = fmap unsafeCoerce <$> H.lookup h (Some k)
 {-# INLINE lookup #-}
 
 -- | Insert new key and value mapping into table.
-insert :: (HashableF key, TestEquality key)
+insert :: (HashableF key, EqF key)
        => HashTable s (key :: k -> Type) (val :: k -> Type)
        -> key tp
        -> val tp
@@ -81,19 +81,19 @@ insert :: (HashableF key, TestEquality key)
 insert (HashTable h) k v = H.insert h (Some k) (unsafeCoerce v)
 
 -- | Return true if the key is in the hash table.
-member :: (HashableF key, TestEquality key)
+member :: (HashableF key, EqF key)
        => HashTable s (key :: k -> Type) (val :: k -> Type)
        -> key (tp :: k)
        -> ST s Bool
 member (HashTable h) k = isJust <$> H.lookup h (Some k)
 
 -- | Delete an element from the hash table.
-delete :: (HashableF key, TestEquality key)
+delete :: (HashableF key, EqF key)
        => HashTable s (key :: k -> Type) (val :: k -> Type)
        -> key (tp :: k)
        -> ST s ()
 delete (HashTable h) k = H.delete h (Some k)
 
-clear :: (HashableF key, TestEquality key)
+clear :: (HashableF key, EqF key)
       => HashTable s (key :: k -> Type) (val :: k -> Type) -> ST s ()
 clear (HashTable h) = H.mapM_ (\(k,_) -> H.delete h k) h
