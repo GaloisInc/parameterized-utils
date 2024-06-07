@@ -6,7 +6,7 @@ Maintainer  : Langston Barrett <langston@galois.com>
 The \"brand\" type parameter of 'Nonce.NonceGenerator' and 'Nonce.Nonce' has
 kind 'Type', making it easy to confuse with other type variables of the same
 kind. This module introduces a @newtype@ wrapper for the types and functions
-in "Data.Parameterized.Nonce" with a dedicated kind for brands ('NonceBrand').
+in "Data.Parameterized.Nonce" with a dedicated kind for brands ('NonceBrandKind').
 Using this module turns some classes of incorrect type signatures into type
 (kind) errors, helping to find issues earlier in the development process.
 
@@ -26,7 +26,7 @@ scheme.
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.Parameterized.Nonce.Strong
-  ( NonceBrand
+  ( NonceBrandKind
   , NonceGenerator
   , Nonce
   , indexValue
@@ -34,6 +34,7 @@ module Data.Parameterized.Nonce.Strong
   , countNoncesGenerated
     -- * Accessing a nonce generator
   , newSTNonceGenerator
+  , runSTNonceGenerator
   , newIONonceGenerator
   , withIONonceGenerator
   , withSTNonceGenerator
@@ -57,21 +58,23 @@ import           Data.Parameterized.Some (Some(Some))
 --
 -- Such variables function similarly to that of the 'ST' monad, see
 -- "Data.Parameterized.Nonce" for more information.
-newtype NonceBrand = NonceBrand Type
+newtype NonceBrandKind = NonceBrand Type
+
+type NonceBrand = 'NonceBrand
 
 -- | See 'Nonce.GlobalNonceGenerator'.
 type GlobalNonceGenerator = 'NonceBrand Nonce.GlobalNonceGenerator
 
 -- | Not exported
-type family Unwrap (nk :: NonceBrand) :: Type where
+type family Unwrap (nk :: NonceBrandKind) :: Type where
   Unwrap ('NonceBrand s) = s
 
 -- | See 'Nonce.NonceGenerator'.
-newtype NonceGenerator (m :: Type -> Type) (s :: NonceBrand)
+newtype NonceGenerator (m :: Type -> Type) (s :: NonceBrandKind)
   = NonceGenerator { getNonceGenerator :: Nonce.NonceGenerator m (Unwrap s) }
 
 -- | See 'Nonce.Nonce'.
-newtype Nonce (s :: NonceBrand) (tp :: k)
+newtype Nonce (s :: NonceBrandKind) (tp :: k)
   = Nonce { getNonce :: Nonce.Nonce (Unwrap s) tp }
   deriving (Eq, Ord, Hashable, HashableF, OrdF, Show, TestEquality)
 
@@ -98,15 +101,20 @@ countNoncesGenerated = Nonce.countNoncesGenerated . getNonceGenerator
 newSTNonceGenerator :: ST t (Some (NonceGenerator (ST t)))
 newSTNonceGenerator = do
   Some (ng :: Nonce.NonceGenerator (ST t) s) <- Nonce.newSTNonceGenerator
-  let ng' :: NonceGenerator (ST t) ('NonceBrand s)
+  let ng' :: NonceGenerator (ST t) (NonceBrand s)
       ng' = NonceGenerator ng
   pure (Some ng')
+
+-- | See 'Nonce.runSTNonceGenerator'
+runSTNonceGenerator :: (forall s . NonceGenerator (ST s) (NonceBrand s) -> ST s a)
+                    -> a
+runSTNonceGenerator f = Nonce.runSTNonceGenerator (coerce f)
 
 -- | See 'Nonce.newIONonceGenerator'.
 newIONonceGenerator :: IO (Some (NonceGenerator IO))
 newIONonceGenerator = do
   Some (ng :: Nonce.NonceGenerator IO s) <- Nonce.newIONonceGenerator
-  let ng' :: NonceGenerator IO ('NonceBrand s)
+  let ng' :: NonceGenerator IO (NonceBrand s)
       ng' = NonceGenerator ng
   pure (Some ng')
 
@@ -131,7 +139,7 @@ globalNonceGenerator = NonceGenerator Nonce.globalNonceGenerator
 
 -- | See 'Nonce.withGlobalSTNonceGenerator'.
 withGlobalSTNonceGenerator ::
-  (forall (t :: Type) (s :: NonceBrand). NonceGenerator (ST t) s -> ST t r) ->
+  (forall (t :: Type). NonceGenerator (ST t) (NonceBrand t) -> ST t r) ->
   r
 withGlobalSTNonceGenerator f =
   Nonce.withGlobalSTNonceGenerator (coerce f)
