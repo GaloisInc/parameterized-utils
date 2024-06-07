@@ -9,10 +9,6 @@ kind. This module introduces a @newtype@ wrapper for the types and functions
 in "Data.Parameterized.Nonce" with a dedicated kind for brands ('NonceBrandKind').
 Using this module turns some classes of incorrect type signatures into type
 (kind) errors, helping to find issues earlier in the development process.
-
-The primary downside is that we cannot offer an analog to
-'Nonce.runSTNonceGenerator', the type of which would be ill-kinded under this
-scheme.
 -}
 
 {-# LANGUAGE DataKinds #-}
