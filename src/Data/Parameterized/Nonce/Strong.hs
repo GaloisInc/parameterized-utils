@@ -23,6 +23,7 @@ Using this module turns some classes of incorrect type signatures into type
 
 module Data.Parameterized.Nonce.Strong
   ( NonceBrandKind
+  , NonceBrand
   , NonceGenerator
   , Nonce
   , indexValue
