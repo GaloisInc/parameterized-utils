@@ -52,7 +52,7 @@ library
   import: bldflags
   build-depends: base >= 4.10 && < 5
                , base-orphans   >=0.8.2 && <0.10
-               , th-abstraction >=0.4.2 && <0.7
+               , th-abstraction >=0.4.2 && <0.8
                , constraints    >=0.10 && <0.15
                , containers
                , deepseq
