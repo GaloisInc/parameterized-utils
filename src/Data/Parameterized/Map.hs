@@ -86,7 +86,7 @@ import           Control.Lens (Traversal', Lens')
 import           Control.Monad.Identity (Identity(..))
 import           Control.Monad (foldM)
 import           Data.Kind (Type)
-import           Data.List (intercalate, foldl')
+import qualified Data.List as List
 import           Data.Monoid
 import           Prelude hiding (filter, lookup, map, traverse, null)
 
@@ -370,7 +370,7 @@ showMap :: (forall tp . ktp tp -> String)
         -> (forall tp . rtp tp -> String)
         -> MapF ktp rtp
         -> String
-showMap ppk ppv m = "{ " ++ intercalate ", " l ++ " }"
+showMap ppk ppv m = "{ " ++ List.intercalate ", " l ++ " }"
   where l = foldrWithKey (\k a l0 -> (ppk k ++ " -> " ++ ppv a) : l0) [] m
 
 ------------------------------------------------------------------------
@@ -522,7 +522,7 @@ updateAtKey k onNotFound onFound t = ins <$> atKey' k onNotFound onFound t
 
 -- | Create a Map from a list of pairs.
 fromList :: OrdF k => [Pair k a] -> MapF k a
-fromList = foldl' (\m (Pair k a) -> insert k a m) Data.Parameterized.Map.empty
+fromList = List.foldl' (\m (Pair k a) -> insert k a m) Data.Parameterized.Map.empty
 
 -- | Return list of key-values pairs in map in ascending order.
 toAscList :: MapF k a -> [Pair k a]
