@@ -1,6 +1,6 @@
 # Changelog for the `parameterized-utils` package
 
-## next -- *TBA*
+## 2.1.9.0 -- *2024 Sep 19*
 
   * Add support for GHC 9.10.
 
