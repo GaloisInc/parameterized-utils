@@ -63,7 +63,7 @@ instance ShowF f => Show (All f) where
   show (All fa) = showF fa
 
 instance EqF f => Eq (All f) where
-  (All x) == (All y) = eqF x y
+  All x == All y = isJust (x `eqF` y)
 
 allConst :: a -> All (Const a)
 allConst a = All (Const a)

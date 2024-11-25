@@ -233,6 +233,9 @@ instance TestEquality PeanoRepr where
 
 #endif
 
+instance EqF PeanoRepr where
+  eqF = testEquality
+
 instance DecidableEq PeanoRepr where
 #ifdef UNSAFE_OPS
   decEq (PeanoRepr m) (PeanoRepr n)

@@ -252,6 +252,9 @@ instance TestEquality (Index ctx) where
     | i == j = Just unsafeAxiom
     | otherwise = Nothing
 
+instance EqF (Index ctx) where
+  eqF = testEquality
+
 instance Ord (Index ctx tp) where
   Index i `compare` Index j = compare i j
 
@@ -833,8 +836,11 @@ instance TestEqualityFC Assignment where
 instance TestEquality f => TestEquality (Assignment f) where
   testEquality = testEqualityFC testEquality
 
-instance TestEquality f => Eq (Assignment f ctx) where
-  x == y = isJust (testEquality x y)
+instance EqF f => Eq (Assignment f ctx) where
+  x == y = isJust (eqF x y)
+
+instance EqF f => EqF (Assignment f) where
+  eqF = testEqualityFC eqF
 
 instance OrdFC Assignment where
   compareFC test (Assignment x) (Assignment y) =

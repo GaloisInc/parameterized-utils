@@ -79,6 +79,9 @@ instance TestEquality BoolRepr where
   testEquality FalseRepr FalseRepr = Just Refl
   testEquality _ _ = Nothing
 
+instance EqF BoolRepr where
+  eqF = testEquality
+
 instance DecidableEq BoolRepr where
   decEq TrueRepr  TrueRepr  = Left Refl
   decEq FalseRepr FalseRepr = Left Refl
