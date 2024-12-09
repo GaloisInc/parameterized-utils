@@ -58,7 +58,7 @@ library
                , deepseq
                , ghc-prim
                , hashable       >=1.2  && <1.6
-               , hashtables     >=1.2  && <1.4
+               , hashtables     >=1.2  && <1.5
                , indexed-traversable
                , lens           >=4.16 && <5.4
                , mtl
