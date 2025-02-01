@@ -55,6 +55,12 @@ class FunctorFC (t :: (k -> Type) -> l -> Type) where
   fmapFC :: forall f g. (forall x. f x -> g x) ->
                         (forall x. t f x -> t g x)
 
+instance FunctorFC Alt where
+  fmapFC f (Alt a) = Alt (f a)
+
+instance FunctorFC Ap where
+  fmapFC f (Ap a) = Ap (f a)
+
 instance FunctorFC TypeAp where
   fmapFC f (TypeAp a) = TypeAp (f a)
 
@@ -164,6 +170,12 @@ anyFC p = getAny #. foldMapFC (Any #. p)
 lengthFC :: FoldableFC t => t f x -> Int
 lengthFC = foldrFC (const (+1)) 0
 
+instance FoldableFC Alt where
+  foldMapFC toMonoid (Alt x) = toMonoid x
+
+instance FoldableFC Ap where
+  foldMapFC toMonoid (Ap x) = toMonoid x
+
 instance FoldableFC TypeAp where
   foldMapFC toMonoid (TypeAp x) = toMonoid x
 
@@ -212,6 +224,12 @@ forFC ::
   t f x -> (forall y. f y -> m (g y)) -> m (t g x)
 forFC v f = traverseFC f v
 {-# INLINE forFC #-}
+
+instance TraversableFC Alt where
+  traverseFC f (Alt x) = Alt <$> f x
+
+instance TraversableFC Ap where
+  traverseFC f (Ap x) = Ap <$> f x
 
 instance TraversableFC TypeAp where
   traverseFC f (TypeAp x) = TypeAp <$> f x
