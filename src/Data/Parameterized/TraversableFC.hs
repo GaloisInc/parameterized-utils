@@ -55,6 +55,9 @@ class FunctorFC (t :: (k -> Type) -> l -> Type) where
   fmapFC :: forall f g. (forall x. f x -> g x) ->
                         (forall x. t f x -> t g x)
 
+instance FunctorFC TypeAp where
+  fmapFC f (TypeAp a) = TypeAp (f a)
+
 -- | A parameterized class for types which can be shown, when given
 --   functions to show parameterized subterms.
 class ShowFC (t :: (k -> Type) -> l -> Type) where
@@ -161,6 +164,9 @@ anyFC p = getAny #. foldMapFC (Any #. p)
 lengthFC :: FoldableFC t => t f x -> Int
 lengthFC = foldrFC (const (+1)) 0
 
+instance FoldableFC TypeAp where
+  foldMapFC toMonoid (TypeAp x) = toMonoid x
+
 ------------------------------------------------------------------------
 -- TraversableF
 
@@ -206,3 +212,6 @@ forFC ::
   t f x -> (forall y. f y -> m (g y)) -> m (t g x)
 forFC v f = traverseFC f v
 {-# INLINE forFC #-}
+
+instance TraversableFC TypeAp where
+  traverseFC f (TypeAp x) = TypeAp <$> f x
