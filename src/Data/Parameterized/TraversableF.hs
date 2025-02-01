@@ -37,6 +37,7 @@ import Data.Coerce
 import Data.Functor.Compose (Compose(..))
 import Data.Kind
 import Data.Monoid
+import Data.Proxy (Proxy(Proxy))
 import GHC.Exts (build)
 
 import Data.Parameterized.TraversableFC
@@ -47,6 +48,10 @@ class FunctorF m where
 
 instance FunctorF (Const x) where
   fmapF _ = coerce
+
+instance FunctorF Proxy where
+  fmapF _ = coerce
+  {-# INLINE fmapF #-}
 
 ------------------------------------------------------------------------
 -- FoldableF
@@ -125,6 +130,10 @@ lengthF = foldrF (const (+1)) 0
 instance FoldableF (Const x) where
   foldMapF _ _ = mempty
 
+instance FoldableF Proxy where
+  foldMapF _ _ = mempty
+  {-# INLINE foldMapF #-}
+
 ------------------------------------------------------------------------
 -- TraversableF
 
@@ -136,6 +145,10 @@ class (FunctorF t, FoldableF t) => TraversableF t where
 
 instance TraversableF (Const x) where
   traverseF _ (Const x) = pure (Const x)
+
+instance TraversableF Proxy where
+  traverseF _ _ = pure Proxy
+  {-# INLINE traverseF #-}
 
 -- | Flipped 'traverseF'
 forF :: (TraversableF t, Applicative m) => t e -> (forall s . e s -> m (f s)) -> m (t f)
