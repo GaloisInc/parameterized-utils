@@ -1,5 +1,14 @@
 # Changelog for the `parameterized-utils` package
 
+## next
+
+  * New instances for types from `base`:
+
+    - `{Functor,Foldable,Traversable}F` instances for `Product`, `Proxy`, `Sum`
+    - `{Functor,Foldable,Traversable}FC` instances for `Alt`, `Ap`
+
+  * `{Functor,Foldable,Traversable}FC` instances for `TypeAp`
+
 ## 2.1.9.0 -- *2024 Sep 19*
 
   * Add support for GHC 9.10.

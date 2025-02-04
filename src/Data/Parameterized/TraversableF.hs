@@ -35,8 +35,11 @@ import Control.Applicative
 import Control.Monad.Identity
 import Data.Coerce
 import Data.Functor.Compose (Compose(..))
+import Data.Functor.Product (Product(Pair))
+import Data.Functor.Sum (Sum(InL, InR))
 import Data.Kind
-import Data.Monoid
+import Data.Monoid hiding (Product, Sum)
+import Data.Proxy (Proxy(Proxy))
 import GHC.Exts (build)
 
 import Data.Parameterized.TraversableFC
@@ -47,6 +50,17 @@ class FunctorF m where
 
 instance FunctorF (Const x) where
   fmapF _ = coerce
+
+instance (FunctorF f, FunctorF g) => FunctorF (Product f g) where
+  fmapF f (Pair x y) = Pair (fmapF f x) (fmapF f y)
+
+instance FunctorF Proxy where
+  fmapF _ = coerce
+  {-# INLINE fmapF #-}
+
+instance (FunctorF f, FunctorF g) => FunctorF (Sum f g) where
+  fmapF f (InL x) = InL (fmapF f x)
+  fmapF f (InR x) = InR (fmapF f x)
 
 ------------------------------------------------------------------------
 -- FoldableF
@@ -125,6 +139,17 @@ lengthF = foldrF (const (+1)) 0
 instance FoldableF (Const x) where
   foldMapF _ _ = mempty
 
+instance (FoldableF f, FoldableF g) => FoldableF (Product f g) where
+  foldMapF f (Pair x y) = foldMapF f x <> foldMapF f y
+
+instance FoldableF Proxy where
+  foldMapF _ _ = mempty
+  {-# INLINE foldMapF #-}
+
+instance (FoldableF f, FoldableF g) => FoldableF (Sum f g) where
+  foldMapF f (InL x) = foldMapF f x
+  foldMapF f (InR y) = foldMapF f y
+
 ------------------------------------------------------------------------
 -- TraversableF
 
@@ -136,6 +161,17 @@ class (FunctorF t, FoldableF t) => TraversableF t where
 
 instance TraversableF (Const x) where
   traverseF _ (Const x) = pure (Const x)
+
+instance (TraversableF f, TraversableF g) => TraversableF (Product f g) where
+  traverseF f (Pair x y) = Pair <$> traverseF f x <*> traverseF f y
+
+instance TraversableF Proxy where
+  traverseF _ _ = pure Proxy
+  {-# INLINE traverseF #-}
+
+instance (TraversableF f, TraversableF g) => TraversableF (Sum f g) where
+  traverseF f (InL x) = InL <$> traverseF f x
+  traverseF f (InR y) = InR <$> traverseF f y
 
 -- | Flipped 'traverseF'
 forF :: (TraversableF t, Applicative m) => t e -> (forall s . e s -> m (f s)) -> m (t f)
