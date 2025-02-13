@@ -20,6 +20,9 @@ Note that there is still some ambiguity around naming conventions, see
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeOperators #-}
 
+-- See https://github.com/GaloisInc/parameterized-utils/issues/149
+{-# OPTIONS_GHC -Wno-trustworthy-safe #-}
+
 module Data.Parameterized.ClassesC
   ( TestEqualityC(..)
   , OrdC(..)
