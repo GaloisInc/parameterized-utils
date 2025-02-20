@@ -45,6 +45,14 @@ instance ( TestEquality f, TestEquality g ) => TestEquality (PairRepr f g) where
       , ( TH.DataArg 1 `TH.TypeApp` TH.AnyType, [|testEquality|] )
       ])
 
+instance ( EqF f, EqF g) => EqF (PairRepr f g) where
+  eqF =
+    $(TH.structuralTypeEquality [t|PairRepr|]
+      [
+        ( TH.DataArg 0 `TH.TypeApp` TH.AnyType, [|eqF|] )
+      , ( TH.DataArg 1 `TH.TypeApp` TH.AnyType, [|eqF|] )
+      ])
+
 deriving instance ( Ord (f a), Ord (g b) ) => Ord (PairRepr f g '(a, b))
 instance ( OrdF f, OrdF g ) => OrdF (PairRepr f g) where
   compareF =

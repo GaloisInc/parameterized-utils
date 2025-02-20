@@ -168,7 +168,7 @@ toVector a f = V.create $ do
 --   `prefix` as a prefix, and computing the tail of xs
 --   not in the prefix, if so.
 dropPrefix :: forall f xs prefix a.
-  TestEquality f =>
+  EqF f =>
   Assignment f xs     {- ^ Assignment to split -} ->
   Assignment f prefix {- ^ Expected prefix -} ->
   a {- ^ error continuation -} ->
@@ -189,7 +189,7 @@ dropPrefix xs0 prefix err = go xs0 (sizeInt (size xs0))
     go xs' (sz_x-1) (\zs -> success (zs :> z))
 
   go xs _ success =
-    case testEquality xs prefix of
+    case eqF xs prefix of
       Just Refl -> success Empty
       Nothing   -> err
 

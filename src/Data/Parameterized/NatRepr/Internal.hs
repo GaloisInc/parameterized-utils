@@ -53,6 +53,9 @@ instance TestEquality NatRepr where
     | m == n = Just unsafeAxiom
     | otherwise = Nothing
 
+instance EqF NatRepr where
+  eqF = testEquality
+
 instance DecidableEq NatRepr where
   decEq (NatRepr m) (NatRepr n)
     | m == n    = Left unsafeAxiom

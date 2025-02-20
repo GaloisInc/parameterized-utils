@@ -25,7 +25,7 @@ not restricted to '*'.
 {-# LANGUAGE TypeOperators #-}
 module Data.Parameterized.Classes
   ( -- * Equality exports
-    Equality.TestEquality(..)
+    TestEquality(..)
   , (Equality.:~:)(..)
   , EqF(..)
   , PolyEq(..)
@@ -90,27 +90,23 @@ instance CoercibleF (Const x) where
 ------------------------------------------------------------------------
 -- EqF
 
--- | @EqF@ provides a method @eqF@ for testing whether two parameterized
--- types are equal.
---
--- Unlike 'TestEquality', this only works when the type arguments are
--- the same, and does not provide a proof that the types have the same
--- type when they are equal. Thus this can be implemented over
--- parameterized types that are unable to provide evidence that their
--- type arguments are equal.
+-- | @EqF@ allows you to test for type- and value-level equality over a
+-- parameterized type. It is like @TestEquality@, but unlike that class, @EqF@
+-- returns `Nothing` when the type indices are equal but the values are not.
+-- This makes it appropriate to implement on non-singleton types.
 class EqF (f :: k -> Type) where
-  eqF :: f a -> f a -> Bool
+  eqF :: f a -> f b -> Maybe (a :~: b)
 
-instance Eq a => EqF (Const a) where
-  eqF (Const x) (Const y) = x == y
-
-instance EqF Proxy where
-  eqF _ _ = True
+instance (EqF f) => EqF (Compose f g) where
+  eqF (Compose x) (Compose y) =
+    case eqF x y of -- :: Maybe (g x :~: g y)
+      Just Refl -> Just Refl -- :: Maybe (x :~: y)
+      Nothing   -> Nothing
 
 ------------------------------------------------------------------------
 -- PolyEq
 
--- | A polymorphic equality operator that generalizes 'TestEquality'.
+-- | A polymorphic equality operator that generalizes 'EqF'.
 class PolyEq u v where
   polyEqF :: u -> v -> Maybe (u :~: v)
 
@@ -165,30 +161,30 @@ joinOrderingF GTF _ = GTF
 --
 -- [__Transitivity__]: if @leqF x y && leqF y z@ = 'True', then @leqF x = z@ = @True@
 -- [__Reflexivity__]: @leqF x x@ = @True@
--- [__Antisymmetry__]: if @leqF x y && leqF y x@ = 'True', then @testEquality x y@ = @Just Refl@
+-- [__Antisymmetry__]: if @leqF x y && leqF y x@ = 'True', then @eqF x y@ = @Just Refl@
 --
 -- Note that the following operator interactions are expected to hold:
 --
 -- * @geqF x y@ iff @leqF y x@
--- * @ltF  x y@ iff @leqF x y && testEquality x y = Nothing@
+-- * @ltF  x y@ iff @leqF x y && eqF x y = Nothing@
 -- * @gtF  x y@ iff @ltF y x@
 -- * @ltF  x y@ iff @compareF x y == LTF@
 -- * @gtF  x y@ iff @compareF x y == GTF@
--- * @isJust (testEquality x y)@ iff @compareF x y == EQF@
+-- * @isJust (eqF x y)@ iff @compareF x y == EQF@
 --
 -- Furthermore, when @x@ and @y@ both have type @(k tp)@, we expect:
 --
 -- * @toOrdering (compareF x y)@ equals @compare x y@ when @Ord (k tp)@ has an instance.
--- * @isJust (testEquality x y)@ equals @x == y@ when @Eq (k tp)@ has an instance.
+-- * @isJust (eqF x y)@ equals @x == y@ when @Eq (k tp)@ has an instance.
 --
 -- Minimal complete definition: either 'compareF' or 'leqF'.
 -- Using 'compareF' can be more efficient for complex types.
-class TestEquality ktp => OrdF (ktp :: k -> Type) where
+class EqF ktp => OrdF (ktp :: k -> Type) where
   {-# MINIMAL compareF | leqF #-}
 
   compareF :: ktp x -> ktp y -> OrderingF x y
   compareF x y =
-    case testEquality x y of
+    case eqF x y of
       Just Refl -> EQF
       Nothing | leqF x y -> LTF
               | otherwise -> GTF
@@ -342,8 +338,8 @@ instance Hashable a => HashableF (Const a) where
 -- our own new type to avoid orphan instances.
 newtype TypeAp (f :: k -> Type) (tp :: k) = TypeAp (f tp)
 
-instance TestEquality f => Eq (TypeAp f tp) where
-  TypeAp x == TypeAp y = isJust $ testEquality x y
+instance EqF f => Eq (TypeAp f tp) where
+  TypeAp x == TypeAp y = isJust $ eqF x y
 
 instance OrdF f => Ord (TypeAp f tp) where
   compare (TypeAp x) (TypeAp y) = toOrdering (compareF x y)
