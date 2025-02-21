@@ -74,6 +74,9 @@ instance Hashable (BoolRepr n) where
 instance Eq (BoolRepr m) where
   _ == _ = True
 
+instance EqF BoolRepr where
+  eqF _ _ = True
+
 instance TestEquality BoolRepr where
   testEquality TrueRepr TrueRepr   = Just Refl
   testEquality FalseRepr FalseRepr = Just Refl

@@ -9,6 +9,9 @@
 
   * `{Functor,Foldable,Traversable}FC` instances for `TypeAp`
 
+  * `EqF` instances for `Assignment`, `BoolRepr`, `Index`, `List`, `NatRepr`,
+    `Nonce`, `PairRepr`, `PeanoRepr`, and `SymbolRepr`
+
 ## 2.1.9.0 -- *2024 Sep 19*
 
   * Add support for GHC 9.10.

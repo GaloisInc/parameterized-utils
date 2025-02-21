@@ -48,6 +48,9 @@ type role NatRepr nominal
 instance Eq (NatRepr m) where
   _ == _ = True
 
+instance EqF NatRepr where
+  eqF _ _ = True
+
 instance TestEquality NatRepr where
   testEquality (NatRepr m) (NatRepr n)
     | m == n = Just unsafeAxiom
