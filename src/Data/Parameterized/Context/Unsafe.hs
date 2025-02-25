@@ -247,6 +247,9 @@ type role Index nominal nominal
 instance Eq (Index ctx tp) where
   Index i == Index j = i == j
 
+instance EqF (Index ctx) where
+  eqF (Index i) (Index j) = i == j
+
 instance TestEquality (Index ctx) where
   testEquality (Index i) (Index j)
     | i == j = Just unsafeAxiom
@@ -829,6 +832,14 @@ instance TestEqualityFC Assignment where
    testEqualityFC test (Assignment x) (Assignment y) = do
      Refl <- testEqualityFC test x y
      return Refl
+
+instance EqF f => EqF (Assignment f) where
+  eqF x y =
+    case (viewAssign x, viewAssign y) of
+      (AssignEmpty, AssignEmpty) ->
+        True
+      (AssignExtend ctx1 x1, AssignExtend ctx2 x2) ->
+        eqF ctx1 ctx2 && eqF x1 x2
 
 instance TestEquality f => TestEquality (Assignment f) where
   testEquality = testEqualityFC testEquality

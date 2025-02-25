@@ -219,6 +219,9 @@ instance Hashable (PeanoRepr n) where
 instance Eq (PeanoRepr m) where
   _ == _ = True
 
+instance EqF PeanoRepr where
+  eqF _ _ = True
+
 instance TestEquality PeanoRepr where
 #ifdef UNSAFE_OPS
   testEquality (PeanoRepr m) (PeanoRepr n)

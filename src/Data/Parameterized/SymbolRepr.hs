@@ -95,6 +95,8 @@ instance OrdF SymbolRepr where
 -- symbol
 instance Eq (SymbolRepr x) where
    _ == _ = True
+instance EqF SymbolRepr where
+   eqF _ _ = True
 instance Ord (SymbolRepr x) where
    compare _ _ = EQ
 

@@ -214,6 +214,12 @@ instance TestEquality f => TestEquality (List f) where
     pure Refl
   testEquality _ _ = Nothing
 
+instance EqF f => EqF (List f) where
+  eqF Nil Nil =
+    True
+  eqF (xh :< xl) (yh :< yl) =
+    eqF xh yh && eqF xl yl
+
 instance OrdF f => OrdF (List f) where
   compareF Nil Nil = EQF
   compareF Nil _ = LTF

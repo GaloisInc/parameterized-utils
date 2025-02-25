@@ -282,6 +282,9 @@ indexVal (IndexThere idx) = indexVal idx
 instance Eq (Index ctx tp) where
   idx1 == idx2 = isJust (testEquality idx1 idx2)
 
+instance EqF (Index ctx) where
+  eqF idx1 idx2 = isJust (testEquality idx1 idx2)
+
 instance TestEquality (Index ctx) where
   testEquality (IndexHere _) (IndexHere _) = Just Refl
   testEquality (IndexHere _) (IndexThere _) = Nothing
@@ -546,6 +549,11 @@ a !^ i = a ! extendIndex i
 
 instance TestEquality f => Eq (Assignment f ctx) where
   x == y = isJust (testEquality x y)
+
+instance EqF f => EqF (Assignment f) where
+  eqF AssignmentEmpty AssignmentEmpty = True
+  eqF (AssignmentExtend ctx1 x1) (AssignmentExtend ctx2 x2) =
+    eqF ctx1 ctx2 && eqF x1 x2
 
 testEq :: (forall x y. f x -> f y -> Maybe (x :~: y))
        -> Assignment f cxt1 -> Assignment f cxt2 -> Maybe (cxt1 :~: cxt2)

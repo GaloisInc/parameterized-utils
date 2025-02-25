@@ -37,6 +37,9 @@ instance ( ShowF f, ShowF g ) => Show (PairRepr f g p) where
 instance ( ShowF f, ShowF g ) => ShowF (PairRepr f g)
 
 deriving instance ( Eq (f a), Eq (g b) ) => Eq (PairRepr f g '(a, b))
+instance ( EqF f, EqF g ) => EqF (PairRepr f g) where
+  eqF (PairRepr a1 b1) (PairRepr a2 b2) =
+    eqF a1 a2 && eqF b1 b2
 instance ( TestEquality f, TestEquality g ) => TestEquality (PairRepr f g) where
   testEquality =
     $(TH.structuralTypeEquality [t|PairRepr|]

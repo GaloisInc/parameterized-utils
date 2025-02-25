@@ -64,6 +64,9 @@ newtype Nonce (tp :: k) = Nonce { indexValue :: Word64 }
 --  the nonce abstraction.
 type role Nonce nominal
 
+instance EqF Nonce where
+  eqF x y = isJust (testEquality x y)
+
 instance TestEquality Nonce where
   testEquality x y | indexValue x == indexValue y = Just unsafeAxiom
                    | otherwise = Nothing
