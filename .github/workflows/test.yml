@@ -78,7 +78,8 @@ jobs:
         run: cabal check
       - name: Configure
         shell: bash
-        run: cabal configure --enable-tests
+        # See doc/dev.md for development practices around warnings.
+        run: cabal configure --enable-tests --ghc-options='-Werror=compat -Werror=default'
       - name: Build
         shell: bash
         run: cabal build
