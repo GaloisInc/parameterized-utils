@@ -19,4 +19,9 @@ To prevent warnings from slipping in unnoticed and thus unexamined, we enable `-
 
 We also enable `-Werror=compat` in order to gradually prepare for breaking changes in GHC.
 
+To reproduce the behavior of the CI build locally, developers can run
+```sh
+cabal configure --enable-tests --ghc-options='-Werror=compat -Werror=default'
+```
+
 [^wdefault]: Unfortunately, this is not strictly true. `-Wdefault` includes (for example) `-Wtabs`, which is about code style, and `-Winaccessible-code`, which is about dead code. However, the majority of the warnings in `-Wdefault` do indeed affect correctness, and hence should generally be fixed.
