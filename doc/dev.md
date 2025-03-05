@@ -1,5 +1,27 @@
 # Developer documentation
 
+## GHC versions
+
+We support at least three versions of GHC at a time.
+Older versions may be dropped from CI.
+We try to support new versions as soon as they are supported by all of libraries that we depend on.
+
+### Adding a new version
+
+The following checklist enumerates the steps needed to support a new version of GHC.
+When performing such an upgrade, it can be helpful to copy/paste this list into the MR description and check off what has been done, so as to not forget anything.
+
+- [ ] Allow the new version of `base` in the Cabal `build-depends`
+- [ ] Fix any new warnings from `-Wdefault`
+- [ ] Add the new GHC version to the matrix in the Github Actions configuration
+- [ ] Add the new GHC version to the Cabal `tested-with` field
+- [ ] Optionally follow the below steps to remove any old GHC versions
+
+### Removing an old version
+
+- [ ] Remove the old version from the matrix in the Github Actions configuration
+- [ ] Remove the old version from the Cabal `tested-with` field
+
 ## Warnings
 
 `parameterized-utils` is a research-grade codebase.
