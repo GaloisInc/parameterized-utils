@@ -13,13 +13,13 @@ When performing such an upgrade, it can be helpful to copy/paste this list into 
 
 - [ ] Allow the new version of `base` in the Cabal `build-depends`
 - [ ] Fix any new warnings from `-Wdefault`
-- [ ] Add the new GHC version to the matrix in the Github Actions configuration
+- [ ] Add the new GHC version to the matrix in the GitHub Actions configuration
 - [ ] Add the new GHC version to the Cabal `tested-with` field
 - [ ] Optionally follow the below steps to remove any old GHC versions
 
 ### Removing an old version
 
-- [ ] Remove the old version from the matrix in the Github Actions configuration
+- [ ] Remove the old version from the matrix in the GitHub Actions configuration
 - [ ] Remove the old version from the Cabal `tested-with` field
 
 ## Warnings
