@@ -1,5 +1,31 @@
 # Developer documentation
 
+## GHC versions
+
+We support at least three versions of GHC at a time.
+We are not aggressive about dropping older versions, but will generally do so for versions outside of the support window if maintaining that support would require efforts such as significant numbers of C pre-processor `ifdef` sections or Cabal `if` sections.
+We try to support new versions as soon as they are supported by the libraries that we depend on.
+
+### Adding a new version
+
+The following checklist enumerates the steps needed to support a new version of GHC.
+When performing such an upgrade, it can be helpful to copy/paste this list into the MR description and check off what has been done, so as to not forget anything.
+
+- [ ] Allow the new version of `base` in the Cabal `build-depends`
+- [ ] Run `cabal {build,test,haddock}`, bumping dependency bounds as needed
+- [ ] Fix any new warnings from `-Wdefault`
+- [ ] Add the new GHC version to the matrix in the GitHub Actions configuration
+- [ ] Add the new version to the code that sets `GHC_NIXPKGS` in the CI config
+- [ ] Add the new GHC version to the Cabal `tested-with` field
+- [ ] Optionally follow the below steps to remove any old GHC versions
+
+### Removing an old version
+
+- [ ] Remove the old version from the matrix in the GitHub Actions configuration
+- [ ] Remove the old version from the Cabal `tested-with` field
+- [ ] Remove outdated CPP `ifdef`s that refer to the dropped version
+- [ ] Remove outdated `if` stanzas in the Cabal file
+
 ## Warnings
 
 `parameterized-utils` is a research-grade codebase.
