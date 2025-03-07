@@ -3,7 +3,7 @@
 ## GHC versions
 
 We support at least three versions of GHC at a time.
-We are not aggressive about dropping older versions, but will generally do so for versions outside of the support window if maintaining that support would require efforts such as C pre-processor `ifdef` sections or Cabal `if` sections.
+We are not aggressive about dropping older versions, but will generally do so for versions outside of the support window if maintaining that support would require efforts such as significant numbers of C pre-processor `ifdef` sections or Cabal `if` sections.
 We try to support new versions as soon as they are supported by the libraries that we depend on.
 
 ### Adding a new version
