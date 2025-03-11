@@ -26,21 +26,31 @@ jobs:
           install_url: https://releases.nixos.org/nix/nix-2.11.0/install
           extra_nix_config: |
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/cache/restore@v3
-        name: Restore cabal store cache
+      # `cabal configure` should come before restoring the Cabal store cache so
+      # that the build plan can form a part of the cache key.
+      - name: Cabal update
+        shell: bash
+        run: cabal update
+      - name: Configure
+        shell: bash
+        # See doc/dev.md for development practices around warnings.
+        #
+        # See the "Documentation" step for `--disable-documentation`.
+        run: cabal configure --disable-documentation --enable-tests --ghc-options='-Werror=compat -Werror=default'
+      - name: Build and cache dependencies
+        uses: langston-barrett/.github/actions/cache-cabal-store@38a2801101635f2e2b65c745d29194732724216f
         with:
-          path: |
-            ${{ steps.setup-haskell.outputs.cabal-store }}
-            ~/.cabal/packages
-            ~/.cabal/store
-            dist-newstyle
+          cabal-store: ${{ steps.setup-haskell.outputs.cabal-store }}
+          cabal-version: ${{ steps.setup-haskell.outputs.cabal-version }}
+          ghc-version: ${{ steps.setup-haskell.outputs.ghc-version }}
+      - uses: actions/cache/restore@v3
+        name: Restore build cache
+        with:
+          path: dist-newstyle
           key: |
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
           restore-keys: |
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-
-      - name: Cabal update
-        shell: bash
-        run: cabal update
       - name: Setup Environment Vars
         # Setup a nix shell environment command that will supply the
         # appropriate GHC version
@@ -76,10 +86,6 @@ jobs:
       - name: Cabal check
         shell: bash
         run: cabal check
-      - name: Configure
-        shell: bash
-        # See doc/dev.md for development practices around warnings.
-        run: cabal configure --enable-tests --ghc-options='-Werror=compat -Werror=default'
       - name: Build
         shell: bash
         run: cabal build
@@ -88,15 +94,21 @@ jobs:
         run: cabal test
       - name: Documentation
         shell: bash
-        run: cabal haddock
+        # Build the Haddocks to ensure that they are well formed. Somewhat
+        # counterintuitively, we run this with the --disable-documentation flag.
+        # This does not mean "do not build the Haddocks", but rather, "build the
+        # Haddocks for the top-level library, but do not build dependencies with
+        # Haddocks". The upshot is that we do not change the build configuration
+        # for any dependencies, which means that we don't have to rebuild them.
+        # The downside is that the rendered Haddocks won't contain any links to
+        # identifiers from library dependencies. Since we are only building
+        # Haddocks to ensure well-formedness, we consider this an acceptable
+        # tradeoff.
+        run: cabal --disable-documentation haddock
       - uses: actions/cache/save@v3
-        name: Save cabal store cache
+        name: Save build cache
         if: always()
         with:
-          path: |
-            ${{ steps.setup-haskell.outputs.cabal-store }}
-            ~/.cabal/packages
-            ~/.cabal/store
-            dist-newstyle
+          path: dist-newstyle
           key: |
             cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
