@@ -31,7 +31,10 @@ jobs:
         name: Restore cabal store cache
         id: cache
         env:
-          key: cabal-${{ runner.os }}-ghc${{ matrix.ghc }}
+          # NB: Each `matrix.os` (e.g., `ubuntu-22.04-arm`) uniquely determines
+          # a `runner.arch` (e.g., ARM64), so there is no need to include the
+          # latter as part of the cache key
+          key: cabal-${{ matrix.os }}-ghc${{ matrix.ghc }}
         with:
           path: |
             ${{ steps.setup-haskell.outputs.cabal-store }}
