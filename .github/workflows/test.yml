@@ -9,12 +9,13 @@ jobs:
     continue-on-error: ${{ matrix.allow-failure }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
+        # See doc/dev.md for GHC version support policy
         ghc: [9.10.1, 9.8.1, 9.6.1, 9.4.5, 9.2.2, 9.0.2, 8.10.7, 8.8.4, 8.6.5]
         allow-failure: [false]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
         id: setup-haskell
         with:
@@ -26,18 +27,22 @@ jobs:
           install_url: https://releases.nixos.org/nix/nix-2.11.0/install
           extra_nix_config: |
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         name: Restore cabal store cache
+        id: cache
+        env:
+          # NB: Each `matrix.os` (e.g., `ubuntu-22.04-arm`) uniquely determines
+          # a `runner.arch` (e.g., ARM64), so there is no need to include the
+          # latter as part of the cache key
+          key: cabal-${{ matrix.os }}-ghc${{ matrix.ghc }}
         with:
           path: |
             ${{ steps.setup-haskell.outputs.cabal-store }}
-            ~/.cabal/packages
-            ~/.cabal/store
             dist-newstyle
           key: |
-            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
+            ${{ env.key }}-${{ github.ref }}
           restore-keys: |
-            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-
+            ${{ env.key }}-
       - name: Cabal update
         shell: bash
         run: cabal update
@@ -89,14 +94,11 @@ jobs:
       - name: Documentation
         shell: bash
         run: cabal haddock
-      - uses: actions/cache/save@v3
+      - uses: actions/cache/save@v4
         name: Save cabal store cache
         if: always()
         with:
           path: |
             ${{ steps.setup-haskell.outputs.cabal-store }}
-            ~/.cabal/packages
-            ~/.cabal/store
             dist-newstyle
-          key: |
-            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
