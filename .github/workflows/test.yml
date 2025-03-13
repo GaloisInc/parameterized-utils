@@ -29,6 +29,7 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - uses: actions/cache/restore@v4
         name: Restore cabal store cache
+        id: cache
         with:
           path: |
             ${{ steps.setup-haskell.outputs.cabal-store }}
@@ -95,5 +96,4 @@ jobs:
           path: |
             ${{ steps.setup-haskell.outputs.cabal-store }}
             dist-newstyle
-          key: |
-            cabal-${{ runner.os }}-ghc${{ matrix.ghc }}-${{ github.ref }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
