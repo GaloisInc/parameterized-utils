@@ -113,7 +113,7 @@ jobs:
     runs-on: "ubuntu-24.04"
     concurrency:
       # Only run one of these at a time because they update the global pages.
-      group: haddock
+      group: pages
       cancel-in-progress: false
     permissions:
       contents: read
