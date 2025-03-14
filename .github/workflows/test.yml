@@ -34,6 +34,8 @@ jobs:
           # NB: Each `matrix.os` (e.g., `ubuntu-22.04-arm`) uniquely determines
           # a `runner.arch` (e.g., ARM64), so there is no need to include the
           # latter as part of the cache key
+          #
+          # Any changes to this key should be reflected in the `doc` job below.
           key: cabal-${{ matrix.os }}-ghc${{ matrix.ghc }}
         with:
           path: |
@@ -126,6 +128,8 @@ jobs:
         id: setup-haskell
         with:
           ghc-version: ${{ env.ghc }}
+      # Note that this uses (but does not modify) the cache from the `test`
+      # step. They use all the same dependencies, so this is appropriate.
       - uses: actions/cache/restore@v4
         name: Restore Cabal cache
         env:
