@@ -143,7 +143,11 @@ jobs:
           restore-keys: |
             ${{ env.key }}-
       - name: Build haddocks
-        run: cabal haddock --haddock-output-dir=doc
+        run: >
+          cabal
+          haddock
+          --haddock-output-dir=doc
+          --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
         shell: bash
       - name: Upload artifact with haddocks to GitHub Pages
         uses: actions/upload-pages-artifact@v3
