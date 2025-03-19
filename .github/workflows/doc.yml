@@ -48,6 +48,9 @@ jobs:
         restore-keys: |
           ${{ env.key }}-
     - name: Build haddocks
+      # re `--haddock-html-location`: This makes links to identifiers from other
+      # packages point to their documentation on Hackage, rather than a sub-URL
+      # of our GitHub Pages site (which would be a broken link)
       run: >
         cabal
         haddock
