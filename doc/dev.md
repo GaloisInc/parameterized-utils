@@ -1,5 +1,22 @@
 # Developer documentation
 
+## Downstream projects
+
+When evaluating breaking changes to the API, it can be helpful to consider the needs of major downstream projects (and even provide patches to migrate them).
+Here are a few, with brief descriptions of how they use this project:
+
+- [Crucible](https://github.com/GaloisInc/crucible):
+
+  - Crucible uses `Assignment`s to enforce variable-scoping constraints (i.e., the SSA invariant) on its control-flow graphs.
+  - Crucible uses the classes from `TraversableFC` to manage its "syntax extensions", as well as its native expression and statement types.
+  - Crucible-LLVM embeds the width of pointers as a type-level `Nat`, and uses `NatRepr` to reason about it.
+
+- [Cryptol](https://github.com/GaloisInc/cryptol) and [SAW](https://github.com/GaloisInc/saw-script) both depend on `parameterized-utils`.
+- [Macaw](https://github.com/GaloisInc/macaw) uses `Assignment`s to represent structs of registers.
+- [param-tlc](https://github.com/robdockins/param-tlc) provides an example of how to use `parameterized-utils` to define a strongly-typed lambda-calculus interpreter.
+- [What4](https://github.com/GaloisInc/what4) makes extensive use of parameterized types, especially the central `App` and `Expr` types.
+  It uses `Nonce`s to perform cached traversals of terms with sharing (i.e., hash-consing).
+
 ## GHC versions
 
 We support at least three versions of GHC at a time.
