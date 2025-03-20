@@ -7,14 +7,16 @@ Here are a few, with brief descriptions of how they use this project:
 
 - [Crucible](https://github.com/GaloisInc/crucible):
 
+  - Crucible's `TypeRepr` is a "singleton" parameterized type, implementing classes such as `EqF`, `KnownRepr`, `HashableF`, and `OrdF`.
   - Crucible uses `Assignment`s to enforce variable-scoping constraints (i.e., the SSA invariant) on its control-flow graphs.
   - Crucible uses the classes from `TraversableFC` to manage its "syntax extensions", as well as its native expression and statement types.
   - Crucible-LLVM embeds the width of pointers as a type-level `Nat`, and uses `NatRepr` to reason about it.
 
-- [Cryptol](https://github.com/GaloisInc/cryptol) and [SAW](https://github.com/GaloisInc/saw-script) both depend on `parameterized-utils`.
+- [Cryptol](https://github.com/GaloisInc/cryptol) depends on `parameterized-utils`.
 - [Macaw](https://github.com/GaloisInc/macaw) uses `Assignment`s to represent structs of registers.
 - [param-tlc](https://github.com/robdockins/param-tlc) provides an example of how to use `parameterized-utils` to define a strongly-typed lambda-calculus interpreter.
-- [What4](https://github.com/GaloisInc/what4) makes extensive use of parameterized types, especially the central `App` and `Expr` types.
+- [SAW](https://github.com/GaloisInc/saw-script) contains parameterized types such as `TypeShape`.
+- [What4](https://github.com/GaloisInc/what4) makes extensive use of parameterized types, especially the central `App`, `BaseTypeRepr`, and `Expr` types.
   It uses `Nonce`s to perform cached traversals of terms with sharing (i.e., hash-consing).
 
 ## GHC versions
