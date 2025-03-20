@@ -2,6 +2,10 @@
 
 ## next
 
+Nothing yet.
+
+## 2.1.10.0 -- *2025 Mar 20*
+
   * New instances for types from `base`:
 
     - `{Functor,Foldable,Traversable}F` instances for `Product`, `Proxy`, `Sum`

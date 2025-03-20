@@ -1,6 +1,6 @@
 Cabal-version: 2.2
 Name:          parameterized-utils
-Version:       2.1.9.0.99
+Version:       2.1.10.0.99
 Author:        Galois Inc.
 Maintainer:    kquick@galois.com, rscott@galois.com
 stability:     stable
@@ -16,7 +16,7 @@ Description:
   intended for things like expression libraries where one wishes
   to leverage the Haskell type-checker to improve type-safety by encoding
   the object language type system into data kinds.
-extra-source-files: Changelog.md
+extra-doc-files: Changelog.md
 homepage:      https://github.com/GaloisInc/parameterized-utils
 bug-reports:   https://github.com/GaloisInc/parameterized-utils/issues
 tested-with:   GHC==8.6.5, GHC==8.8.4, GHC==8.10.7, GHC==9.0.2, GHC==9.2.2, GHC==9.4.5, GHC==9.6.1, GHC==9.8.1, GHC==9.10.1
