@@ -1,5 +1,9 @@
 # Changelog for the `parameterized-utils` package
 
+## next
+
+Nothing yet.
+
 ## 2.1.10.0 -- *2025 Mar 20*
 
   * New instances for types from `base`:
