@@ -84,7 +84,25 @@ jobs:
       - name: Configure
         shell: bash
         # See doc/dev.md for development practices around warnings.
-        run: cabal configure --disable-documentation --enable-tests --ghc-options='-Werror=compat -Werror=default'
+        #
+        # See next step for why we use `-j`.
+        run: cabal configure --disable-documentation --enable-tests --ghc-options='-Werror=compat -Werror=default -j'
+      # We split the build into two steps:
+      #
+      # - Build only the dependencies. Build them in parallel at the package
+      #   level (which is Cabal's default, see haskell/cabal#5776).
+      # - Build this project (which is a single package). Use --ghc-options=-j
+      #   (in the above `configure` step) to build local packages' modules in
+      #   parallel.
+      #
+      # This scheme maximizes the use of parallelism while avoiding
+      # oversubscription. See GHC proposal #540 for additional background. It
+      # would be nice to replace this with `cabal configure --semaphore`, but
+      # this only became available with GHC 9.8. To support older versions, we
+      # don't use it just yet.
+      - name: Build dependencies
+        shell: bash
+        run: cabal build --only-dependencies
       - name: Build
         shell: bash
         run: cabal build
