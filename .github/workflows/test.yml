@@ -95,5 +95,4 @@ jobs:
         # `dist-newstyle`.
         run: |
           echo 'import Distribution.Simple; main = defaultMain' > Setup.hs
-          ghc -o setup Setup.hs
-          ./setup clean
+          runhaskell Setup.hs clean
