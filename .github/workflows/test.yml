@@ -5,112 +5,17 @@ on:
 jobs:
   test:
     name: Testing ${{ matrix.os }} GHC-${{ matrix.ghc }}
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.allow-failure }}
     strategy:
       matrix:
         os: [ubuntu-24.04]
         # See doc/dev.md for GHC version support policy
         ghc: [9.10.1, 9.8.1, 9.6.1, 9.4.5, 9.2.2, 9.0.2, 8.10.7, 8.8.4, 8.6.5]
-        allow-failure: [false]
       fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        id: setup-haskell
-        with:
-          ghc-version: ${{ matrix.ghc }}
-      - uses: actions/cache/restore@v4
-        name: Restore cabal store cache
-        id: cache
-        env:
-          # NB: Each `matrix.os` (e.g., `ubuntu-22.04-arm`) uniquely determines
-          # a `runner.arch` (e.g., ARM64), so there is no need to include the
-          # latter as part of the cache key
-          key: cabal-${{ matrix.os }}-ghc${{ matrix.ghc }}
-        with:
-          path: |
-            ${{ steps.setup-haskell.outputs.cabal-store }}
-            dist-newstyle
-          key: |
-            ${{ env.key }}-${{ github.ref }}
-          restore-keys: |
-            ${{ env.key }}-
-      - name: Cabal update
-        shell: bash
-        run: cabal update
-      - name: Cabal check
-        shell: bash
-        run: cabal check
-      - name: Configure
-        shell: bash
-        # See doc/dev.md for development practices around warnings.
-        #
-        # See next step for why we use `-j`.
-        run: cabal configure --disable-documentation --enable-tests --ghc-options='-Werror=compat -Werror=default -j'
-      # We split the build into two steps:
+    uses: GaloisInc/.github/.github/workflows/haskell-ci.yml@fdb90e80fba1785237f53b62af20a5f72e9d53f0
+    with:
+      # See doc/dev.md for development practices around warnings.
       #
-      # - Build only the dependencies. Build them in parallel at the package
-      #   level (which is Cabal's default, see haskell/cabal#5776).
-      # - Build this project (which is a single package). Use --ghc-options=-j
-      #   (in the above `configure` step) to build local packages' modules in
-      #   parallel.
-      #
-      # This scheme maximizes the use of parallelism while avoiding
-      # oversubscription. See GHC proposal #540 for additional background. It
-      # would be nice to replace this with `cabal configure --semaphore`, but
-      # this only became available with GHC 9.8. To support older versions, we
-      # don't use it just yet.
-      - name: Build dependencies
-        shell: bash
-        run: cabal build --only-dependencies
-      - name: Build
-        shell: bash
-        run: cabal build
-      - name: Test
-        shell: bash
-        run: cabal test
-      - name: Documentation
-        shell: bash
-        # Build the Haddocks to ensure that they are well formed. Somewhat
-        # counterintuitively, we run this with the --disable-documentation flag.
-        # This does not mean "do not build the Haddocks", but rather, "build the
-        # Haddocks for the top-level library, but do not build dependencies with
-        # Haddocks". The upshot is that we do not change the build configuration
-        # for any dependencies, which means that we don't have to rebuild them.
-        # The downside is that the rendered Haddocks won't contain any links
-        # to identifiers from library dependencies. Since we are only building
-        # Haddocks to ensure well-formedness, we consider this an acceptable
-        # tradeoff.
-        #
-        # We build the full Haddocks in the "Documentation" workflow.
-        run: cabal haddock --disable-documentation
-      - uses: actions/cache/save@v4
-        name: Save cabal store cache
-        if: always()
-        with:
-          path: |
-            ${{ steps.setup-haskell.outputs.cabal-store }}
-            dist-newstyle
-          key: ${{ steps.cache.outputs.cache-primary-key }}
-      - name: Check Cabal/GHC compatibility
-        shell: bash
-        # We support older Cabal versions so that users can build the project
-        # even if they lack access to the latest Cabal package, e.g., when using
-        # the version provided by their OS package manager on older systems.
-        #
-        # Rather than running the whole CI workflow with multiple Cabal versions
-        # (e.g., in the `matrix`), we run the equivalent of `cabal clean`, but
-        # using the version of the Cabal library that is bundled with GHC. This
-        # is sufficient to check that the bundled version of Cabal can parse the
-        # Cabal configuration files (`.cabal`, `cabal.project{,freeze}`).
-        #
-        # This guarantees that our package can be built with the versions of
-        # Cabal that are likely to be available alongside our supported versions
-        # of GHC.
-        #
-        # We run this after `actions/cache/save` since it deletes most of
-        # `dist-newstyle`.
-        run: |
-          echo 'import Distribution.Simple; main = defaultMain' > Setup.hs
-          runhaskell Setup.hs clean
+      # See Note [Parallelism] in the `haskell-ci` action for why `-j`.
+      configure-flags: --enable-tests --ghc-options='-Werror=compat -Werror=default -j'
+      ghc: ${{ matrix.ghc }}
+      os: ${{ matrix.os }}
