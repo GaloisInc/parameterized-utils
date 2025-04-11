@@ -35,7 +35,6 @@ When performing such an upgrade, it can be helpful to copy/paste this list into 
 - [ ] Fix any new warnings from `-Wdefault`
 - [ ] Add the new GHC version to the matrix in the GitHub Actions configuration
 - [ ] Change the `doc` job to use the new GHC version
-- [ ] Add the new version to the code that sets `GHC_NIXPKGS` in the CI config
 - [ ] Add the new GHC version to the Cabal `tested-with` field
 - [ ] Optionally follow the below steps to remove any old GHC versions
 
