@@ -11,12 +11,12 @@ jobs:
         # See doc/dev.md for GHC version support policy
         ghc: [9.10.1, 9.8.1, 9.6.1, 9.4.5, 9.2.2, 9.0.2, 8.10.7, 8.8.4, 8.6.5]
       fail-fast: false
-    uses: GaloisInc/.github/.github/workflows/haskell-ci.yml@v1.4
+    uses: GaloisInc/.github/.github/workflows/haskell-ci.yml@v1
     with:
       # See doc/dev.md for development practices around warnings.
       #
-      # See Note [Parallelism] in the `haskell-ci` action for why
-      # `--ghc-options='-j'` and `--semaphore`.
+      # See Note [Parallelism] in `haskell-ci.yml` for why `--ghc-options='-j'`
+      # and `--semaphore`.
       configure-flags: --enable-tests --ghc-options='-Werror=compat -Werror=default -j' --semaphore
       ghc: ${{ matrix.ghc }}
       os: ${{ matrix.os }}
