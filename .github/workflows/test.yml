@@ -15,7 +15,8 @@ jobs:
     with:
       # See doc/dev.md for development practices around warnings.
       #
-      # See Note [Parallelism] in the `haskell-ci` action for why `-j`.
-      configure-flags: --enable-tests --ghc-options='-Werror=compat -Werror=default -j'
+      # See Note [Parallelism] in the `haskell-ci` action for why
+      # `--ghc-options='-j'` and `--semaphore`.
+      configure-flags: --enable-tests --ghc-options='-Werror=compat -Werror=default -j' --semaphore
       ghc: ${{ matrix.ghc }}
       os: ${{ matrix.os }}
