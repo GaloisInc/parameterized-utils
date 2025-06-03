@@ -17,9 +17,6 @@ jobs:
       #
       # See Note [Parallelism] in `haskell-ci.yml` for why `--ghc-options='-j'`
       # and `--semaphore`.
-      #
-      # For `--allow-newer`, see
-      # https://github.com/hedgehogqa/haskell-hedgehog-classes/issues/63
-      configure-flags: --enable-tests --ghc-options='-Werror=compat -Werror=default -j' --semaphore --allow-newer=hedgehog-classes:base
+      configure-flags: --enable-tests --ghc-options='-Werror=compat -Werror=default -j' --semaphore
       ghc: ${{ matrix.ghc }}
       os: ${{ matrix.os }}
