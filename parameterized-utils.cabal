@@ -56,7 +56,6 @@ library
                , constraints    >=0.10 && <0.15
                , containers
                , deepseq
-               , ghc-prim
                , hashable       >=1.2  && <1.6
                , hashtables     >=1.2  && <1.5
                , indexed-traversable
@@ -137,7 +136,6 @@ test-suite parameterizedTests
                , hashtables
                , hedgehog
                , indexed-traversable
-               , ghc-prim
                , lens
                , mtl
                , parameterized-utils
