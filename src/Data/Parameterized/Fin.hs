@@ -31,15 +31,10 @@ module Data.Parameterized.Fin
   , tryEmbed
   , minFin
   , incFin
-  , fin0Void
-  , fin1Unit
-  , fin2Bool
   ) where
 
-import Lens.Micro.Pro (Iso', iso)
 import GHC.TypeNats (KnownNat)
 import Numeric.Natural (Natural)
-import Data.Void (Void, absurd)
 
 import Data.Parameterized.NatRepr
 
@@ -123,26 +118,3 @@ incFin :: forall n. Fin n -> Fin (n + 1)
 incFin (Fin (i :: NatRepr i)) =
   case leqAdd2 (LeqProof :: LeqProof (i + 1) n) (LeqProof :: LeqProof 1 1) of
     LeqProof -> mkFin (incNat i)
-
-fin0Void :: Iso' (Fin 0) Void
-fin0Void =
-  iso
-    (viewFin
-      (\(x :: NatRepr o) ->
-        case plusComm x (knownNat @1) of
-          Refl ->
-            case addIsLeqLeft1 @1 @o @0 LeqProof of {}))
-    absurd
-
-fin1Unit :: Iso' (Fin 1) ()
-fin1Unit = iso (const ()) (const minFin)
-
-fin2Bool :: Iso' (Fin 2) Bool
-fin2Bool =
-  iso
-    (viewFin
-      (\n ->
-         case isZeroNat n of
-           ZeroNat -> False
-           NonZeroNat -> True))
-    (\b -> if b then maxBound else minBound)
