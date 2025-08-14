@@ -7,7 +7,7 @@ module Test.Some
 where
 
 import           Data.Type.Equality (TestEquality(testEquality), (:~:)(Refl))
-import           Control.Lens (Lens', lens, view, set)
+import           Lens.Micro (Lens', lens, view, set)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (assertEqual, testCase)

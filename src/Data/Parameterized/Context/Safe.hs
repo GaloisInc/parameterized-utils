@@ -111,7 +111,8 @@ module Data.Parameterized.Context.Safe
 
 import qualified Control.Category as Cat
 import Control.DeepSeq
-import qualified Control.Lens as Lens
+import qualified Lens.Micro as Lens
+import qualified Lens.Micro.Internal as Lens (Field1, Field2, Field3, Field4, Field5)
 import Control.Monad.Identity (Identity(..))
 import Data.Hashable
 import Data.List (intercalate)
@@ -893,13 +894,6 @@ instance Lens.Field5 (Assignment6 f x1 x2 x3 x4 t x6)
   _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
         where n = MySR $ MyZR
 
-instance Lens.Field6 (Assignment6 f x1 x2 x3 x4 x5 t)
-                     (Assignment6 f x1 x2 x3 x4 x5 u)
-                     (f t)
-                     (f u) where
-  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MyZR
-
 ------------------------------------------------------------------------
 -- 7 field lens combinators
 
@@ -940,20 +934,6 @@ instance Lens.Field5 (Assignment7 f x1 x2 x3 x4 t x6 x7)
                      (f u) where
   _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
         where n = MySR $ MySR $ MyZR
-
-instance Lens.Field6 (Assignment7 f x1 x2 x3 x4 x5 t x7)
-                     (Assignment7 f x1 x2 x3 x4 x5 u x7)
-                     (f t)
-                     (f u) where
-  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MySR $ MyZR
-
-instance Lens.Field7 (Assignment7 f x1 x2 x3 x4 x5 x6 t)
-                     (Assignment7 f x1 x2 x3 x4 x5 x6 u)
-                     (f t)
-                     (f u) where
-  _7 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MyZR
 
 ------------------------------------------------------------------------
 -- 8 field lens combinators
@@ -997,27 +977,6 @@ instance Lens.Field5 (Assignment8 f x1 x2 x3 x4 t x6 x7 x8)
   _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
         where n = MySR $ MySR $ MySR $ MyZR
 
-instance Lens.Field6 (Assignment8 f x1 x2 x3 x4 x5 t x7 x8)
-                     (Assignment8 f x1 x2 x3 x4 x5 u x7 x8)
-                     (f t)
-                     (f u) where
-  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MySR $ MySR $ MyZR
-
-instance Lens.Field7 (Assignment8 f x1 x2 x3 x4 x5 x6 t x8)
-                     (Assignment8 f x1 x2 x3 x4 x5 x6 u x8)
-                     (f t)
-                     (f u) where
-  _7 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MySR $ MyZR
-
-instance Lens.Field8 (Assignment8 f x1 x2 x3 x4 x5 x6 x7 t)
-                     (Assignment8 f x1 x2 x3 x4 x5 x6 x7 u)
-                     (f t)
-                     (f u) where
-  _8 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MyZR
-
 ------------------------------------------------------------------------
 -- 9 field lens combinators
 
@@ -1059,31 +1018,3 @@ instance Lens.Field5 (Assignment9 f x1 x2 x3 x4 t x6 x7 x8 x9)
                      (f u) where
   _5 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
         where n = MySR $ MySR $ MySR $ MySR $ MyZR
-
-instance Lens.Field6 (Assignment9 f x1 x2 x3 x4 x5 t x7 x8 x9)
-                     (Assignment9 f x1 x2 x3 x4 x5 u x7 x8 x9)
-                     (f t)
-                     (f u) where
-  _6 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MySR $ MySR $ MySR $ MyZR
-
-instance Lens.Field7 (Assignment9 f x1 x2 x3 x4 x5 x6 t x8 x9)
-                     (Assignment9 f x1 x2 x3 x4 x5 x6 u x8 x9)
-                     (f t)
-                     (f u) where
-  _7 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MySR $ MySR $ MyZR
-
-instance Lens.Field8 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 t x9)
-                     (Assignment9 f x1 x2 x3 x4 x5 x6 x7 u x9)
-                     (f t)
-                     (f u) where
-  _8 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MySR $ MyZR
-
-instance Lens.Field9 (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 t)
-                     (Assignment9 f x1 x2 x3 x4 x5 x6 x7 x8 u)
-                     (f t)
-                     (f u) where
-  _9 = Lens.lens (mynat_lookup n) (strong_ctx_update n)
-        where n = MyZR

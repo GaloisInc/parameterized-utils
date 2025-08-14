@@ -153,7 +153,7 @@ module Data.Parameterized.List
   , index3
   ) where
 
-import qualified Control.Lens as Lens
+import qualified Lens.Micro as Lens
 import           Data.Foldable
 import           Data.Kind
 import           Prelude hiding ((!!))
