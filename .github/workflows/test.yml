@@ -19,7 +19,9 @@ jobs:
       # See Note [Parallelism] in `haskell-ci.yml` for why `--ghc-options='-j'`
       # and `--semaphore`.
       configure-flags: --enable-coverage --enable-tests --ghc-options='-Werror=compat -Werror=default -j' --semaphore
-      coverage: true
-      coverage-artifact: true
+      # We want to gather coverage for *some* job, but we don't particularly
+      # care which one it is.
+      coverage: ${{ strategy.job-index == 0 }}
+      coverage-artifact: ${{ strategy.job-index == 0 }}
       ghc: ${{ matrix.ghc }}
       os: ${{ matrix.os }}
