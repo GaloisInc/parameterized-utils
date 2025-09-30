@@ -2,6 +2,8 @@
 
 ## next
 
+  * Replace dependency on `lens` with `microlens` and `microlens-pro`.
+
 ## 2.1.11.0 -- *2025 Nov 4*
 
   * Add support for GHC 9.12.

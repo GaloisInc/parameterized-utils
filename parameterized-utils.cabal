@@ -59,7 +59,8 @@ library
                , hashable       >=1.2  && <1.6
                , hashtables     >=1.2  && <1.5
                , indexed-traversable
-               , lens           >=4.16 && <5.4
+               , microlens      >=0.5 && <0.6
+               , microlens-pro  >=0.2 && <0.3
                , mtl
                , profunctors    >=5.6 && < 5.7
                , template-haskell
@@ -136,7 +137,7 @@ test-suite parameterizedTests
                , hashtables
                , hedgehog
                , indexed-traversable
-               , lens
+               , microlens >=0.5 && <0.6
                , mtl
                , parameterized-utils
                , tasty >= 1.2 && < 1.6
