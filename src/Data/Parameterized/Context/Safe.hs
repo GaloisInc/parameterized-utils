@@ -111,7 +111,7 @@ module Data.Parameterized.Context.Safe
 
 import qualified Control.Category as Cat
 import Control.DeepSeq
-import qualified Control.Lens as Lens
+import qualified Lens.Micro as Lens
 import Control.Monad.Identity (Identity(..))
 import Data.Hashable
 import Data.List (intercalate)

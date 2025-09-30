@@ -36,7 +36,7 @@ module Data.Parameterized.Fin
   , fin2Bool
   ) where
 
-import Control.Lens.Iso (Iso', iso)
+import Lens.Micro.Pro (Iso', iso)
 import GHC.TypeNats (KnownNat)
 import Numeric.Natural (Natural)
 import Data.Void (Void, absurd)
