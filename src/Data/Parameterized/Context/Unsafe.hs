@@ -90,7 +90,7 @@ module Data.Parameterized.Context.Unsafe
 import qualified Control.Category as Cat
 import           Control.DeepSeq
 import           Control.Exception
-import qualified Control.Lens as Lens
+import qualified Lens.Micro as Lens
 import           Control.Monad.Identity (Identity(..))
 import           Data.Bits
 import           Data.Coerce

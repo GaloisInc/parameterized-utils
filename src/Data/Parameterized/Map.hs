@@ -82,7 +82,7 @@ module Data.Parameterized.Map
   ) where
 
 import           Control.Applicative hiding (empty)
-import           Control.Lens (Traversal', Lens')
+import           Lens.Micro (Traversal', Lens')
 import           Control.Monad.Identity (Identity(..))
 import           Control.Monad (foldM)
 import           Data.Kind (Type)

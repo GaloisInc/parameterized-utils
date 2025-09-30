@@ -18,7 +18,8 @@ module Test.Context
   )
 where
 
-import           Control.Lens
+import           Lens.Micro
+import           Data.Functor.Identity (Identity(..))
 import           Data.Functor.Product (Product(Pair))
 import           Data.Kind
 import           Data.Parameterized.Classes

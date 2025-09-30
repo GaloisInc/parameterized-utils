@@ -20,7 +20,7 @@ module Data.Parameterized.Some
   , someLens
   ) where
 
-import Control.Lens (Lens', lens, (&), (^.), (.~))
+import Lens.Micro (Lens', lens, (&), (^.), (.~))
 import Data.Hashable
 import Data.Kind
 import Data.Parameterized.Classes
