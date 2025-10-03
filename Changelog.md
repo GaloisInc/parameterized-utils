@@ -2,7 +2,7 @@
 
 ## next
 
-Nothing yet.
+  * Replace dependency on `lens` with `microlens` and `microlens-pro`.
 
 ## 2.1.10.0 -- *2025 Mar 20*
 

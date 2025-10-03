@@ -103,13 +103,14 @@ module Data.Parameterized.Context
 import           Prelude hiding (unzip)
 
 import qualified Control.Applicative as App (liftA2)
-import           Control.Lens hiding (Index, (:>), Empty)
+import           Data.Function ((&))
 import           Data.Functor (void)
 import           Data.Functor.Product (Product(Pair))
 import           Data.Kind
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
+import           Lens.Micro (Lens', Lens, lens, (^.), (%~))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
@@ -301,7 +302,7 @@ data CtxEmbedding (ctx :: Ctx k) (ctx' :: Ctx k)
 --   ExtendBoth :: CtxEmbedding ctx ctx' -> CtxEmbedding (ctx ::> tp) (ctx' ::> tp)
 --   ExtendOne  :: CtxEmbedding ctx ctx' -> CtxEmbedding ctx (ctx' ::> tp)
 
-ctxeSize :: Simple Lens (CtxEmbedding ctx ctx') (Size ctx')
+ctxeSize :: Lens' (CtxEmbedding ctx ctx') (Size ctx')
 ctxeSize = lens _ctxeSize (\s v -> s { _ctxeSize = v })
 
 ctxeAssignment :: Lens (CtxEmbedding ctx1 ctx') (CtxEmbedding ctx2 ctx')
