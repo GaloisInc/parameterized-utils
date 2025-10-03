@@ -110,15 +110,15 @@ module Data.Parameterized.Context.Safe
   ) where
 
 import qualified Control.Category as Cat
-import Control.DeepSeq
+import           Control.DeepSeq
+import           Control.Monad.Identity (Identity(..))
+import           Data.Hashable
+import           Data.Kind (Type)
+import           Data.List (intercalate)
+import           Data.Maybe (listToMaybe)
+import           Data.Type.Equality
 import qualified Lens.Micro as Lens
-import Control.Monad.Identity (Identity(..))
-import Data.Hashable
-import Data.List (intercalate)
-import Data.Maybe (listToMaybe)
-import Data.Type.Equality
-import Prelude hiding (init, map, null, replicate, succ, zipWith)
-import Data.Kind(Type)
+import           Prelude hiding (init, map, null, replicate, succ, zipWith)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.Ctx

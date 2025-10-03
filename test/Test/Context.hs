@@ -18,7 +18,7 @@ module Test.Context
   )
 where
 
-import           Lens.Micro
+import           Data.Function ((&))
 import           Data.Functor.Identity (Identity(..))
 import           Data.Functor.Product (Product(Pair))
 import           Data.Kind
@@ -34,6 +34,7 @@ import           Data.Parameterized.TraversableFC.WithIndex
 import           Hedgehog
 import qualified Hedgehog.Gen as HG
 import           Hedgehog.Range
+import           Lens.Micro ((%~), (.~), over)
 import           Test.Tasty
 import           Test.Tasty.HUnit ( (@=?), (@?=), testCaseSteps )
 import           Test.Tasty.Hedgehog

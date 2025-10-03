@@ -58,7 +58,6 @@ module Data.Parameterized.Classes
   , Data.Maybe.isJust
   ) where
 
-import Lens.Micro (Lens', Traversal')
 import Data.Functor.Const
 import Data.Functor.Compose (Compose(..))
 import Data.Kind
@@ -66,6 +65,7 @@ import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Proxy
 import Data.Type.Equality as Equality
+import Lens.Micro (Lens', Traversal')
 
 import Data.Parameterized.Compose ()
 
