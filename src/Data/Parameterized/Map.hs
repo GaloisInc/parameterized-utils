@@ -82,13 +82,13 @@ module Data.Parameterized.Map
   ) where
 
 import           Control.Applicative hiding (empty)
-import           Lens.Micro (Traversal', Lens')
 import           Control.Monad.Identity (Identity(..))
 import           Control.Monad (foldM)
 import           Data.Kind (Type)
 import qualified Data.List as List
 import           Data.Monoid
 import           Prelude hiding (filter, lookup, map, traverse, null)
+import           Lens.Micro (Traversal', Lens')
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
