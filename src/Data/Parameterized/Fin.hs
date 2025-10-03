@@ -36,10 +36,10 @@ module Data.Parameterized.Fin
   , fin2Bool
   ) where
 
-import Lens.Micro.Pro (Iso', iso)
-import GHC.TypeNats (KnownNat)
-import Numeric.Natural (Natural)
 import Data.Void (Void, absurd)
+import GHC.TypeNats (KnownNat)
+import Lens.Micro.Pro (Iso', iso)
+import Numeric.Natural (Natural)
 
 import Data.Parameterized.NatRepr
 

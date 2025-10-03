@@ -103,13 +103,14 @@ module Data.Parameterized.Context
 import           Prelude hiding (unzip)
 
 import qualified Control.Applicative as App (liftA2)
-import           Lens.Micro
+import           Data.Function ((&))
 import           Data.Functor (void)
 import           Data.Functor.Product (Product(Pair))
 import           Data.Kind
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import           GHC.TypeLits (Nat, type (-))
+import           Lens.Micro (Lens', Lens, lens, (^.), (%~))
 
 import           Data.Parameterized.Classes
 import           Data.Parameterized.Some

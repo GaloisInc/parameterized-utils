@@ -20,11 +20,11 @@ module Data.Parameterized.Some
   , someLens
   ) where
 
-import Lens.Micro (Lens', lens, (&), (^.), (.~))
 import Data.Hashable
-import Data.Kind
+import Data.Kind (Type)
 import Data.Parameterized.Classes
 import Data.Parameterized.TraversableF
+import Lens.Micro (Lens', lens, (&), (^.), (.~))
 
 
 data Some (f:: k -> Type) = forall x . Some (f x)

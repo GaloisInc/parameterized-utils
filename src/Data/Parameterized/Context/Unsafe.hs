@@ -90,15 +90,15 @@ module Data.Parameterized.Context.Unsafe
 import qualified Control.Category as Cat
 import           Control.DeepSeq
 import           Control.Exception
-import qualified Lens.Micro as Lens
 import           Control.Monad.Identity (Identity(..))
 import           Data.Bits
 import           Data.Coerce
 import           Data.Hashable
+import           Data.Kind (Type)
 import           Data.List (intercalate)
 import           Data.Proxy
+import qualified Lens.Micro as Lens
 import           Unsafe.Coerce
-import           Data.Kind(Type)
 
 import           Data.Parameterized.Axiom
 import           Data.Parameterized.Classes
