@@ -8,54 +8,48 @@
 Copyright        : (c) Galois, Inc 2019
 
 This module declares a class with a single method that can be used to
-derive a 'KnownRepr' constraint from an explicit 'Repr' argument.
-Clients of this method need only create an empty instance. The default
-implementation suffices.
+derive a 'KnownRepr' constraint from an explicit @Repr@ argument.
 
-For example, suppose we have defined a 'Repr' type for 'Peano' numbers:
+For example, suppose we have defined a @PeanoRepr@ type for type-level @Peano@
+naturals:
 
 @
 data Peano = Z | S Peano
 
 data PeanoRepr p where
-    ZRepr :: PeanoRepr Z
-    SRepr :: PeanoRepr p -> PeanoRepr (S p)
+  ZRepr :: PeanoRepr Z
+  SRepr :: PeanoRepr p -> PeanoRepr (S p)
 
--- KnownRepr instances
+-- 'KnownRepr' instances
 @
 
 Then the instance for this class
+
 @
-instance IsRepr PeanoRepr
+instance 'IsRepr' PeanoRepr
 @
 
-means that functions with 'KnownRepr' constraints can be used after
-pattern matching.
+means that functions with 'KnownRepr' constraints can be used like so:
 
 @
 f :: KnownRepr PeanoRepr a => ...
 
 example :: PeanoRepr n -> ...
-example ZRepr = ...
-example (SRepr (pm::PeanoRepr m)) = ... withRepr pm f ...
+example nRepr = ... withRepr nRepr f ...
 @
 
-
-NOTE: The type 'f' must be a *singleton* type--- i.e.  for a given
-type 'a' there should be only one value that inhabits 'f a'. If that
+The type @f@ must be a *singleton* type---i.e.  for a given
+type @a@ there should be only one value that inhabits @f a@. If that
 is not the case, this operation can be used to subvert coherence.
 
-Credit: the unsafe implementation of 'withRepr' is taken from the
-'withSingI' function in the singletons library
+The unsafe implementation of 'withRepr' is taken from the
+@withSingI@ function in the singletons library
 <http://hackage.haskell.org/package/singletons-2.5.1/>.  Packaging
 this method in a class here makes it more flexible---we do not have to
-define a dedicated 'Sing' type, but can use any convenient singleton
-as a 'Repr'.
-
-NOTE: if this module is compiled without UNSAFE_OPS, the default
-method will not be available.
-
+define a dedicated @Sing@ type, but can use any convenient singleton
+as a @Repr@.
 -}
+
 module Data.Parameterized.WithRepr(IsRepr(..)) where
 
 import Data.Kind
@@ -75,9 +69,13 @@ import Data.Parameterized.Peano (PeanoRepr,PeanoView(..))
 #endif
 import Data.Parameterized.BoolRepr
 
--- | Turn an explicit Repr value into an implict KnownRepr constraint
+-- | Turn an explicit @Repr@ value into an implict 'KnownRepr' constraint
 class IsRepr (f :: k -> Type) where
 
+  -- | Turn an explicit @Repr@ value into an implict 'KnownRepr' constraint
+  --
+  -- If this module is compiled without @UNSAFE_OPS@, the default implementation
+  -- will not be available.
   withRepr :: f a -> (KnownRepr f a => r) -> r
 
 #ifdef UNSAFE_OPS
