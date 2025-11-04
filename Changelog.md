@@ -2,7 +2,7 @@
 
 ## next
 
-Nothing yet.
+  * Add support for GHC 9.12.
 
 ## 2.1.10.0 -- *2025 Mar 20*
 
