@@ -1,5 +1,7 @@
 # Changelog for the `parameterized-utils` package
 
+## next
+
 ## 2.1.11.0 -- *2025 Nov 4*
 
   * Add support for GHC 9.12.
