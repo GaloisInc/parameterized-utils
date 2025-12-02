@@ -11,7 +11,7 @@ jobs:
         # See doc/dev.md for GHC version support policy
         ghc: [9.12.2, 9.10.1, 9.8.1, 9.6.1, 9.4.5, 9.2.2, 9.0.2, 8.10.7, 8.8.4, 8.6.5]
       fail-fast: false
-    uses: GaloisInc/.github/.github/workflows/haskell-ci.yml@v2
+    uses: GaloisInc/.github/.github/workflows/haskell-ci.yml@38eb338ef4e5e4f74c0acd7922f6dc26a18b7aeb
     with:
       cache-key-prefix: v2
       # See doc/dev.md for development practices around warnings.
