@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
     uses: GaloisInc/.github/.github/workflows/haskell-ci.yml@v2
     with:
-      cache-key-prefix: v1
+      cache-key-prefix: v2
       # See doc/dev.md for development practices around warnings.
       #
       # See Note [Parallelism] in `haskell-ci.yml` for why `--ghc-options='-j'`
