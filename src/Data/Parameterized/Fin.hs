@@ -146,3 +146,8 @@ fin2Bool =
            ZeroNat -> False
            NonZeroNat -> True))
     (\b -> if b then maxBound else minBound)
+
+{-# DEPRECATED
+  fin0Void, fin1Unit, fin2Bool
+  "These will be removed in the next release of parameterized-utils, see #208."
+#-}
