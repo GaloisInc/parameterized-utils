@@ -31,6 +31,7 @@ module Data.Parameterized.Fin
   , tryEmbed
   , minFin
   , incFin
+  , fin0Absurd
   , fin0Void
   , fin1Unit
   , fin2Bool
@@ -124,15 +125,17 @@ incFin (Fin (i :: NatRepr i)) =
   case leqAdd2 (LeqProof :: LeqProof (i + 1) n) (LeqProof :: LeqProof 1 1) of
     LeqProof -> mkFin (incNat i)
 
+-- | It is not possible to construct an element of @'Fin' 0@.
+fin0Absurd :: Fin 0 -> a
+fin0Absurd =
+  viewFin
+    (\(x :: NatRepr o) ->
+      case plusComm x (knownNat @1) of
+        Refl ->
+          case addIsLeqLeft1 @1 @o @0 LeqProof of {})
+
 fin0Void :: Iso' (Fin 0) Void
-fin0Void =
-  iso
-    (viewFin
-      (\(x :: NatRepr o) ->
-        case plusComm x (knownNat @1) of
-          Refl ->
-            case addIsLeqLeft1 @1 @o @0 LeqProof of {}))
-    absurd
+fin0Void = iso fin0Absurd absurd
 
 fin1Unit :: Iso' (Fin 1) ()
 fin1Unit = iso (const ()) (const minFin)
