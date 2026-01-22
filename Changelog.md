@@ -2,6 +2,8 @@
 
 ## next
 
+## 2.2.0.0 -- 2026-01-22
+
   * Replace dependency on `lens` with `microlens` and `microlens-pro`.
   * Deprecate the `Iso`s `fin0Void`, `fin1Unit`, and `fin2Bool`.
   * Add `fin0Absurd :: Fin 0 -> a`.
