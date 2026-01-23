@@ -3,6 +3,7 @@
 ## next
 
   * BREAKING: Remove the `Iso`s `fin0Void`, `fin1Unit`, and `fin2Bool`.
+  * Deprecate `Data.Parameterized.Compose`.
 
 ## next
 
