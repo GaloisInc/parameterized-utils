@@ -24,15 +24,21 @@ module Data.Parameterized.TraversableFC.WithIndex
   , ifoldMapFCDefault
   ) where
 
+import Data.Coerce (Coercible, coerce)
 import Data.Functor.Const (Const(Const, getConst))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 import Data.Kind
 import Data.Monoid (All(..), Any(..), Endo(Endo), appEndo, Dual(Dual, getDual))
-import Data.Profunctor.Unsafe ((#.))
 import GHC.Exts (build)
 
 import Data.Parameterized.Classes
 import Data.Parameterized.TraversableFC
+
+-- See Note [Function coercion] in
+-- https://hackage-content.haskell.org/package/ghc-internal-9.1401.0/src/src/GHC/Internal/Data/Functor/Utils.hs
+(#.) :: Coercible b c => (b -> c) -> (a -> b) -> (a -> c)
+(#.) _f = coerce
+{-# INLINE (#.) #-}
 
 class FunctorFC t => FunctorFCWithIndex (t :: (k -> Type) -> l -> Type) where
   -- | Like 'fmapFC', but with an index.
