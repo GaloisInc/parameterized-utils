@@ -32,14 +32,9 @@ module Data.Parameterized.Fin
   , minFin
   , incFin
   , fin0Absurd
-  , fin0Void
-  , fin1Unit
-  , fin2Bool
   ) where
 
-import Data.Void (Void, absurd)
 import GHC.TypeNats (KnownNat)
-import Lens.Micro.Pro (Iso', iso)
 import Numeric.Natural (Natural)
 
 import Data.Parameterized.NatRepr
@@ -133,24 +128,3 @@ fin0Absurd =
       case plusComm x (knownNat @1) of
         Refl ->
           case addIsLeqLeft1 @1 @o @0 LeqProof of {})
-
-fin0Void :: Iso' (Fin 0) Void
-fin0Void = iso fin0Absurd absurd
-
-fin1Unit :: Iso' (Fin 1) ()
-fin1Unit = iso (const ()) (const minFin)
-
-fin2Bool :: Iso' (Fin 2) Bool
-fin2Bool =
-  iso
-    (viewFin
-      (\n ->
-         case isZeroNat n of
-           ZeroNat -> False
-           NonZeroNat -> True))
-    (\b -> if b then maxBound else minBound)
-
-{-# DEPRECATED
-  fin0Void, fin1Unit, fin2Bool
-  "These will be removed in the next release of parameterized-utils, see #208."
-#-}
