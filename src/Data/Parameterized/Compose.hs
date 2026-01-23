@@ -16,7 +16,7 @@ https://github.com/haskell-compat/base-orphans/issues/49.
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Safe #-}
-module Data.Parameterized.Compose
+module Data.Parameterized.Compose {-# DEPRECATED "See #170" #-}
   ( testEqualityComposeBare
   ) where
 
@@ -37,3 +37,4 @@ testEqualityComposeBare testEquality_ (Compose x) (Compose y) =
   case (testEquality_ x y :: Maybe (g x :~: g y)) of
     Just Refl -> Just (Refl :: x :~: y)
     Nothing   -> Nothing
+{-# DEPRECATED testEqualityComposeBare "See #170" #-}
