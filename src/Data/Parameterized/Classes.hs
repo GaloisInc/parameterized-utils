@@ -8,6 +8,11 @@ This module declares classes for working with types with the kind
 "Data.Functor.Classes" types as they work with any kind @k@, and are
 not restricted to '*'.
 -}
+
+-- TODO(#221): This is for the deprecation warning on
+-- Data.Parameterized.Compose, remove this when that module is removed.
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
