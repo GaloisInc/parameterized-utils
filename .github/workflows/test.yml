@@ -1,7 +1,10 @@
 name: Build and test
 on:
-  - push
-  - pull_request
+  push:
+  pull_request:
+  schedule:
+    - cron: '6 13 * * 1'
+
 jobs:
   test:
     name: Testing ${{ matrix.os }} GHC-${{ matrix.ghc }}
