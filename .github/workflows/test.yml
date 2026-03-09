@@ -3,7 +3,8 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: '6 13 * * 1'
+    - cron: '6 13 * * 1' # Runs on Mondays at 13:06 UTC
+  workflow_dispatch:
 
 jobs:
   test:
