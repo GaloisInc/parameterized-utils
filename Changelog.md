@@ -2,6 +2,9 @@
 
 ## next
 
+  * Add `Data.Parameterized.SmallArrayF`, a `SmallArray#`-backed container
+    indexed by a type-level context.
+
 ## 2.3.0.0 -- 2026-03-06
 
   * BREAKING: Remove the `Iso`s `fin0Void`, `fin1Unit`, and `fin2Bool`.
