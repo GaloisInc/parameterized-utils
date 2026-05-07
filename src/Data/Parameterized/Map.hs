@@ -94,7 +94,7 @@ import           Data.Parameterized.Classes
 import           Data.Parameterized.Some
 import           Data.Parameterized.Pair ( Pair(..) )
 import           Data.Parameterized.TraversableF
-import           Data.Parameterized.Utils.BinTree
+import           Data.Parameterized.Utils.BinTree.Internal
   ( MaybeS(..)
   , fromMaybeS
   , Updated(..)
@@ -106,7 +106,7 @@ import           Data.Parameterized.Utils.BinTree
   , balanceR
   , glue
   )
-import qualified Data.Parameterized.Utils.BinTree as Bin
+import qualified Data.Parameterized.Utils.BinTree.Internal as Bin
 
 ------------------------------------------------------------------------
 -- * Pair
@@ -138,6 +138,29 @@ comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
       :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
 {-# SPECIALIZE Bin.filterLt
       :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
+-- These helpers are called from the bodies of the specialized exported
+-- 'BinTree' functions above, but the specializer doesn't propagate the
+-- concrete instance dictionary into them, so we specialize them explicitly
+-- (import site: 'Data.Parameterized.Utils.BinTree.Internal').
+{-# SPECIALIZE Bin.insertMax :: Pair k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.insertMin :: Pair k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.insertR
+      :: (Pair k a -> Pair k a -> Ordering)
+      -> Pair k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.hedgeUnion_LB
+      :: (Pair k a -> Pair k a -> Ordering)
+      -> Pair k a -> MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.hedgeUnion_UB
+      :: (Pair k a -> Pair k a -> Ordering)
+      -> Pair k a -> MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.hedgeUnion_LB_UB
+      :: (Pair k a -> Pair k a -> Ordering)
+      -> Pair k a -> Pair k a -> MapF k a -> MapF k a -> MapF k a #-}
+-- 'deleteFindMin' and 'deleteFindMax' use an 'INLINE' pragma instead of
+-- 'SPECIALIZE': they are tight recursive functions (driven by their own
+-- worker 'go') whose outer wrappers are easy to inline, which resolves the
+-- dictionary at each call site without introducing a lingering worker
+-- ('$wdeleteFindM{in,ax}') that still receives a dictionary parameter.
 
 ------------------------------------------------------------------------
 -- MapF

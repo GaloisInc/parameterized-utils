@@ -108,6 +108,7 @@ library
 
   other-modules:
     Data.Parameterized.NatRepr.Internal
+    Data.Parameterized.Utils.BinTree.Internal
 
   if flag(unsafe-operations)
     cpp-options: -DUNSAFE_OPS
