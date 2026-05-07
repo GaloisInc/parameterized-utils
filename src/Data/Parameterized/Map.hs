@@ -115,6 +115,30 @@ comparePairKeys :: OrdF k => Pair k a -> Pair k a -> Ordering
 comparePairKeys (Pair x _) (Pair y _) = toOrdering (compareF x y)
 {-# INLINABLE comparePairKeys #-}
 
+-- 'MapF' is the only 'IsBinTree' instance, so specialize each polymorphic
+-- 'BinTree' helper used below. This removes class-dictionary indirection
+-- through 'asBin'/'bin'/'size'/'tip' in the generated Core.
+{-# SPECIALIZE Bin.insert
+      :: (Pair k a -> Pair k a -> Ordering)
+      -> Pair k a -> MapF k a -> Updated (MapF k a) #-}
+{-# SPECIALIZE Bin.delete
+      :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
+{-# SPECIALIZE Bin.union
+      :: (Pair k a -> Pair k a -> Ordering)
+      -> MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.link
+      :: Pair k a -> MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.merge :: MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE balanceL
+      :: Pair k a -> MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE balanceR
+      :: Pair k a -> MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE glue :: MapF k a -> MapF k a -> MapF k a #-}
+{-# SPECIALIZE Bin.filterGt
+      :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
+{-# SPECIALIZE Bin.filterLt
+      :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
+
 ------------------------------------------------------------------------
 -- MapF
 
@@ -147,12 +171,17 @@ singleton k x = Bin 1 k x Tip Tip
 instance Bin.IsBinTree (MapF k a) (Pair k a) where
   asBin (Bin _ k v l r) = BinTree (Pair k v) l r
   asBin Tip = TipTree
+  {-# INLINE asBin #-}
 
   tip = Tip
+  {-# INLINE tip #-}
+
   bin (Pair k v) l r = Bin (size l + size r + 1) k v l r
+  {-# INLINE bin #-}
 
   size Tip              = 0
   size (Bin sz _ _ _ _) = sz
+  {-# INLINE size #-}
 
 instance (TestEquality k, EqF a) => Eq (MapF k a) where
   x == y = size x == size y && toList x == toList y
@@ -409,7 +438,6 @@ filterLt k m = fromMaybeS m (Bin.filterLt (compareKeyPair k) m)
 insert :: OrdF k => k tp -> a tp -> MapF k a -> MapF k a
 insert = \k v m -> seq k $ updatedValue (Bin.insert comparePairKeys (Pair k v) m)
 {-# INLINABLE insert #-}
--- {-# SPECIALIZE Bin.insert :: OrdF k => Pair k a -> MapF k a -> Updated (MapF k a) #-}
 
 -- | Insert a binding into the map, replacing the existing binding if needed.
 insertWithImpl :: OrdF k => (a tp -> a tp -> a tp) -> k tp -> a tp -> MapF k a -> Updated (MapF k a)
@@ -445,7 +473,6 @@ delete = \k m -> seq k $ fromMaybeS m $ Bin.delete (p k) m
   where p :: OrdF k => k tp -> Pair k a -> Ordering
         p k (Pair kx _) = toOrdering (compareF k kx)
 {-# INLINABLE delete #-}
-{-# SPECIALIZE Bin.delete :: (Pair k a -> Ordering) -> MapF k a -> MaybeS (MapF k a) #-}
 
 -- | Left-biased union of two maps. The resulting map will contain the
 -- union of the keys of the two arguments. When a key is contained in
@@ -453,7 +480,6 @@ delete = \k m -> seq k $ fromMaybeS m $ Bin.delete (p k) m
 union :: OrdF k => MapF k a -> MapF k a -> MapF k a
 union t1 t2 = Bin.union comparePairKeys t1 t2
 {-# INLINABLE union #-}
--- {-# SPECIALIZE Bin.union compare :: OrdF k => MapF k a -> MapF k a -> MapF k a #-}
 
 ------------------------------------------------------------------------
 -- updateAtKey
