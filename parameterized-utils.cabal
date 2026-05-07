@@ -95,6 +95,7 @@ library
     Data.Parameterized.Nonce.Unsafe
     Data.Parameterized.Pair
     Data.Parameterized.Peano
+    Data.Parameterized.SmallArrayF
     Data.Parameterized.Some
     Data.Parameterized.SymbolRepr
     Data.Parameterized.TH.GADT
@@ -125,16 +126,23 @@ test-suite parameterizedTests
     Test.FinMap
     Test.List
     Test.NatRepr
+    Test.SmallArrayF
+    Test.SmallArrayF.Instances
+    Test.SmallArrayF.Rules
+    Test.SmallArrayF.RulesCoverage
+    Test.SmallArrayF.RulesSemantics
     Test.Some
     Test.SymbolRepr
     Test.TH
     Test.Vector
 
   build-depends: base
+               , deepseq
                , hashable
                , hashtables
                , hedgehog
                , indexed-traversable
+               , inspection-testing >= 0.5 && < 0.7
                , microlens >=0.5 && <0.6
                , mtl
                , parameterized-utils
@@ -142,6 +150,7 @@ test-suite parameterizedTests
                , tasty-ant-xml == 1.1.*
                , tasty-hunit >= 0.9 && < 0.11
                , tasty-hedgehog >= 1.2
+               , tasty-inspection-testing >= 0.2 && < 0.3
 
   if impl(ghc >= 8.6)
     build-depends:
