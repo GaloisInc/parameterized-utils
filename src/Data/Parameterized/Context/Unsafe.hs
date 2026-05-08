@@ -17,6 +17,10 @@
 #if __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
 #endif
+-- Inspection tests (test/Test/Context/Rules.hs) compare Core of functions
+-- defined here. HPC ticks inserted by --enable-coverage would appear in the
+-- Core and cause spurious LHS/RHS mismatches, so we opt this module out.
+{-# OPTIONS_GHC -fno-hpc #-}
 {-# OPTIONS_HADDOCK hide #-}
 module Data.Parameterized.Context.Unsafe
   ( module Data.Parameterized.Ctx
@@ -619,7 +623,7 @@ fmap_bin :: (forall tp . f tp -> g tp)
 fmap_bin _ Empty = Empty
 fmap_bin f (PlusOne s t x) = PlusOne s (fmap_bin f t) (fmap_bal f x)
 fmap_bin f (PlusZero s t)  = PlusZero s (fmap_bin f t)
-{-# INLINABLE fmap_bin #-}
+{-# INLINE [1] fmap_bin #-}
 
 traverse_bin :: Applicative m
              => (forall tp . f tp -> m (g tp))
@@ -628,7 +632,7 @@ traverse_bin :: Applicative m
 traverse_bin _ Empty = pure Empty
 traverse_bin f (PlusOne s t x) = PlusOne s  <$> traverse_bin f t <*> traverse_bal f x
 traverse_bin f (PlusZero s t)  = PlusZero s <$> traverse_bin f t
-{-# INLINABLE traverse_bin #-}
+{-# INLINE [1] traverse_bin #-}
 
 unsafe_bin_generate :: forall h f ctx t
                      . Int -- ^ Size of tree to generate
@@ -795,6 +799,22 @@ generate :: Size ctx
 generate n f  = Assignment r
   where r = unsafe_bin_generate (sizeInt n) 0 f
 {-# NOINLINE generate #-}
+{-# RULES "fmapFC/generate"
+    forall (f :: forall tp. g tp -> h tp)
+           n (g :: forall tp. Index ctx tp -> g tp).
+    fmapFC_ f (generate n g) = generate n (\idx -> f (g idx)) #-}
+{-# RULES "imapFC/generate"
+    forall (f :: forall tp. Index ctx tp -> g tp -> h tp)
+           n (fn :: forall tp. Index ctx tp -> g tp).
+    imapFC_ f (generate n fn) = generate n (\idx -> f idx (fn idx)) #-}
+{-# RULES "traverseFC/generate"
+    forall (f :: forall tp. g tp -> m (h tp))
+           n (fn :: forall tp. Index ctx tp -> g tp).
+    traverseFC__ f (generate n fn) = generateM n (f . fn) #-}
+{-# RULES "traverseWithIndex/generate"
+    forall (f :: forall tp. Index ctx tp -> g tp -> m (h tp))
+           n (fn :: forall tp. Index ctx tp -> g tp).
+    traverseWithIndex__ f (generate n fn) = generateM n (\idx -> f idx (fn idx)) #-}
 
 -- | Generate an assignment in an 'Applicative' context
 generateM :: Applicative m
@@ -822,6 +842,16 @@ unsafeIndex _ idx (Assignment t) = seq t $ unsafe_bin_index t idx 0
 (!) :: Assignment f ctx -> Index ctx tp -> f tp
 a ! Index i = assert (0 <= i && i < sizeInt (size a)) $
               unsafeIndex Proxy i a
+{-# INLINE [1] (!) #-}
+{-# RULES "(!)/fmapFC"
+    forall (f :: forall tp. g tp -> h tp) (a :: Assignment g ctx) idx.
+    fmapFC_ f a ! idx = f (a ! idx) #-}
+{-# RULES "(!)/imapFC"
+    forall (f :: forall tp. Index ctx tp -> g tp -> h tp) (a :: Assignment g ctx) idx.
+    imapFC_ f a ! idx = f idx (a ! idx) #-}
+{-# RULES "(!)/generate"
+    forall n (f :: forall tp. Index ctx tp -> g tp) idx.
+    generate n f ! idx = f idx #-}
 
 -- | Return value of assignment, where the index is into an
 --   initial sequence of the assignment.
@@ -928,10 +958,102 @@ zipWithM :: Applicative m
          -> Assignment g a
          -> m (Assignment h a)
 zipWithM f (Assignment x) (Assignment y) = Assignment <$> tree_zipWithM f x y
-{-# INLINABLE zipWithM #-}
+{-# INLINE [1] zipWithM #-}
+{-# RULES "zipWithM/fmapFC_l"
+    forall (f :: forall tp. q tp -> r tp -> m (s tp))
+           (g :: forall tp. p tp -> q tp)
+           a b.
+    zipWithM f (fmapFC_ g a) b = zipWithM (\x y -> f (g x) y) a b #-}
+{-# RULES "zipWithM/fmapFC_r"
+    forall (f :: forall tp. p tp -> q tp -> m (r tp))
+           (g :: forall tp. s tp -> q tp)
+           a b.
+    zipWithM f a (fmapFC_ g b) = zipWithM (\x y -> f x (g y)) a b #-}
+{-# RULES "zipWithM/generate_l"
+    forall (f :: forall tp. g tp -> h tp -> m (k tp))
+           n (fn :: forall tp. Index a tp -> g tp)
+           (b :: Assignment h a).
+    zipWithM f (generate n fn) b = generateM n (\idx -> f (fn idx) (b ! idx)) #-}
+{-# RULES "zipWithM/generate_r"
+    forall (f :: forall tp. g tp -> h tp -> m (k tp))
+           (a :: Assignment g a)
+           n (fn :: forall tp. Index a tp -> h tp).
+    zipWithM f a (generate n fn) = generateM n (\idx -> f (a ! idx) (fn idx)) #-}
+
+-- Out-of-line worker for 'fmapFC' on 'Assignment'; named so RULES can target it.
+fmapFC_ :: (forall tp. f tp -> g tp) -> Assignment f ctx -> Assignment g ctx
+fmapFC_ f (Assignment x) = Assignment (fmap_bin f x)
+{-# INLINE [1] fmapFC_ #-}
+{-# RULES "fmapFC/id"
+    forall (a :: Assignment f ctx).
+    fmapFC_ (\x -> x) a = a #-}
+{-# RULES "fmapFC/fmapFC"
+    forall (h :: forall tp. g tp -> k tp)
+           (g :: forall tp. f tp -> g tp)
+           (a :: Assignment f ctx).
+    fmapFC_ h (fmapFC_ g a) = fmapFC_ (h . g) a #-}
+{-# RULES "fmapFC/imapFC"
+    forall (h :: forall tp. g tp -> k tp)
+           (g :: forall tp. Index ctx tp -> f tp -> g tp)
+           (a :: Assignment f ctx).
+    fmapFC_ h (imapFC_ g a) = imapFC_ (\idx -> h . g idx) a #-}
+
+-- Out-of-line worker for 'imapFC' on 'Assignment'; named so RULES can target it.
+imapFC_ :: (forall tp. Index ctx tp -> f tp -> g tp) -> Assignment f ctx -> Assignment g ctx
+imapFC_ f a = runIdentity $ traverseWithIndex__ (\i x -> Identity (f i x)) a
+{-# INLINE [1] imapFC_ #-}
+{-# RULES "imapFC/fmapFC"
+    forall (h :: forall tp. Index ctx tp -> g tp -> k tp)
+           (g :: forall tp. f tp -> g tp)
+           (a :: Assignment f ctx).
+    imapFC_ h (fmapFC_ g a) = imapFC_ (\idx -> h idx . g) a #-}
+{-# RULES "imapFC/imapFC"
+    forall (h :: forall tp. Index ctx tp -> g tp -> k tp)
+           (g :: forall tp. Index ctx tp -> f tp -> g tp)
+           (a :: Assignment f ctx).
+    imapFC_ h (imapFC_ g a) = imapFC_ (\idx -> h idx . g idx) a #-}
+
+-- Out-of-line worker for 'traverseFC' on 'Assignment'; named so RULES can target it.
+traverseFC__ :: Applicative m => (forall tp. f tp -> m (g tp)) -> Assignment f ctx -> m (Assignment g ctx)
+traverseFC__ f (Assignment x) = Assignment <$> traverse_bin f x
+{-# INLINE [1] traverseFC__ #-}
+{-# RULES "traverseFC/fmapFC"
+    forall (h :: forall tp. g tp -> m (k tp))
+           (g :: forall tp. f tp -> g tp)
+           (a :: Assignment f ctx).
+    traverseFC__ h (fmapFC_ g a) = traverseFC__ (h . g) a #-}
+{-# RULES "traverseFC/imapFC"
+    forall (h :: forall tp. g tp -> m (k tp))
+           (g :: forall tp. Index ctx tp -> f tp -> g tp)
+           (a :: Assignment f ctx).
+    traverseFC__ h (imapFC_ g a) = traverseWithIndex__ (\idx -> h . g idx) a #-}
+{-# RULES "fmapFC/traverseFC"
+    forall (f :: forall tp. g tp -> h tp)
+           (fn :: forall tp. f tp -> m (g tp))
+           (a :: Assignment f ctx).
+    fmap (fmapFC_ f) (traverseFC__ fn a) = traverseFC__ (fmap f . fn) a #-}
+
+-- Out-of-line worker for 'traverseWithIndex'/'itraverseFC' on 'Assignment'; named so RULES can target it.
+-- TODO(#229): replace generateM+index with a direct tree walk (like traverse_bin) to avoid
+-- O(n log n) index lookups. Benchmark before/after to confirm improvement.
+traverseWithIndex__ :: Applicative m
+                   => (forall tp. Index ctx tp -> f tp -> m (g tp))
+                   -> Assignment f ctx -> m (Assignment g ctx)
+traverseWithIndex__ f a = generateM (size a) (\i -> f i (a ! i))
+{-# INLINE [1] traverseWithIndex__ #-}
+{-# RULES "itraverseFC/fmapFC"
+    forall (h :: forall tp. Index ctx tp -> g tp -> m (k tp))
+           (g :: forall tp. f tp -> g tp)
+           (a :: Assignment f ctx).
+    traverseWithIndex__ h (fmapFC_ g a) = traverseWithIndex__ (\idx -> h idx . g) a #-}
+{-# RULES "itraverseFC/imapFC"
+    forall (h :: forall tp. Index ctx tp -> g tp -> m (k tp))
+           (g :: forall tp. Index ctx tp -> f tp -> g tp)
+           (a :: Assignment f ctx).
+    traverseWithIndex__ h (imapFC_ g a) = traverseWithIndex__ (\idx -> h idx . g idx) a #-}
 
 instance FunctorFC Assignment where
-  fmapFC = \f (Assignment x) -> Assignment (fmap_bin f x)
+  fmapFC f x = fmapFC_ f x
   {-# INLINE fmapFC #-}
 
 instance FoldableFC Assignment where
@@ -939,24 +1061,26 @@ instance FoldableFC Assignment where
   {-# INLINE foldMapFC #-}
 
 instance TraversableFC Assignment where
-  traverseFC = \f (Assignment x) -> Assignment <$> traverse_bin f x
+  traverseFC f x = traverseFC__ f x
   {-# INLINE traverseFC #-}
 
 instance FunctorFCWithIndex Assignment where
-  imapFC = imapFCDefault
+  imapFC f x = imapFC_ f x
+  {-# INLINE imapFC #-}
 
 instance FoldableFCWithIndex Assignment where
   ifoldMapFC = ifoldMapFCDefault
 
 instance TraversableFCWithIndex Assignment where
-  itraverseFC = traverseWithIndex
+  itraverseFC f x = traverseWithIndex f x
 
 
 traverseWithIndex :: Applicative m
                   => (forall tp . Index ctx tp -> f tp -> m (g tp))
                   -> Assignment f ctx
                   -> m (Assignment g ctx)
-traverseWithIndex f a = generateM (size a) $ \i -> f i (a ! i)
+traverseWithIndex = traverseWithIndex__
+{-# INLINE traverseWithIndex #-}
 
 ------------------------------------------------------------------------
 -- Appending

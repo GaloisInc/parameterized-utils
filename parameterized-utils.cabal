@@ -121,6 +121,9 @@ test-suite parameterizedTests
   main-is: UnitTest.hs
   other-modules:
     Test.Context
+    Test.Context.Rules
+    Test.Context.RulesCoverage
+    Test.Context.RulesSemantics
     Test.Fin
     Test.FinMap
     Test.List
@@ -135,6 +138,7 @@ test-suite parameterizedTests
                , hashtables
                , hedgehog
                , indexed-traversable
+               , inspection-testing >= 0.5 && < 0.7
                , microlens >=0.5 && <0.6
                , mtl
                , parameterized-utils
@@ -142,7 +146,9 @@ test-suite parameterizedTests
                , tasty-ant-xml == 1.1.*
                , tasty-hunit >= 0.9 && < 0.11
                , tasty-hedgehog >= 1.2
+               , tasty-inspection-testing >= 0.2 && < 0.3
 
   if impl(ghc >= 8.6)
     build-depends:
       hedgehog-classes
+
