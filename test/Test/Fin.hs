@@ -11,11 +11,12 @@ module Test.Fin
   )
 where
 
+import           Data.Hashable (hashWithSalt)
 import           Numeric.Natural (Natural)
 
 import           Hedgehog
 import qualified Hedgehog.Gen as HG
-import           Hedgehog.Range (linear)
+import           Hedgehog.Range (linear, linearBounded)
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.Hedgehog (testPropertyNamed)
 import           Test.Tasty.HUnit (assertBool, testCase)
@@ -41,6 +42,14 @@ genFin n =
          Just LeqProof -> mkFin x
          Nothing -> error "Impossible"
 
+prop_eq_hash :: Property
+prop_eq_hash = property $
+  do salt <- forAll (HG.int linearBounded)
+     (f1, f2) <- forAll $
+                 HG.filter (\(f1, f2) -> f1 == f2) $
+                 (,) <$> genFin (knownNat @100) <*> genFin (knownNat @100)
+     hashWithSalt salt f1 === hashWithSalt salt f2
+
 prop_count_true :: Property
 prop_count_true = property $
   do Some n <- forAll (genNatRepr 100)
@@ -63,6 +72,11 @@ finTests =
           assertBool
             "minBound <= maxBound (2)"
             ((minBound :: Fin 2) <= (minBound :: Fin 2))
+
+      , testPropertyNamed
+          "Eq equality implies hash equality"
+          "prop_eq_hash"
+          prop_eq_hash
 
       , testPropertyNamed "count-true" "prop_count_true" prop_count_true
       , testPropertyNamed "count-false" "prop_count_false" prop_count_false
