@@ -3,6 +3,7 @@
 ## next
 
 * Add a `Hashable` instance for `Fin`.
+* Add `modNat`, `modIsLeq`, and `withModLeq` to `Data.Parameterized.NatRepr`.
 
 ## 2.3.0.0 -- 2026-03-06
 

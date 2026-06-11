@@ -54,6 +54,7 @@ module Data.Parameterized.NatRepr
   , addNat
   , subNat
   , divNat
+  , modNat
   , halfNat
   , withDivModNat
   , natMultiply
@@ -108,6 +109,8 @@ module Data.Parameterized.NatRepr
   , addIsLeqLeft1
   , dblPosIsPos
   , leqMulMono
+  , modIsLeq
+  , withModLeq
     -- * Arithmetic proof
   , plusComm
   , plusAssoc
@@ -137,7 +140,7 @@ import Data.Type.Equality as Equality
 import Data.Void as Void
 import Numeric.Natural
 import GHC.TypeNats ( KnownNat, Nat, SomeNat(..)
-                    , type (+), type (-), type (*), type (<=)
+                    , type (+), type (-), type (*), type (<=), type Mod
                     , someNatVal )
 import Unsafe.Coerce
 
@@ -217,6 +220,9 @@ subNat (NatRepr m) (NatRepr n) = NatRepr (m-n)
 
 divNat :: (1 <= n) => NatRepr (m * n) -> NatRepr n -> NatRepr m
 divNat (NatRepr x) (NatRepr y) = NatRepr (div x y)
+
+modNat :: (1 <= n) => NatRepr m -> NatRepr n -> NatRepr (Mod m n)
+modNat (NatRepr x) (NatRepr y) = NatRepr (mod x y)
 
 withDivModNat :: forall n m a.
                  NatRepr n
@@ -523,6 +529,18 @@ withAddPrefixLeq n m = withLeqProof (addPrefixIsLeq n m)
 
 withAddLeq :: forall n m a. NatRepr n -> NatRepr m -> ((n <= n + m) => NatRepr (n + m) -> a) -> a
 withAddLeq n m f = withLeqProof (addIsLeq n m) (f (addNat n m))
+
+modIsLeq :: (1 <= m) => f n -> g m -> LeqProof (Mod n m + 1) m
+modIsLeq _ _ = unsafeCoerce (LeqProof @0 @0)
+{-# NOINLINE modIsLeq #-}
+
+withModLeq ::
+  (1 <= m) =>
+  NatRepr n ->
+  NatRepr m ->
+  ((Mod n m + 1 <= m) => NatRepr (Mod n m) -> a) ->
+  a
+withModLeq n m f = withLeqProof (modIsLeq n m) (f (modNat n m))
 
 natForEach' :: forall l h a
             . NatRepr l
