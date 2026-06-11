@@ -34,6 +34,7 @@ module Data.Parameterized.Fin
   , fin0Absurd
   ) where
 
+import Data.Hashable (Hashable(..))
 import GHC.TypeNats (KnownNat)
 import Numeric.Natural (Natural)
 
@@ -49,6 +50,9 @@ instance Eq (Fin n) where
 
 instance Ord (Fin n) where
   compare i j = compare (finToNat i) (finToNat j)
+
+instance Hashable (Fin n) where
+  hashWithSalt salt (Fin i) = hashWithSalt salt i
 
 instance (1 <= n, KnownNat n) => Bounded (Fin n) where
   minBound = Fin (knownNat @0)
