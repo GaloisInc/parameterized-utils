@@ -2,7 +2,9 @@
 
 ## next
 
-* Add a `Hashable` instance for `Fin`.
+* Add `Hashable` and `Num` instances for `Fin`.
+* Add `mkFinModN`, `finFromNatModN`, `addFinModN`, `subFinModN`, `mulFinModN`,
+  and `negFinModN` to `Data.Parameterized.Fin`.
 * Add `modNat`, `modIsLeq`, and `withModLeq` to `Data.Parameterized.NatRepr`.
 
 ## 2.3.0.0 -- 2026-03-06
