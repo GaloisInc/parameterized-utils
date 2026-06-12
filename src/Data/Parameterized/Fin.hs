@@ -23,15 +23,21 @@ that naturally has a fixed size bound of @n@.
 module Data.Parameterized.Fin
   ( Fin
   , mkFin
+  , mkFinModN
   , buildFin
   , countFin
   , viewFin
+  , finFromNatModN
   , finToNat
   , embed
   , tryEmbed
   , minFin
   , incFin
   , fin0Absurd
+  , addFinModN
+  , subFinModN
+  , mulFinModN
+  , negFinModN
   ) where
 
 import Data.Hashable (Hashable(..))
@@ -39,6 +45,7 @@ import GHC.TypeNats (KnownNat)
 import Numeric.Natural (Natural)
 
 import Data.Parameterized.NatRepr
+import Data.Parameterized.Some (Some(..))
 
 -- | The type @'Fin' n@ has exactly @n@ inhabitants.
 data Fin n =
@@ -60,6 +67,37 @@ instance (1 <= n, KnownNat n) => Bounded (Fin n) where
     case minusPlusCancel (knownNat @n) (knownNat @1) of
       Refl -> Fin (decNat (knownNat @n))
 
+-- | Arithmetic is performed modulo @n@.
+instance (1 <= n, KnownNat n) => Num (Fin n) where
+  (+) = addFinModN (knownNat @n)
+  (-) = subFinModN (knownNat @n)
+  (*) = mulFinModN (knownNat @n)
+  negate = negFinModN (knownNat @n)
+
+  -- | We consider all Fin values to be non-negative. Therefore, this always
+  -- returns the input unchanged.
+  abs = id
+
+  -- | We consider all Fin values to be non-negative. Therefore, this always
+  -- returns either 'minFin' (i.e., zero) or @'mkFinModN' n (knownNat \@1)@
+  -- (i.e., one). Note that in the degenerate case of @'Fin' 1@, these values
+  -- will be equal to each other.
+  signum f
+    | f == minFin
+    = f
+    | otherwise
+    = mkFinModN (knownNat @n) (knownNat @1)
+
+  -- | Negative integers are negated, reduced modulo @n@, and then negated
+  -- again using 'negFinModN'.
+  fromInteger i
+    | i >= 0
+    = finFromNatModN n (fromInteger i)
+    | otherwise
+    = negFinModN n (finFromNatModN n (negate (fromInteger i)))
+    where
+      n = knownNat @n
+
 -- | Non-lawful instance, intended only for testing.
 instance Show (Fin n) where
   show i = "Fin " ++ show (finToNat i)
@@ -67,6 +105,11 @@ instance Show (Fin n) where
 mkFin :: forall i n. (i + 1 <= n) => NatRepr i -> Fin n
 mkFin = Fin
 {-# INLINE mkFin #-}
+
+-- | Construct a @'Fin' n@ value from the number @i@, where @i@ is reduced
+-- modulo @n@.
+mkFinModN :: (1 <= n) => NatRepr n -> NatRepr i -> Fin n
+mkFinModN n i = withModLeq i n Fin
 
 newtype Fin' n = Fin' { getFin' :: Fin (n + 1) }
 
@@ -95,6 +138,13 @@ countFin m f =
 
 viewFin ::  (forall i. (i + 1 <= n) => NatRepr i -> r) -> Fin n -> r
 viewFin f (Fin i) = f i
+
+-- | Construct a @'Fin' n@ value from a 'Natural' input, where the input is
+-- reduced modulo @n@.
+finFromNatModN :: forall n. (1 <= n) => NatRepr n -> Natural -> Fin n
+finFromNatModN n i
+  | Some i' <- mkNatRepr i
+  = mkFinModN n i'
 
 finToNat :: Fin n -> Natural
 finToNat (Fin i) = natValue i
@@ -132,3 +182,24 @@ fin0Absurd =
       case plusComm x (knownNat @1) of
         Refl ->
           case addIsLeqLeft1 @1 @o @0 LeqProof of {})
+
+-- | Add two @'Fin' n@ values and reduce the result modulo @n@.
+addFinModN :: (1 <= n) => NatRepr n -> Fin n -> Fin n -> Fin n
+addFinModN n (Fin x) (Fin y) = mkFinModN n (addNat x y)
+
+-- | Subtract two @'Fin' n@ values and reduce the result modulo @n@.
+subFinModN :: (1 <= n) => NatRepr n -> Fin n -> Fin n -> Fin n
+subFinModN n x y = addFinModN n x (negFinModN n y)
+
+-- | Multiply two @'Fin' n@ values and reduce the result modulo @n@.
+mulFinModN :: (1 <= n) => NatRepr n -> Fin n -> Fin n -> Fin n
+mulFinModN n (Fin x) (Fin y) = mkFinModN n (natMultiply x y)
+
+-- | Given a value @i :: 'Fin' n@ value, negate it. That is, if @i@ is zero,
+-- then return @i@ unchanged, and if @i@ is non-zero, then compute @n - i@.
+-- This is a negation in the sense that it is an additive inverse: adding @i@
+-- to its negation will yield 'minFin'.
+negFinModN :: forall n. (1 <= n) => NatRepr n -> Fin n -> Fin n
+negFinModN n (Fin (i :: NatRepr i))
+  | LeqProof <- addIsLeqLeft1 @i @1 @n LeqProof
+  = mkFinModN n (subNat n i)

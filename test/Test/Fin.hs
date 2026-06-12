@@ -60,6 +60,98 @@ prop_count_false = property $
   do Some n <- forAll (genNatRepr 100)
      finToNat (countFin n (\_ _ -> False)) === 0
 
+prop_add_comm :: Property
+prop_add_comm = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     b <- forAll (genFin n10)
+     (a + b) === (b + a)
+
+prop_add_identity :: Property
+prop_add_identity = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     (mkFin (knownNat @0) + a) === a
+
+prop_add_inverse :: Property
+prop_add_inverse = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     (a + negate a) === mkFin (knownNat @0)
+
+prop_add_assoc :: Property
+prop_add_assoc = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     b <- forAll (genFin n10)
+     c <- forAll (genFin n10)
+     a + (b + c) === (a + b) + c
+
+prop_add_negate_sub :: Property
+prop_add_negate_sub = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     b <- forAll (genFin n10)
+     (a + negate b) === (a - b)
+
+prop_sub_anticomm :: Property
+prop_sub_anticomm = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     b <- forAll (genFin n10)
+     (a - b) === negate (b - a)
+
+prop_mul_comm :: Property
+prop_mul_comm = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     b <- forAll (genFin n10)
+     (a * b) === (b * a)
+
+prop_mul_identity :: Property
+prop_mul_identity = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     (mkFin (knownNat @1) * a) === a
+
+prop_mul_assoc :: Property
+prop_mul_assoc = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     b <- forAll (genFin n10)
+     c <- forAll (genFin n10)
+     a * (b * c) === (a * b) * c
+
+prop_mul_annihilate :: Property
+prop_mul_annihilate = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     (mkFin (knownNat @0) * a) === mkFin (knownNat @0)
+
+prop_neg_inv :: Property
+prop_neg_inv = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     negate (negate a) === a
+
+prop_abs_idem :: Property
+prop_abs_idem = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     abs (abs a) === abs a
+
+prop_signum_idem :: Property
+prop_signum_idem = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     signum (signum a) === signum a
+
+prop_abs_signum :: Property
+prop_abs_signum = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     (abs a * signum a) === a
+
 finTests :: IO TestTree
 finTests =
   testGroup "Fin" <$>
@@ -80,6 +172,21 @@ finTests =
 
       , testPropertyNamed "count-true" "prop_count_true" prop_count_true
       , testPropertyNamed "count-false" "prop_count_false" prop_count_false
+
+      , testPropertyNamed "add-comm" "prop_add_comm" prop_add_comm
+      , testPropertyNamed "add-identity" "prop_add_identity" prop_add_identity
+      , testPropertyNamed "add-inverse" "prop_add_inverse" prop_add_inverse
+      , testPropertyNamed "add-assoc" "prop_add_assoc" prop_add_assoc
+      , testPropertyNamed "add-negate-sub" "prop_add_negate_sub" prop_add_negate_sub
+      , testPropertyNamed "sub-anticomm" "prop_sub_anticomm" prop_sub_anticomm
+      , testPropertyNamed "mul-comm" "prop_mul_comm" prop_mul_comm
+      , testPropertyNamed "mul-identity" "prop_mul_identity" prop_mul_identity
+      , testPropertyNamed "mul-annihilate" "prop_mul_annihilate" prop_mul_annihilate
+      , testPropertyNamed "mul-assoc" "prop_mul_assoc" prop_mul_assoc
+      , testPropertyNamed "neg-inv" "prop_neg_inv" prop_neg_inv
+      , testPropertyNamed "abs-idem" "prop_abs_idem" prop_abs_idem
+      , testPropertyNamed "signum-idem" "prop_signum_idem" prop_signum_idem
+      , testPropertyNamed "abs-signum" "prop_abs_signum" prop_abs_signum
 
 #if __GLASGOW_HASKELL__ >= 806
       , testCase "Eq-Fin-laws-1" $
