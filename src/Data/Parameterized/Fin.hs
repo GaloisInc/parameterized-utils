@@ -38,6 +38,7 @@ module Data.Parameterized.Fin
   , subFinModN
   , mulFinModN
   , negFinModN
+  , recipFinModN
   ) where
 
 import Data.Hashable (Hashable(..))
@@ -204,3 +205,15 @@ negFinModN :: forall n. (1 <= n) => NatRepr n -> Fin n -> Fin n
 negFinModN n (Fin (i :: NatRepr i))
   | LeqProof <- addIsLeqLeft1 @i @1 @n LeqProof
   = mkFinModN n (subNat n i)
+
+-- | Given a value @i :: 'Fin' n@, compute the reciprocal (i.e., the modular
+-- inverse) if one exists. That is, attempt to compute @i^-1@ such that
+-- @i * i^-1@ equals @1@ modulo @n@. Note that a reciprocal will only exist if
+-- @i@ and @n@ are relatively prime, i.e., if @gcd i n == 1@. If they are not
+-- relatively prime, then this function will return 'Nothing'.
+--
+-- Note that in the degenerate case where @n == 1@, this function will always
+-- return @Just 0@. The value @0@ is the only element of @'Fin' 1@, and @0@ is
+-- its own reciprocal.
+recipFinModN :: forall n. (1 <= n) => NatRepr n -> Fin n -> Maybe (Fin n)
+recipFinModN n (Fin i) = withRecipModNat i n Fin
