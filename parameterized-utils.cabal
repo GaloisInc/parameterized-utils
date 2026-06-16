@@ -65,6 +65,11 @@ library
                , text
                , vector         >=0.12 && < 0.14
 
+  if impl(ghc >= 9.0)
+    build-depends: ghc-bignum >= 1.0 && < 1.4
+  else
+    build-depends: integer-gmp >= 1.0 && < 1.1
+
   hs-source-dirs: src
 
   exposed-modules:

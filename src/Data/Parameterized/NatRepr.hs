@@ -25,6 +25,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -33,6 +34,7 @@ contained in a NatRepr value matches its static type.
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UnboxedSums #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 #if __GLASGOW_HASKELL__ >= 805
 {-# LANGUAGE NoStarIsType #-}
@@ -57,6 +59,7 @@ module Data.Parameterized.NatRepr
   , modNat
   , halfNat
   , withDivModNat
+  , withRecipModNat
   , natMultiply
   , someNat
   , mkNatRepr
@@ -148,6 +151,12 @@ import Data.Parameterized.Axiom
 import Data.Parameterized.NatRepr.Internal
 import Data.Parameterized.Some
 
+#if MIN_VERSION_base(4,15,0)
+import qualified GHC.Num.Integer as Integer
+#else
+import qualified GHC.Integer.GMP.Internals as GMP
+#endif
+
 maxInt :: Natural
 maxInt = fromIntegral (maxBound :: Int)
 
@@ -237,6 +246,67 @@ withDivModNat n m f =
             (Refl :: (n :~: ((div * m) + mod))) -> f divn modn
   where
     (divPart, modPart) = divMod (natValue n) (natValue m)
+
+-- | @'withRecipModNat' n m@ computes the reciprocal (i.e., the modular
+-- inverse) of @n@ mod @m@. If @n@ and @m@ are relatively prime (i.e., if
+-- @gcd n m == 1@), then this will pass the reciprocal @r@ to a continuation
+-- and return the result with 'Just'. Otherwise, this will return 'Nothing',
+-- as a reciprocal does not exist.
+withRecipModNat ::
+  forall n m a.
+  (1 <= m) =>
+  NatRepr n ->
+  NatRepr m ->
+  (forall r. (r + 1 <= m, Mod (n * r) m ~ 1) => NatRepr r -> a) ->
+  Maybe a
+withRecipModNat n m f =
+  fmap (go . mkNatRepr) (integerRecipMod (intValue n) (natValue m))
+  where
+    go :: Some NatRepr -> a
+    go (Some (r :: NatRepr r)) =
+      case ( unsafeCoerce @(LeqProof 0 0) @(LeqProof (r + 1) m) LeqProof
+           , unsafeAxiom @(Mod (n * r) m) @1
+           ) of
+        (LeqProof, Refl) -> f r
+
+-- | Compute the modular inverse, returning 'Nothing' when this is not
+-- possible. This behaves much like 'Integer.integerRecipMod#' in @ghc-bignum@,
+-- except that this returns a 'Maybe' instead of an unboxed sum to represent
+-- the possibility of failure. For more details on when this can return
+-- 'Nothing', see the Haddocks for 'Integer.integerRecipMod#'.
+--
+-- Because 'Integer.integerRecipMod#' is only defined on GHC 9.0 or later, we
+-- fall back to a different implementation using the @integer-gmp@ library on
+-- older versions of GHC.
+#if MIN_VERSION_base(4,15,0)
+integerRecipMod :: Integer -> Natural -> Maybe Natural
+integerRecipMod x y
+  -- Due to https://gitlab.haskell.org/ghc/ghc/-/issues/26017, old versions of
+  -- GHC have a bug in which `integerRecipMod# x 1` would return (# | () #)
+  -- instead of (# 0 | #) for all `x`, contrary to the function's Haddocks. We
+  -- include an extra check on old versions of GHC to work around this issue.
+# if !MIN_VERSION_base(4,22,0)
+  | y == 1 = Just 0
+# endif
+  | otherwise =
+      case Integer.integerRecipMod# x y of
+        (# r | #)  -> Just r
+        (# | () #) -> Nothing
+#else
+integerRecipMod :: Integer -> Natural -> Maybe Natural
+integerRecipMod x y
+    -- Special case for `y == 1`, which we include to make the behavior of this
+    -- function match that of integerRecipMod# on GHC 9.0 or later. Without
+    -- this special case, this function would always return `Nothing` when the
+    -- modulus is `1`.
+  | y == 1 = Just 0
+  | res == 0 = Nothing
+  | otherwise = Just res
+  where
+    -- SAFETY: GMP.recipModInteger always returns a non-negative Integer, so
+    -- the call to `fromInteger @Natural` below will always succeed.
+    res = fromInteger @Natural (GMP.recipModInteger x (toInteger y))
+#endif
 
 natMultiply :: NatRepr n -> NatRepr m -> NatRepr (n * m)
 natMultiply (NatRepr n) (NatRepr m) = NatRepr (n * m)

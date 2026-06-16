@@ -152,6 +152,25 @@ prop_abs_signum = property $
      a <- forAll (genFin n10)
      (abs a * signum a) === a
 
+prop_recip_1 :: Property
+prop_recip_1 = property $
+  do let n1 = knownNat @1
+     a <- forAll (genFin n1)
+     recipFinModN n1 a === Just (mkFin (knownNat @0))
+
+prop_recip_10 :: Property
+prop_recip_10 = property $
+  do let n10 = knownNat @10
+     a <- forAll (genFin n10)
+     let aInv = recipFinModN n10 a
+     let d = gcd (finToNat a) (natValue n10)
+     case aInv of
+       Nothing ->
+         assert $ d >= 1
+       Just aInv' ->
+         do d === 1
+            (a * aInv') === mkFin (knownNat @1)
+
 finTests :: IO TestTree
 finTests =
   testGroup "Fin" <$>
@@ -195,6 +214,9 @@ finTests =
       , testPropertyNamed "abs-idem" "prop_abs_idem" prop_abs_idem
       , testPropertyNamed "signum-idem" "prop_signum_idem" prop_signum_idem
       , testPropertyNamed "abs-signum" "prop_abs_signum" prop_abs_signum
+
+      , testPropertyNamed "recip-1" "prop_recip_1" prop_recip_1
+      , testPropertyNamed "recip-10" "prop_recip_10" prop_recip_10
 
 #if __GLASGOW_HASKELL__ >= 806
       , testCase "Eq-Fin-laws-1" $
