@@ -6,6 +6,8 @@
 * Add `mkFinModN`, `finFromNatModN`, `addFinModN`, `subFinModN`, `mulFinModN`,
   and `negFinModN` to `Data.Parameterized.Fin`.
 * Add `modNat`, `modIsLeq`, and `withModLeq` to `Data.Parameterized.NatRepr`.
+* Change the `Show` instance for `Fin` such that calling `showsPrec p` will
+  parenthesize the output if `p` is sufficiently large.
 
 ## 2.3.0.0 -- 2026-03-06
 

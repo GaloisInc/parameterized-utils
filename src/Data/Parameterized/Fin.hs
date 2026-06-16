@@ -98,9 +98,10 @@ instance (1 <= n, KnownNat n) => Num (Fin n) where
     where
       n = knownNat @n
 
--- | Non-lawful instance, intended only for testing.
+-- Equivalent to what a derived Show instance would be, except that we
+-- intentionally do not print out the (non-exported) _getFin field name.
 instance Show (Fin n) where
-  show i = "Fin " ++ show (finToNat i)
+  showsPrec p i = showParen (p >= 11) $ showString "Fin " . shows (finToNat i)
 
 mkFin :: forall i n. (i + 1 <= n) => NatRepr i -> Fin n
 mkFin = Fin

@@ -164,6 +164,14 @@ finTests =
           assertBool
             "minBound <= maxBound (2)"
             ((minBound :: Fin 2) <= (minBound :: Fin 2))
+      , testCase "show (minFin @1) == \"Fin 0\"" $
+          assertBool
+            "show (minFin @1) == \"Fin 0\""
+            (show (minFin @1) == "Fin 0")
+      , testCase "show (Just (minFin @1)) == \"Just (Fin 0)\"" $
+          assertBool
+            "show (Just (minFin @1)) == \"Just (Fin 0)\""
+            (show (Just (minFin @1)) == "Just (Fin 0)")
 
       , testPropertyNamed
           "Eq equality implies hash equality"
