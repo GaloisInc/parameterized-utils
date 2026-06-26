@@ -51,6 +51,9 @@ instance Eq (NatRepr m) where
 instance EqF NatRepr where
   eqF _ _ = True
 
+instance Ord (NatRepr x) where
+   compare _ _ = EQ
+
 instance TestEquality NatRepr where
   testEquality (NatRepr m) (NatRepr n)
     | m == n = Just unsafeAxiom
