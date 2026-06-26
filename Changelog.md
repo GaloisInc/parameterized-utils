@@ -7,6 +7,7 @@
   `negFinModN`, and `recipFinModN` to `Data.Parameterized.Fin`.
 * Add `modNat`, `modIsLeq`, `withModLeq`, and `withRecipModNat` to
   `Data.Parameterized.NatRepr`.
+* Add an `Ord` instance for `NatRepr`.
 * Change the `Show` instance for `Fin` such that calling `showsPrec p` will
   parenthesize the output if `p` is sufficiently large.
 
