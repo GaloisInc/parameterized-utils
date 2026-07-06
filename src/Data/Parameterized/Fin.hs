@@ -95,7 +95,7 @@ instance (1 <= n, KnownNat n) => Num (Fin n) where
     | i >= 0
     = finFromNatModN n (fromInteger i)
     | otherwise
-    = negFinModN n (finFromNatModN n (negate (fromInteger i)))
+    = negFinModN n (finFromNatModN n (fromInteger (negate i)))
     where
       n = knownNat @n
 

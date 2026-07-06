@@ -191,6 +191,10 @@ finTests =
           assertBool
             "show (Just (minFin @1)) == \"Just (Fin 0)\""
             (show (Just (minFin @1)) == "Just (Fin 0)")
+      , testCase "fromInteger @(Fin 7) (-1) == fromInteger 6" $
+          assertBool
+            "fromInteger @(Fin 7) (-1) == fromInteger 6"
+            (fromInteger @(Fin 7) (-1) == fromInteger 6)
 
       , testPropertyNamed
           "Eq equality implies hash equality"
