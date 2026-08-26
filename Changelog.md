@@ -1,6 +1,6 @@
 # Changelog for the `parameterized-utils` package
 
-## next
+## 2.4.0.0 -- 2026-08-26
 
 * Add `Hashable` and `Num` instances for `Fin`.
 * Add `mkFinModN`, `finFromNatModN`, `addFinModN`, `subFinModN`, `mulFinModN`,
