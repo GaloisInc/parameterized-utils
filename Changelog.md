@@ -1,5 +1,7 @@
 # Changelog for the `parameterized-utils` package
 
+## next
+
 ## 2.3.1.0 -- 2026-08-27
 
 * Add `Hashable` and `Num` instances for `Fin`.
